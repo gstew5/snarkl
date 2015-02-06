@@ -46,7 +46,11 @@ prog3
        ; y <- ret (summate 5 (arr_get a)) -- sum the elements of the array
        ; ret $ y - x  }                   -- and output the result, minus x
 
-do_check prog w = putStrLn $ show $ check prog w
+-- do_check:
+-- (1) compile to R1CS
+-- (2) generate a satisfying assignment, w, corresponding to input x
+-- (3) check whether 'w' satisfies the constraint system produced in (1)
+do_check prog x = putStrLn $ show $ check prog x
 
 main = do_check prog3 [1,1,2,3,4,5]
 
