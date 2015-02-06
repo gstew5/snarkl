@@ -1,4 +1,6 @@
-module Compile where
+module Compile 
+  ( compile_exp 
+  ) where
 
 import qualified Data.Map.Strict as Map
 import Control.Monad.State

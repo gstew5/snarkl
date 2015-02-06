@@ -20,6 +20,15 @@ data Exp a where
   ELet   :: Var -> Exp a -> Exp a -> Exp a
   --EApp  :: Var -> [Exp a] -> Exp a
 
+instance Show a => Show (Exp a) where
+  show (EVar x) = "var " ++ show x
+  show (EVal c) = show c
+  show (EBinop op e1 e2) = show e1 ++ show op ++ show e2
+  show (EIf b e1 e2) 
+    = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
+  show (ELet x e1 e2) 
+    = "let " ++ show x ++ " == " ++ show e1 ++ " in " ++ show e2
+
 max_var_of_exp :: Exp a -> Var
 max_var_of_exp e = g (-1) e
   where g y e = case e of
