@@ -10,7 +10,7 @@ import Control.Monad.State
 --                Rank-1 Constraint Systems                   --
 ----------------------------------------------------------------
 
-class Eq a => Field a where
+class (Show a,Eq a) => Field a where
   zero :: a
   one  :: a
   add  :: a -> a -> a
@@ -178,7 +178,8 @@ solve_constraints cs env = g env cs
               (Nothing,Just d,Just e) -> g (Map.insert x (e `fn_op` d) env) cs'
               (Just c,Just d,Just e)  ->
                 if e == c `f_op` d then g env cs'
-                else error "inconsistent assignment"
+                else error $ show c ++ " " ++ show op ++ " " ++ show d
+                             ++ "==" ++ show e ++ ": inconsistent assignment"
               (_,_,_) -> g env (cs' ++ [CBinop op (x,y,z)])
 
 r1c_of_c :: Field a => Int -> Constraint a -> R1C a
@@ -247,6 +248,22 @@ fresh_var
        ; set_next_var (next + 1)
        ; return next }
 
+-- add constraint 'x \/ y = c'
+add_or_constraints :: Field a => (Var,Var,Var) -> State (CEnv a) ()
+add_or_constraints (x,y,z)
+  = do { x_mult_y <- fresh_var
+       ; x_plus_y <- fresh_var
+       ; add_constraint (CBinop Mult (x,y,x_mult_y))
+       ; add_constraint (CBinop Add (x,y,x_plus_y))
+       ; add_constraint (CBinop Sub (x_plus_y,z,x_mult_y)) }
+
+-- add constraint 'b^2 = b'
+ensure_boolean :: Field a => Var -> State (CEnv a) ()
+ensure_boolean b
+  = do { b_sq <- fresh_var
+       ; add_constraint (CBinop Mult (b,b,b_sq))
+       ; add_constraint (CVar (b_sq,b)) }
+
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
   EVar x ->
@@ -260,27 +277,22 @@ cs_of_exp out e = case e of
        ; cs_of_exp e2_out e2
        ; add_constraint (CBinop op (e1_out,e2_out,out)) }
   EIf b e1 e2 ->
-    do { b_out  <- fresh_var
-       ; bn_out <- fresh_var
-       ; e1_out <- fresh_var
-       ; e2_out <- fresh_var
+    do { b_out  <- fresh_var -- b
+       ; bn_out <- fresh_var -- (1-b)
+       ; e1_out <- fresh_var -- e1
+       ; e2_out <- fresh_var -- e2
+       ; b_e1   <- fresh_var -- b*e1
+       ; bn_e2  <- fresh_var -- (1-b)*e2
+         
        ; cs_of_exp b_out b
        ; cs_of_exp bn_out (EBinop Sub (EVal one) b)
        ; cs_of_exp e1_out e1
        ; cs_of_exp e2_out e2
 
-         -- conditional logic
-       ; x <- fresh_var
-       ; y <- fresh_var
-       ; add_constraint (CBinop Mult (b_out,e1_out,x))
-       ; add_constraint (CBinop Mult (b_out,out,x))
-       ; add_constraint (CBinop Mult (bn_out,e2_out,y))
-       ; add_constraint (CBinop Mult (bn_out,out,y))
-
-         -- ensure b boolean
-       ; const_zero <- fresh_var
-       ; cs_of_exp const_zero (EVal zero)
-       ; add_constraint (CBinop Mult (b_out,bn_out,const_zero)) }
+       ; ensure_boolean b_out 
+       ; add_constraint (CBinop Mult (b_out,e1_out,b_e1))
+       ; add_constraint (CBinop Mult (bn_out,e2_out,bn_e2))
+       ; add_or_constraints (b_e1,bn_e2,out) }
   ELet x e1 e2 ->
     do { cs_of_exp x e1
        ; cs_of_exp out e2 }  
@@ -302,8 +314,21 @@ compile_exp e
         g w = map snd $ Map.toList $ f $ Map.fromList (zip [0..] w)
     in (g,r1cs)
 
+e1 :: Exp Rational
+e1 = EBinop Add (EVal 3) (EVal 5)
 
-  
+e2 :: Exp Rational
+e2 = EBinop Sub (EBinop Sub (EVal 3) (EBinop Add (EVal 5) (EVal 3)))
+       (EBinop Mult (EVal 8) (EVal 8))
+
+e3 :: Exp Rational
+e3 = EBinop Sub (EVal 1) (EVar 0)
+
+e4 :: Exp Rational
+e4 = ELet 0 (EVal 1) (EVar 0)
+
+e8 :: Exp Rational
+e8 = EIf (EVar 0) (EVal 55) (EVal 77)  
 
   
 
