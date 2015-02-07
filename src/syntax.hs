@@ -11,14 +11,15 @@ import Prelude hiding
   , (*)    
   , (/)
   , return
-  , fromInteger
   , fromRational
+  , negate
   )
 import qualified Prelude as P
 
 import qualified Data.Map.Strict as Map
 
 import Common
+import Field
 import R1CS
 import Lang
 import Compile
@@ -46,10 +47,10 @@ runState mf s = case mf of
   State f -> f s
 
 inc :: Int -> Int
-inc n = (P.+) n (P.fromInteger 1)
+inc n = (P.+) n 1
 
 dec :: Int -> Int
-dec n = (P.-) n (P.fromInteger 1)
+dec n = (P.-) n 1
 
 -- allocate a new internal variable (not instantiated by user)
 var :: State Env (Exp Rational)
@@ -80,7 +81,7 @@ add_arr_bindings bindings
 add_arr_mapping :: Exp Rational -> Int -> State Env (Exp Rational)
 add_arr_mapping a sz
   = do { let x = var_of_exp a
-       ; let indices  = take sz [(P.fromInteger 0::Int)..]
+       ; let indices  = take sz [(0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
        ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars }
 
@@ -90,10 +91,10 @@ arr sz = do { a <- declare_vars sz
             ; add_arr_mapping a sz
             ; ret a }
 
-get :: Exp Rational -- select from array a
-    -> Int          -- at index i
+get :: ( Exp Rational -- select from array a
+       , Int )        -- at index i
     -> State Env (Exp Rational) -- result e
-get a i
+get (a,i)
   = let x = var_of_exp a
     in State (\s -> case s of
                  env@(Env nv m) ->
@@ -102,11 +103,11 @@ get a i
                      Nothing -> error $ "unbound var " ++ show (x,i)
              )
     
-set :: Exp Rational -- update array a
-    -> Int          -- at position j
-    -> Exp Rational -- to expression e
+set :: ( Exp Rational -- update array a
+       , Int )        -- at position j
+    -> Exp Rational   -- to expression e
     -> State Env (Exp Rational)
-set a j e
+set (a,j) e
   = let x = var_of_exp a
     in do { le <- var
           ; let y = var_of_exp le
@@ -144,6 +145,8 @@ ret = return
 
 fromRational r = EVal (r :: Rational)
 
+negate e = EBinop Sub e (EVal zero) 
+
 exp_of_int :: Int -> Exp Rational
 exp_of_int i = EVal (P.fromIntegral i)
 
@@ -151,17 +154,23 @@ iter :: Int
      -> (Int -> Exp Rational -> Exp Rational)
      -> Exp Rational
      -> Exp Rational
-iter 0 f e = f 0 e
-iter n f e = f n $ iter ((P.-) n 1) f e
+iter n f e = g n f e
+  where g 0 f e = f 0 e
+        g n f e = f n $ g (dec n) f e
 
-summate :: Int
-        -> (Int -> Exp Rational)
-        -> Exp Rational
-summate n f
-  = iter ((P.-) n 1)
-    (\i e -> case i == 0 of
-        True -> e
-        False -> f i + e) (f (0::Int))
+bigsum :: Int
+       -> (Int -> Exp Rational)
+       -> Exp Rational
+bigsum n f = iter n (\n' e -> f n' + e) 0.0
+
+{- TODO
+times :: Int
+      -> State Env (Exp Rational)
+      -> State Env (Exp Rational)
+times n mf = g n mf 
+  where g 0 mf = ret EUnit
+        g n mf = do { e <- mf; g (dec n) mf }
+ -}
 
 data Result = 
   Result { sat :: Bool

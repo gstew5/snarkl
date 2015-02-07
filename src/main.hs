@@ -12,8 +12,9 @@ import Prelude hiding
   , (/)
   , return
   , fromRational
+  , negate    
   )
-import qualified Prelude as P  
+import qualified Prelude as P
 
 import Syntax
 import Lang
@@ -29,27 +30,83 @@ prog1 x y z
 -- combinators over R1CS-producing functions.
 
 -- for example, the following code calculates the R1CS expression
---   n + n-1 + n-2 + ... + n-(n-1) + e
+--   (n+e) + (n-1+e) + (n-2+e) + ... + (n-(n-1)+e)
 -- with e an input expression.
 prog2 e n
   = do { let f i = exp_of_int i + e
-       ; ret $ summate n f }
+       ; ret $ bigsum n f }
 
 -- 3. declare 'a' an array of size 5. initialize slot 3 to e.
 -- initialize slot 4 to e*e. return a[3]*a[4]. 
 prog3 e
   = do { a <- arr 5
-       ; set a 3 e
-       ; set a 4 (e*e)         
-       ; x <- get a 3
-       ; y <- get a 4
+       ; set (a,3) e
+       ; set (a,4) (e*e)         
+       ; x <- get (a,3)
+       ; y <- get (a,4)
        ; ret (x*y) }
-         
--- do_check:
+
+-- 4. identical to 3, except allocates larger array
+prog4 e
+  = do { a <- arr 1000
+       ; set (a,3) e
+       ; set (a,4) (e*e)         
+       ; x <- get (a,3)
+       ; y <- get (a,4)
+       ; ret (x*y) }
+
+-- 5. identical to 4, except with more constraints
+
+pow :: Int -> Exp Rational -> Exp Rational
+pow 0 e = 1.0
+pow n e = e*(pow (dec n) e)
+
+prog5 e
+  = do { a <- arr 1000
+       ; set (a,3) e
+       ; set (a,4) (pow 100 e)         
+       ; x <- get (a,3)
+       ; y <- get (a,4)
+       ; ret (x*y) }
+
+-- run_test:
 -- (1) compile to R1CS
 -- (2) generate a satisfying assignment, w
 -- (3) check whether 'w' satisfies the constraint system produced in (1)
-do_check prog = putStrLn $ show $ check prog []
+-- (4) check that results match
+run_test (prog,res) =
+  case check prog [] of
+    r@(Result True vars constrs res') ->
+      case res == res' of
+        True  ->  putStrLn (show r)
+        False ->  putStrLn $ show $ "error: results don't match: "
+                  ++ "expected " ++ show res ++ " but got " ++ show res'
+    r@(Result False vars constrs res') ->
+      putStrLn "error: witness failed to satisfy constraints"
 
-main = do_check (prog3 (fromRational 8))
+tests
+  = [ (prog1 1.0 0.0 1.0, 0)
+
+    , (prog2 0.0 4, 10)
+    , (prog2 1.0 4, 15)
+    , (prog2 2.0 4, 20)      
+    , (prog2 10.0 10, 165)            
+
+    , (prog3 8.0, 512)
+    , (prog3 16.0, 4096)
+    , (prog3 0.0, 0)
+    , (prog3 (-1.0), 1)            
+
+    , (prog4 8.0, 512)
+    , (prog4 16.0, 4096)
+    , (prog4 0.0, 0)
+    , (prog4 (-1.0), 1)            
+
+    , (prog5 8.0, 8^101)
+    , (prog5 16.0, 16^101)
+    , (prog5 0.0, 0)
+    , (prog5 (-1.0), 1)            
+    ]
+
+main = mapM_ run_test tests
 
