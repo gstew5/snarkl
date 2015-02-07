@@ -107,16 +107,22 @@ r1cs_of_exp out e
        ; return $ (f,r1cs_of_cs nv cs) }
 
 compile_exp :: Field a =>
-               Int   -- number of inputs variables (determined by frontend)
-            -> Int   -- number of variables (determined by frontend)
+               Int   -- number of variables (determined by frontend)
             -> Exp a -- expression to be compiled
-            -> ( [a] -> [a] -- function from inputs to witnesses 
+            -> ( [a] -> [a] -- function from inputs to witnesses
                , R1CS a)    -- the resulting rank-1 constraint system
-compile_exp num_inputs nw e
-  = let out = nw -- NOTE: variables zero-indexed by frontend
-        cenv_init = CEnv [] (out+1) 
+compile_exp num_vars e
+  = let out = num_vars -- NOTE: variables zero-indexed by frontend
+        cenv_init    = CEnv [] (out+1) 
         ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
-        g w = map snd $ Map.toList $ f $ Map.fromList (zip [0..] w)
+        nw           = R1CS.num_vars r1cs
+        zero_map         = Map.fromList $ zip (take nw [0..]) (repeat zero)
+        input_map inputs = Map.fromList (zip [0..] inputs)
+        -- must ensure that, even if some variables appear in none of the
+        -- generated constraints, we assign some (dummy) value in the witness 
+        g inputs
+          = let witness_map = f (input_map inputs) `Map.union` zero_map
+            in map snd $ Map.toList witness_map
     in (g,r1cs)
 
 e1 :: Exp Rational

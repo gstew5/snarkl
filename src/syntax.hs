@@ -11,6 +11,7 @@ import Prelude hiding
   , (*)    
   , (/)
   , return
+  , fromInteger
   , fromRational
   )
 import qualified Prelude as P
@@ -37,7 +38,6 @@ data State s a = State (s -> (a,s))
 type ArrMap = Map.Map (Var,Int) Var
 
 data Env = Env { next_var   :: Int
-               , num_inputs :: Int
                , arr_map    :: ArrMap }
            deriving Show
 
@@ -45,52 +45,48 @@ runState :: State s a -> s -> (a,s)
 runState mf s = case mf of
   State f -> f s
 
+inc :: Int -> Int
+inc n = (P.+) n (P.fromInteger 1)
+
+dec :: Int -> Int
+dec n = (P.-) n (P.fromInteger 1)
+
 -- allocate a new internal variable (not instantiated by user)
 var :: State Env (Exp Rational)
 var = State (\s -> ( EVar (next_var s)
-                   , Env ((P.+) (next_var s) 1)
-                         (num_inputs s)
+                   , Env (inc (next_var s))
                          (arr_map s)
                    )
             )
 
--- allocate a new input variable (must be instantiated by user) 
-input :: State Env (Exp Rational)
-input = State (\s -> ( EVar (next_var s)
-                     , Env ((P.+) (next_var s) 1)
-                           ((P.+) (num_inputs s) 1)
-                           (arr_map s)
-                     )
-              )
-
 -- arrays: initial values currently considered "input", may change
-declare_inputs :: Int -> State Env (Exp Rational)
-declare_inputs 0 = error "must declare >= 1 vars"
-declare_inputs n =
-  do { x <- input
-     ; g ((P.-) n 1) 
+declare_vars :: Int -> State Env (Exp Rational)
+declare_vars 0 = error "must declare >= 1 vars"
+declare_vars n =
+  do { x <- var
+     ; g (dec n)
      ; ret x }
   where g 0 = ret EUnit
-        g n = input >> g ((P.-) n 1)
+        g n = var >> g (dec n)
 
 add_arr_bindings :: [((Var,Int),Var)] -> State Env (Exp Rational)
 add_arr_bindings bindings
   = State (\s -> case s of
-              Env nv ins m -> ( EUnit 
-                              , Env nv ins (Map.fromList bindings `Map.union` m)
-                              )
+              Env nv m -> ( EUnit 
+                          , Env nv (Map.fromList bindings `Map.union` m)
+                          )
           )
 
 add_arr_mapping :: Exp Rational -> Int -> State Env (Exp Rational)
 add_arr_mapping a sz
   = do { let x = var_of_exp a
-       ; let indices  = take sz [(0::Int)..]
+       ; let indices  = take sz [(P.fromInteger 0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
        ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars }
 
 arr :: Int -> State Env (Exp Rational)
 arr 0  = error "array must have size > 0"
-arr sz = do { a <- declare_inputs sz
+arr sz = do { a <- declare_vars sz
             ; add_arr_mapping a sz
             ; ret a }
 
@@ -100,7 +96,7 @@ get :: Exp Rational -- select from array a
 get a i
   = let x = var_of_exp a
     in State (\s -> case s of
-                 env@(Env nv ins m) ->
+                 env@(Env nv m) ->
                    case Map.lookup (x,i) m of
                      Just y  -> (EVar y, env)
                      Nothing -> error $ "unbound var " ++ show (x,i)
@@ -149,7 +145,7 @@ ret = return
 fromRational r = EVal (r :: Rational)
 
 exp_of_int :: Int -> Exp Rational
-exp_of_int i = EVal (fromIntegral i)
+exp_of_int i = EVal (P.fromIntegral i)
 
 iter :: Int
      -> (Int -> Exp Rational -> Exp Rational)
@@ -176,10 +172,11 @@ data Result =
 
 check :: State Env (Exp Rational) -> [Rational] -> Result
 check mf inputs
-  = let (e,s)    = runState mf (Env 0 0 Map.empty)
-        (f,r1cs) = compile_exp (num_inputs s) (next_var s) e
+  = let (e,s)    = runState mf (Env (P.fromInteger 0) Map.empty)
+        nv       = next_var s
+        (f,r1cs) = compile_exp nv e
         nw = num_vars r1cs
         ng = num_constraints r1cs
         wit = f inputs
-        out = head $ drop (length inputs) wit 
+        out = head $ drop nv wit 
     in Result (sat_r1cs wit r1cs) nw ng out
