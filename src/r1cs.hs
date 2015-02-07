@@ -50,8 +50,11 @@ sat_r1c w c
             , length v == 1 + length w
             = foldl add zero $ map (uncurry mult) (zip v (one : w))
 
-            | otherwise
-            = error "witness has wrong length"
+            | Poly v <- p
+            , otherwise
+            = error $ "witness has wrong length: got "
+                      ++ show (length w)
+                      ++ ", expected " ++ show (length v - 1)
 
 -- sat_r1cs: Does witness 'w' satisfy constraint set 'cs'?
 sat_r1cs :: Field a => [a] -> R1CS a -> Bool

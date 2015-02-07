@@ -53,7 +53,8 @@ solve_constraints cs env = g env cs
               (Nothing,Just d)  -> g (Map.insert x d env) cs'
               (Just c,Just d)   ->
                 if c == d then g env cs'
-                else error "inconsistent assignment"
+                else error $ show c ++ " == " ++ show d
+                             ++ ": inconsistent assignment"
         g env (CBinop op (x,y,z) : cs')
           = let f_op  = interp_op op
                 fn_op = interp_op (invert_op op)  

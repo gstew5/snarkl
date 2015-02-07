@@ -28,8 +28,6 @@ get_next_var
   = do { cenv <- get
        ; return (next_var cenv) }
 
--- assumes variables are numbered sequentially 0..next_var-1
--- will be true if we canonicalize variable indices in source expression
 get_num_vars :: State (CEnv a) Int
 get_num_vars = get_next_var
 
@@ -87,9 +85,17 @@ cs_of_exp out e = case e of
        ; add_constraint (CBinop Mult (b_out,e1_out,b_e1))
        ; add_constraint (CBinop Mult (bn_out,e2_out,bn_e2))
        ; add_or_constraints (b_e1,bn_e2,out) }
-  ELet x e1 e2 ->
-    do { cs_of_exp x e1
-       ; cs_of_exp out e2 }  
+  EAssign e1 e2 ->
+    do { let x = var_of_exp e1
+       ; e2_out <- fresh_var
+       ; cs_of_exp e2_out e2
+       ; add_constraint (CVar (x,e2_out)) }
+  ESeq e1 e2 ->
+    do { e1_out <- fresh_var
+       ; cs_of_exp e1_out e1
+       ; cs_of_exp out e2 }
+  EUnit ->
+    do { return () }
 
 r1cs_of_exp :: Field a => Var -> Exp a
             -> State (CEnv a) (Assgn a -> Assgn a,R1CS a)
@@ -100,10 +106,15 @@ r1cs_of_exp out e
        ; let f = solve_constraints cs
        ; return $ (f,r1cs_of_cs nv cs) }
 
-compile_exp :: Field a => Exp a -> ([a] -> [a],R1CS a)
-compile_exp e
-  = let out = fresh_var_of_exp e
-        cenv_init = CEnv [] (out+1)
+compile_exp :: Field a =>
+               Int   -- number of inputs variables (determined by frontend)
+            -> Int   -- number of variables (determined by frontend)
+            -> Exp a -- expression to be compiled
+            -> ( [a] -> [a] -- function from inputs to witnesses 
+               , R1CS a)    -- the resulting rank-1 constraint system
+compile_exp num_inputs nw e
+  = let out = nw -- NOTE: variables zero-indexed by frontend
+        cenv_init = CEnv [] (out+1) 
         ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
         g w = map snd $ Map.toList $ f $ Map.fromList (zip [0..] w)
     in (g,r1cs)
@@ -117,9 +128,6 @@ e2 = EBinop Sub (EBinop Sub (EVal 3) (EBinop Add (EVal 5) (EVal 3)))
 
 e3 :: Exp Rational
 e3 = EBinop Sub (EVal 1) (EVar 0)
-
-e4 :: Exp Rational
-e4 = ELet 0 (EVal 1) (EVar 0)
 
 e8 :: Exp Rational
 e8 = EIf (EVar 0) (EVal 55) (EVal 77)  

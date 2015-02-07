@@ -35,16 +35,41 @@ prog1
 --   n + n-1 + n-2 + ... + n-(n-1) + x
 -- with x an input variable.
 prog2 n
-  = do { x <- var
+  = do { x <- input
        ; let f i = exp_of_int i + x
        ; ret $ summate n f }
 
--- 3. and this little program sums over an "array"...
+-- 3. declare 'a' an array of size 5. the second 'x <- get ...' reads
+-- from 'a' at index 4, storing the result in variable 'x' (and shadowing
+-- whichever value is assigned to 'x' at input).
 prog3 
+  = do { x <- input
+       ; a <- arr 5           
+       ; x <- get a 4
+       ; ret x  }
+
+prog4
+  = do { a <- arr 5
+       ; x <- get a 0
+       ; set a 1 x
+       ; y <- get a 1
+       ; ret y }
+
+-- 4. ...
+{- prog4
+  = do { x  <- var
+       ; w  <- var
+       ; a  <- arr 5                    -- an array of size 5
+       ; a' <- set a 3 5 w
+       ; z  <- ret (summate 5 (get a')) -- sum the elements of the array
+       ; ret $ z - x  }                 -- and output the result, minus x
+-}
+
+{- prog5
   = do { x <- var
-       ; a <- arr 5                       -- an array of size 5
-       ; y <- ret (summate 5 (arr_get a)) -- sum the elements of the array
-       ; ret $ y - x  }                   -- and output the result, minus x
+       ; a <- arr 1
+       ; a' <- set a 0 1 x
+       ; ret $ get a' 0 } -}
 
 -- do_check:
 -- (1) compile to R1CS
