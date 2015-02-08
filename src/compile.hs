@@ -40,7 +40,7 @@ fresh_var
        ; set_next_var (next + 1)
        ; return next }
 
--- add constraint 'x \/ y = c'
+-- | Add constraint 'x \/ y = c'
 add_or_constraints :: Field a => (Var,Var,Var) -> State (CEnv a) ()
 add_or_constraints (x,y,z)
   = do { x_mult_y <- fresh_var
@@ -49,7 +49,7 @@ add_or_constraints (x,y,z)
        ; add_constraint (CBinop Add (x,y,x_plus_y))
        ; add_constraint (CBinop Sub (x_plus_y,z,x_mult_y)) }
 
--- add constraint 'b^2 = b'
+-- | Add constraint 'b^2 = b'
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
 ensure_boolean b
   = do { b_sq <- fresh_var
@@ -90,10 +90,13 @@ cs_of_exp out e = case e of
        ; e2_out <- fresh_var
        ; cs_of_exp e2_out e2
        ; add_constraint (CVar (x,e2_out)) }
-  ESeq e1 e2 ->
-    do { e1_out <- fresh_var
-       ; cs_of_exp e1_out e1
-       ; cs_of_exp out e2 }
+  ESeq le -> g le 
+    where g []   = error "internal error: empty ESeq"
+          g [e1] = cs_of_exp out e1
+          g (e1 : le')  
+            = do { e1_out <- fresh_var
+                 ; cs_of_exp e1_out e1
+                 ; g le' }
   EUnit ->
     do { return () }
 
@@ -107,10 +110,10 @@ r1cs_of_exp out e
        ; return $ (f,r1cs_of_cs nv cs) }
 
 compile_exp :: Field a =>
-               Int   -- number of variables (determined by frontend)
-            -> Exp a -- expression to be compiled
-            -> ( [a] -> [a] -- function from inputs to witnesses
-               , R1CS a)    -- the resulting rank-1 constraint system
+               Int   -- ^ Number of variables (determined by frontend)
+            -> Exp a -- ^ Expression to be compiled
+            -> ( [a] -> [a] -- ^ Function from inputs to witnesses
+               , R1CS a)    -- ^ The resulting rank-1 constraint system
 compile_exp num_vars e
   = let out = num_vars -- NOTE: variables zero-indexed by frontend
         cenv_init    = CEnv [] (out+1) 
@@ -118,8 +121,9 @@ compile_exp num_vars e
         nw           = R1CS.num_vars r1cs
         zero_map         = Map.fromList $ zip (take nw [0..]) (repeat zero)
         input_map inputs = Map.fromList (zip [0..] inputs)
-        -- must ensure that, even if some variables appear in none of the
-        -- generated constraints, we assign some (dummy) value in the witness 
+        -- NOTE: must ensure that, even if some variables appear in none 
+        -- of the generated constraints, we assign some (dummy) value 
+        -- in the witness 
         g inputs
           = let witness_map = f (input_map inputs) `Map.union` zero_map
             in map snd $ Map.toList witness_map

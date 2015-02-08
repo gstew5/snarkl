@@ -28,10 +28,10 @@ ifThenElse b e1 e2 = EIf b e1 e2
 
 data State s a = State (s -> (a,s))
 
--- at "parse" time, we maintain an environment containing
---  (i) next_var: the next free variable
---  (ii) arr_map: a symbol table mapping (array_var,index) to
---  the constraint variable associated with that array index.
+-- | At "parse" time, we maintain an environment containing
+--    (i) next_var: the next free variable
+--    (ii) arr_map: a symbol table mapping (array_var,index) to
+--    the constraint variable associated with that array index.
 --  Reading from array x := a[i] corresponds to:
 --    (a) getting i <- arr_map(a,i)
 --    (b) inserting the constraint (x = i)
@@ -52,7 +52,7 @@ inc n = (P.+) n 1
 dec :: Int -> Int
 dec n = (P.-) n 1
 
--- allocate a new internal variable (not instantiated by user)
+-- | Allocate a new internal variable (not instantiated by user)
 var :: State Env (Exp Rational)
 var = State (\s -> ( EVar (next_var s)
                    , Env (inc (next_var s))
@@ -60,7 +60,7 @@ var = State (\s -> ( EVar (next_var s)
                    )
             )
 
--- arrays: initial values currently considered "input", may change
+-- | Arrays: initial values currently considered "input", may change
 declare_vars :: Int -> State Env (Exp Rational)
 declare_vars 0 = error "must declare >= 1 vars"
 declare_vars n =
@@ -121,7 +121,7 @@ set (a,j) e
   = State (\s -> let (e,s') = runState mf s
                      (e',s'') = runState (g e) s'
                  in case e of 
-                      EAssign _ _ -> (ESeq e e',s'')
+                      EAssign _ _ -> (exp_seq e e',s'')
                       _ -> (e',s''))
 
 (>>) mf g = do { _ <- mf; g }    
