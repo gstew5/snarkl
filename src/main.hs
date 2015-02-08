@@ -2,6 +2,11 @@
 
 module Main where
 
+import System.IO
+  ( hFlush
+  , stdout
+  )
+
 import Prelude hiding 
   ( (>>)
   , (>>=)
@@ -107,14 +112,15 @@ prog10 e1 e2
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
 --   (4) Check that results match.
 run_test (prog,res) =
-  case check prog [] of
+  let print_ln s = (P.>>) (putStrLn s) (hFlush stdout)
+  in case check prog [] of
     r@(Result True _ _ res') ->
       case res == res' of
-        True  ->  putStrLn (show r)
-        False ->  putStrLn $ show $ "error: results don't match: "
+        True  ->  print_ln $ show r
+        False ->  print_ln $ show $ "error: results don't match: "
                   ++ "expected " ++ show res ++ " but got " ++ show res'
     Result False _ _ _ ->
-      putStrLn $ "error: witness failed to satisfy constraints"
+      print_ln $ "error: witness failed to satisfy constraints"
 
 tests :: [(Comp,Rational)]
 tests
