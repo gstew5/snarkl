@@ -68,6 +68,31 @@ prog5 e
        ; y <- get (a,4)
        ; ret (x*y) }
 
+-- | 6. 'times' test
+prog6 e
+  = do { a <- arr 100
+       ; times 100 (set (a,3) e)
+       ; x <- get (a,3)
+       ; ret x }
+
+-- | 7. 'forall' test
+prog7 
+  = do { a <- arr 100
+       ; forall [0..99] (\i -> set (a,i) (exp_of_int i))
+       ; x <- get (a,49)
+       ; y <- get (a,51)              
+       ; ret $ x + y }
+
+-- | 7. 'forall_pairs' test
+prog8 
+  = do { a <- arr 25
+       ; let index_of i j = (P.+) ((P.*) 5 i) j
+       ; forall_pairs ([0..4],[0..4]) (\i j ->
+           set (a,index_of i j) (exp_of_int $ index_of i j))
+       ; x <- get (a,5)  -- 5
+       ; y <- get (a,24) -- 24
+       ; ret $ x + y }
+
 -- | (1) Compile to R1CS.
 --   (2) Generate a satisfying assignment, w.
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
@@ -103,7 +128,13 @@ tests
     , (prog5 8.0, 8^101)
     , (prog5 16.0, 16^101)
     , (prog5 0.0, 0)
-    , (prog5 (-1.0), 1)            
+    , (prog5 (-1.0), 1)
+
+    , (prog6 8.0, 8)
+
+    , (prog7, 100)
+
+    , (prog8, 29)
     ]
 
 main = mapM_ run_test tests

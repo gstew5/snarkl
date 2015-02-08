@@ -42,6 +42,8 @@ data Env = Env { next_var   :: Int
                , arr_map    :: ArrMap }
            deriving Show
 
+type Comp = State Env (Exp Rational)
+
 runState :: State s a -> s -> (a,s)
 runState mf s = case mf of
   State f -> f s
@@ -53,7 +55,7 @@ dec :: Int -> Int
 dec n = (P.-) n 1
 
 -- | Allocate a new internal variable (not instantiated by user)
-var :: State Env (Exp Rational)
+var :: Comp
 var = State (\s -> ( EVar (next_var s)
                    , Env (inc (next_var s))
                          (arr_map s)
@@ -61,7 +63,7 @@ var = State (\s -> ( EVar (next_var s)
             )
 
 -- | Arrays: initial values currently considered "input", may change
-declare_vars :: Int -> State Env (Exp Rational)
+declare_vars :: Int -> Comp
 declare_vars 0 = error "must declare >= 1 vars"
 declare_vars n =
   do { x <- var
@@ -70,7 +72,7 @@ declare_vars n =
   where g 0 = ret EUnit
         g n = var >> g (dec n)
 
-add_arr_bindings :: [((Var,Int),Var)] -> State Env (Exp Rational)
+add_arr_bindings :: [((Var,Int),Var)] -> Comp
 add_arr_bindings bindings
   = State (\s -> case s of
               Env nv m -> ( EUnit 
@@ -78,14 +80,14 @@ add_arr_bindings bindings
                           )
           )
 
-add_arr_mapping :: Exp Rational -> Int -> State Env (Exp Rational)
+add_arr_mapping :: Exp Rational -> Int -> Comp
 add_arr_mapping a sz
   = do { let x = var_of_exp a
        ; let indices  = take sz [(0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
        ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars }
 
-arr :: Int -> State Env (Exp Rational)
+arr :: Int -> Comp
 arr 0  = error "array must have size > 0"
 arr sz = do { a <- declare_vars sz
             ; add_arr_mapping a sz
@@ -93,7 +95,7 @@ arr sz = do { a <- declare_vars sz
 
 get :: ( Exp Rational -- select from array a
        , Int )        -- at index i
-    -> State Env (Exp Rational) -- result e
+    -> Comp -- result e
 get (a,i)
   = let x = var_of_exp a
     in State (\s -> case s of
@@ -103,10 +105,10 @@ get (a,i)
                      Nothing -> error $ "unbound var " ++ show (x,i)
              )
     
-set :: ( Exp Rational -- update array a
-       , Int )        -- at position j
-    -> Exp Rational   -- to expression e
-    -> State Env (Exp Rational)
+set :: ( Exp Rational -- ^ Update array a
+       , Int )        -- ^ At position j
+    -> Exp Rational   -- ^ To expression e
+    -> Comp
 set (a,j) e
   = let x = var_of_exp a
     in do { le <- var
@@ -117,12 +119,24 @@ set (a,j) e
 (>>=) :: State s (Exp Rational)
       -> (Exp Rational -> State s (Exp Rational))
       -> State s (Exp Rational)
-(>>=) mf g
-  = State (\s -> let (e,s') = runState mf s
-                     (e',s'') = runState (g e) s'
-                 in case e of 
-                      EAssign _ _ -> (exp_seq e e',s'')
-                      _ -> (e',s''))
+(>>=) mf g = State (\s ->
+  let (e,s') = runState mf s
+      (e',s'') = runState (g e) s'
+  in case is_pure e of
+       True  -> (e',s'')
+       False -> case e of
+         -- This next line is an optimization; in a sequenced expression
+         -- (v<-ESeq [e1..eN]; eN+1[v]), we never need to generate 
+         -- constraints for pure expressions in [e1..eN-1], since 
+         --   (a) they will not be bound to v in eN+1; and
+         --   (b) they otherwise have no effect (non-side-effecting)
+         -- NOTE: [length le > 0], by the smart constructor invariant for
+         -- sequencing, hence [last le] is always safe.
+         ESeq le ->
+           let all_but_last = init le
+               le' = filter (not . is_pure) all_but_last
+           in (exp_seq (ESeq le') e',s'')
+         _ -> (exp_seq e e',s''))
 
 (>>) mf g = do { _ <- mf; g }    
 
@@ -163,14 +177,26 @@ bigsum :: Int
        -> Exp Rational
 bigsum n f = iter n (\n' e -> f n' + e) 0.0
 
-{- TODO
 times :: Int
-      -> State Env (Exp Rational)
-      -> State Env (Exp Rational)
+      -> Comp
+      -> Comp
 times n mf = g n mf 
   where g 0 mf = ret EUnit
         g n mf = do { e <- mf; g (dec n) mf }
- -}
+
+forall :: [a]
+       -> (a -> Comp)
+       -> Comp
+forall as mf = g as mf
+  where g [] mf = ret EUnit
+        g (a : as') mf
+          = do { mf a; g as' mf }
+
+forall_pairs :: ([a],[a])
+             -> (a -> a -> Comp)
+             -> Comp
+forall_pairs (as1,as2) mf
+  = forall as1 (\a1 -> forall as2 (\a2 -> mf a1 a2))
 
 data Result = 
   Result { sat :: Bool
@@ -179,7 +205,7 @@ data Result =
          , result :: Rational }
   deriving Show  
 
-check :: State Env (Exp Rational) -> [Rational] -> Result
+check :: Comp -> [Rational] -> Result
 check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) Map.empty)
         nv       = next_var s
