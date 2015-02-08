@@ -115,7 +115,7 @@ run_test (prog,res) =
         False ->  putStrLn $ show $ "error: results don't match: "
                   ++ "expected " ++ show res ++ " but got " ++ show res'
     r@(Result False vars constrs res') ->
-      putStrLn "error: witness failed to satisfy constraints"
+      putStrLn $ "error: witness failed to satisfy constraints"
 
 tests
   = [ (prog1 1.0 0.0 1.0, 0)

@@ -42,14 +42,13 @@ fresh_var
 
 -- | Add constraint 'b^2 = b'.
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
-ensure_boolean b
+ensure_boolean b  
   = do { b_sq <- fresh_var
        ; add_constraint (CBinop Mult (b,b,b_sq))
-       ; add_constraint (CVar (b_sq,b)) }
+       ; add_constraint (CVar (b_sq,b)) } 
 
 -- | Constraint 'x \/ y = z'.
--- The encoding is: x+y - z = x*y;
--- assumes the caller enforces that x and y are boolean.
+-- The encoding is: x+y - z = x*y; assumes x and y are boolean.
 encode_or :: Field a => (Var,Var,Var) -> State (CEnv a) ()
 encode_or (x,y,z)
   = do { x_mult_y <- fresh_var
@@ -59,8 +58,7 @@ encode_or (x,y,z)
        ; add_constraint (CBinop Sub (x_plus_y,z,x_mult_y)) }
 
 -- | Constraint 'x xor y = z'.
--- The encoding is: x+y - z = 2(x*y);
--- assumes the caller enforces that x and y are boolean.
+-- The encoding is: x+y - z = 2(x*y); assumes x and y are boolean.
 encode_xor :: Field a => (Var,Var,Var) -> State (CEnv a) ()
 encode_xor (x,y,z)
   = do { x_mult_y <- fresh_var
@@ -139,7 +137,7 @@ r1cs_of_exp out e
        ; nv <- get_num_vars
        ; cs <- get_constraints
        ; let f = solve_constraints cs
-       ; return $ (f,r1cs_of_cs nv cs) }
+       ; return $ (f,r1cs_of_cs nv cs) } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
@@ -147,15 +145,17 @@ compile_exp :: Field a =>
             -> ( [a] -> [a] -- ^ Function from inputs to witnesses
                , R1CS a)    -- ^ The resulting rank-1 constraint system
 compile_exp num_vars e
-  = let out = num_vars -- NOTE: variables zero-indexed by frontend
+  = let out = num_vars -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init    = CEnv [] (out+1) 
         ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
         nw           = R1CS.num_vars r1cs
         zero_map         = Map.fromList $ zip (take nw [0..]) (repeat zero)
         input_map inputs = Map.fromList (zip [0..] inputs)
-        -- NOTE: must ensure that, even if some variables appear in none 
-        -- of the generated constraints, we assign some (dummy) value 
-        -- in the witness 
+        -- NOTE: Even if some variables appear in none of the
+        -- generated constraints, we must assign some (dummy) value in
+        -- the witness. The dummies ensure that the witness list has
+        -- the required length (we treat witnesses interchangeably as
+        -- maps and position-indexed lists in places).
         g inputs
           = let witness_map = f (input_map inputs) `Map.union` zero_map
             in map snd $ Map.toList witness_map

@@ -60,7 +60,12 @@ sat_r1c w c
 sat_r1cs :: Field a => [a] -> R1CS a -> Bool
 sat_r1cs w cs
   | R1CS cs' <- cs
-  = all (sat_r1c w) cs'                 
+  = g cs'
+    where g [] = True
+          g (c : cs'') =
+            if sat_r1c w c then g cs''
+            else error $ "sat_r1cs: witness failed to satisfy constraint: "
+                         ++ show w ++ " " ++ show c
 
 -- x * y = z
 cA :: R1CS Rational
