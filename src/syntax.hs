@@ -3,8 +3,7 @@
 module Syntax where
 
 import Prelude hiding 
-  ( ifThenElse 
-  , (>>)
+  ( (>>)
   , (>>=)
   , (+)
   , (-)    
@@ -25,6 +24,7 @@ import R1CS
 import Lang
 import Compile
 
+ifThenElse :: Exp a -> Exp a -> Exp a -> Exp a
 ifThenElse b e1 e2 = EIf b e1 e2
 
 data State s a = State (s -> (a,s))
@@ -68,10 +68,10 @@ declare_vars :: Int -> Comp
 declare_vars 0 = error "must declare >= 1 vars"
 declare_vars n =
   do { x <- var
-     ; g (dec n)
+     ; _ <- g (dec n)
      ; ret x }
   where g 0 = ret EUnit
-        g n = var >> g (dec n)
+        g m = var >> g (dec m)
 
 add_arr_bindings :: [((Var,Int),Var)] -> Comp
 add_arr_bindings bindings
@@ -91,7 +91,7 @@ add_arr_mapping a sz
 arr :: Int -> Comp
 arr 0  = error "array must have size > 0"
 arr sz = do { a <- declare_vars sz
-            ; add_arr_mapping a sz
+            ; _ <- add_arr_mapping a sz
             ; ret a }
 
 get :: ( Exp Rational -- select from array a
@@ -100,7 +100,7 @@ get :: ( Exp Rational -- select from array a
 get (a,i)
   = let x = var_of_exp a
     in State (\s -> case s of
-                 env@(Env nv m) ->
+                 env@(Env _ m) ->
                    case Map.lookup (x,i) m of
                      Just y  -> (EVar y, env)
                      Nothing -> error $ "unbound var " ++ show (x,i)
@@ -114,7 +114,7 @@ set (a,j) e
   = let x = var_of_exp a
     in do { le <- var
           ; let y = var_of_exp le
-          ; add_arr_bindings [((x,j),y)]
+          ; _ <- add_arr_bindings [((x,j),y)]
           ; ret $ EAssign le e }
 
 (>>=) :: State s (Exp Rational)
@@ -139,11 +139,15 @@ set (a,j) e
            in (exp_seq (ESeq le') e',s'')
          _ -> (exp_seq e e',s''))
 
+(>>) :: State s (Exp Rational)
+     -> State s (Exp Rational)
+     -> State s (Exp Rational)
 (>>) mf g = do { _ <- mf; g }    
 
 return :: a -> State s a
 return e = State (\s -> (e,s))
 
+ret :: a -> State s a
 ret = return
 
 (+) :: Exp Rational -> Exp Rational -> Exp Rational
@@ -164,8 +168,10 @@ ret = return
 xor :: Exp Rational -> Exp Rational -> Exp Rational
 xor e1 e2 = EBinop XOr e1 e2
 
+fromRational :: Rational -> Exp Rational
 fromRational r = EVal (r :: Rational)
 
+negate :: Exp Rational -> Exp Rational
 negate e = EBinop Sub e (EVal zero) 
 
 exp_of_int :: Int -> Exp Rational
@@ -176,8 +182,8 @@ iter :: Int
      -> Exp Rational
      -> Exp Rational
 iter n f e = g n f e
-  where g 0 f e = f 0 e
-        g n f e = f n $ g (dec n) f e
+  where g 0 f' e' = f' 0 e'
+        g m f' e' = f' m $ g (dec m) f' e'
 
 bigsum :: Int
        -> (Int -> Exp Rational)
@@ -188,16 +194,16 @@ times :: Int
       -> Comp
       -> Comp
 times n mf = g n mf 
-  where g 0 mf = ret EUnit
-        g n mf = do { e <- mf; g (dec n) mf }
+  where g 0 _   = ret EUnit
+        g m mf' = do { _ <- mf'; g (dec m) mf' }
 
 forall :: [a]
        -> (a -> Comp)
        -> Comp
 forall as mf = g as mf
-  where g [] mf = ret EUnit
-        g (a : as') mf
-          = do { mf a; g as' mf }
+  where g [] _ = ret EUnit
+        g (a : as') mf'
+          = do { _ <- mf' a; g as' mf' }
 
 forall_pairs :: ([a],[a])
              -> (a -> a -> Comp)

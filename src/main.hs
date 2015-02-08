@@ -3,8 +3,7 @@
 module Main where
 
 import Prelude hiding 
-  ( ifThenElse 
-  , (>>)
+  ( (>>)
   , (>>=)
   , (+)
   , (-)    
@@ -58,7 +57,7 @@ prog4 e
 
 -- | 5. Identical to 4, except with more constraints
 pow :: Int -> Exp Rational -> Exp Rational
-pow 0 e = 1.0
+pow 0 _ = 1.0
 pow n e = e*(pow (dec n) e)
 
 prog5 e
@@ -109,14 +108,15 @@ prog10 e1 e2
 --   (4) Check that results match.
 run_test (prog,res) =
   case check prog [] of
-    r@(Result True vars constrs res') ->
+    r@(Result True _ _ res') ->
       case res == res' of
         True  ->  putStrLn (show r)
         False ->  putStrLn $ show $ "error: results don't match: "
                   ++ "expected " ++ show res ++ " but got " ++ show res'
-    r@(Result False vars constrs res') ->
+    Result False _ _ _ ->
       putStrLn $ "error: witness failed to satisfy constraints"
 
+tests :: [(Comp,Rational)]
 tests
   = [ (prog1 1.0 0.0 1.0, 0)
 
@@ -135,8 +135,8 @@ tests
     , (prog4 0.0, 0)
     , (prog4 (-1.0), 1)            
 
-    , (prog5 8.0, 8^101)
-    , (prog5 16.0, 16^101)
+    , (prog5 8.0, 8^(101::Integer))
+    , (prog5 16.0, 16^(101::Integer))
     , (prog5 0.0, 0)
     , (prog5 (-1.0), 1)
 

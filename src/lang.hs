@@ -38,9 +38,9 @@ is_pure e
   = case e of
       EVar _ -> True
       EVal _ -> True
-      EBinop op e1 e2 -> is_pure e1 && is_pure e2
+      EBinop _ e1 e2 -> is_pure e1 && is_pure e2
       EIf b e1 e2 -> is_pure b && is_pure e1 && is_pure e2
-      EAssign x e -> False
+      EAssign _ _ -> False
       ESeq le -> all is_pure le
       EUnit -> True
 
@@ -60,20 +60,3 @@ var_of_exp :: Exp a -> Var
 var_of_exp e = case e of
   EVar x -> x
   _ -> error "var_of_exp: expected variable"
-
-max_var_of_exp :: Exp a -> Var
-max_var_of_exp e = g (-1) e
-  where g y e = case e of
-          EVar x -> max x y
-          EVal c -> y
-          EBinop op e1 e2 -> max (g y e1) (g y e2)
-          EIf b e1 e2  -> max (g y b) $ max (g y e1) (g y e2)
-          EAssign e1 e2 -> max (g y e1) (g y e2)
-          ESeq le -> h y le
-          EUnit -> y          
-        h y [] = y
-        h y (e1 : le') = max (g y e1) (h y le')
-        
-fresh_var_of_exp :: Exp a -> Var
-fresh_var_of_exp = (+1) . max_var_of_exp
-

@@ -19,6 +19,7 @@ invert_op op = case op of
   Sub -> Add
   Mult -> Div
   Div -> Mult
+  _ -> error "internal error"
 
 interp_op :: Field a => Op -> a -> a -> a
 interp_op op = case op of
@@ -26,6 +27,7 @@ interp_op op = case op of
   Sub -> \a1 a2 -> a1 `add` (neg a2)
   Mult -> mult
   Div -> \a1 a2 -> if a2 == zero then zero else a1 `mult` (inv a2)
+  _ -> error "internal error"  
 
 data Constraint a where
   CVal   :: Field a => (Var,a)  -> Constraint a -- x = c
@@ -54,7 +56,7 @@ format_err cs env c d
 solve_constraints :: Field a => [Constraint a] -- constraints to be solved
                   -> Assgn a -- initial assignment
                   -> Assgn a -- resulting assignment
-solve_constraints cs env = g env cs
+solve_constraints cs env0 = g env0 cs
   where g env [] = env
         g env (CVal (x,c) : cs') = g (Map.insert x c env) cs'
         g env (c0@(CVar (x,y)) : cs')
@@ -76,6 +78,7 @@ solve_constraints cs env = g env cs
                   Sub  -> g (Map.insert y (c `f_op` e) env) (cs' ++ [c0])
                   Mult -> g (Map.insert y (e `fn_op` c) env) (cs' ++ [c0])
                   Div  -> g (Map.insert y (c `f_op` e) env) (cs' ++ [c0])
+                  _ -> error "internal error"
               (Nothing,Just d,Just e) ->
                 g (Map.insert x (e `fn_op` d) env) (cs' ++ [c0])
               (Just c,Just d,Just e)  ->
@@ -93,7 +96,7 @@ solve_constraints cs env = g env cs
                   
 r1c_of_c :: Field a => Int -> Constraint a -> R1C a
 r1c_of_c nw c = case c of
-  CVal (x,c)    -> R1C (const_poly nw one,var_poly nw x,const_poly nw c)
+  CVal (x,c')    -> R1C (const_poly nw one,var_poly nw x,const_poly nw c')
   CVar (x,y)    -> R1C (const_poly nw one,var_poly nw x,var_poly nw y)
   -- NOTE: The encoding in the x == y case is not entirely
   -- field-agnostic (it relies on a 1+1 != 0, with the right
@@ -104,7 +107,8 @@ r1c_of_c nw c = case c of
     else R1C (const_poly nw (add one one),var_poly nw x,var_poly nw z)
   CBinop Sub  (x,y,z) -> R1C (const_poly nw one,sub_poly nw x y,var_poly nw z)  
   CBinop Mult (x,y,z) -> R1C (var_poly nw x,var_poly nw y,var_poly nw z)
-  CBinop Div (x,y,z) -> error "r1c_of_c: Div case not yet implemented"
+  CBinop Div (_,_,_) -> error "r1c_of_c: Div case not yet implemented"
+  CBinop _ _ -> error "internal error"
 
 r1cs_of_cs :: Field a => Int -> [Constraint a] -> R1CS a
 r1cs_of_cs nw cs = R1CS $ map (r1c_of_c nw) cs

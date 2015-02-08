@@ -45,15 +45,15 @@ sat_r1c w c
   | R1C (aV, bV, cV) <- c
   = inner aV w `mult` inner bV w == inner cV w
     where inner :: Field a => Poly a -> [a] -> a
-          inner p w
+          inner p w'
             | Poly v <- p
-            , length v == 1 + length w
-            = foldl add zero $ map (uncurry mult) (zip v (one : w))
+            , length v == 1 + length w'
+            = foldl add zero $ map (uncurry mult) (zip v (one : w'))
 
             | Poly v <- p
             , otherwise
             = error $ "witness has wrong length: got "
-                      ++ show (length w)
+                      ++ show (length w')
                       ++ ", expected " ++ show (length v - 1)
 
 -- sat_r1cs: Does witness 'w' satisfy constraint set 'cs'?
@@ -66,20 +66,6 @@ sat_r1cs w cs
             if sat_r1c w c then g cs''
             else error $ "sat_r1cs: witness failed to satisfy constraint: "
                          ++ show w ++ " " ++ show c
-
--- x * y = z
-cA :: R1CS Rational
-cA = R1CS [R1C (Poly [0,1,0,0],Poly [0,0,1,0],Poly [0,0,0,1])]
-
-cA_wit :: [Rational]
-cA_wit = [1,2,2]
-
--- x + y = z
-dA :: R1CS Rational
-dA = R1CS [R1C (Poly [1,0,0,0],Poly [0,1,1,0],Poly [0,0,0,1])]
-
-dA_wit :: [Rational]
-dA_wit = [1,2,3]
 
 
   

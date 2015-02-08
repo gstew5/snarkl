@@ -77,6 +77,10 @@ encode_binop op (x,y,z)
   = let g And = encode_binop Mult (x,y,z)
         g Or  = encode_or (x,y,z)
         g XOr = encode_xor (x,y,z)
+        g Add = error "internal error"
+        g Sub = error "internal error"
+        g Mult = error "internal error"
+        g Div = error "internal error"        
     in g op
 
   | otherwise
@@ -144,11 +148,11 @@ compile_exp :: Field a =>
             -> Exp a -- ^ Expression to be compiled
             -> ( [a] -> [a] -- ^ Function from inputs to witnesses
                , R1CS a)    -- ^ The resulting rank-1 constraint system
-compile_exp num_vars e
-  = let out = num_vars -- NOTE: Variables are zero-indexed by the frontend.
+compile_exp nv e
+  = let out = nv -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init    = CEnv [] (out+1) 
         ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
-        nw           = R1CS.num_vars r1cs
+        nw           = num_vars r1cs
         zero_map         = Map.fromList $ zip (take nw [0..]) (repeat zero)
         input_map inputs = Map.fromList (zip [0..] inputs)
         -- NOTE: Even if some variables appear in none of the
@@ -160,16 +164,3 @@ compile_exp num_vars e
           = let witness_map = f (input_map inputs) `Map.union` zero_map
             in map snd $ Map.toList witness_map
     in (g,r1cs)
-
-e1 :: Exp Rational
-e1 = EBinop Add (EVal 3) (EVal 5)
-
-e2 :: Exp Rational
-e2 = EBinop Sub (EBinop Sub (EVal 3) (EBinop Add (EVal 5) (EVal 3)))
-       (EBinop Mult (EVal 8) (EVal 8))
-
-e3 :: Exp Rational
-e3 = EBinop Sub (EVal 1) (EVar 0)
-
-e8 :: Exp Rational
-e8 = EIf (EVar 0) (EVal 55) (EVal 77)  
