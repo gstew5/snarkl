@@ -1,3 +1,5 @@
-*.vo
-*.glob
-*.v.d
+\#*
+*~
+*.o
+*.hi
+src/main.exe
