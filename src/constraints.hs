@@ -17,15 +17,15 @@ invert_op :: Op -> Op
 invert_op op = case op of
   Add -> Sub
   Sub -> Add
-  Mult -> Inv
-  Inv -> Mult
+  Mult -> Div
+  Div -> Mult
 
 interp_op :: Field a => Op -> a -> a -> a
 interp_op op = case op of
   Add -> add
   Sub -> \a1 a2 -> a1 `add` (neg a2)
   Mult -> mult
-  Inv -> \a1 a2 -> if a2 == zero then zero else a1 `mult` (inv a2)
+  Div -> \a1 a2 -> if a2 == zero then zero else a1 `mult` (inv a2)
 
 data Constraint a where
   CVal   :: Field a => (Var,a)  -> Constraint a -- x = c
@@ -66,8 +66,16 @@ solve_constraints cs env = g env cs
                 if e == c `f_op` d then g env cs'
                 else error $ show c ++ " " ++ show op ++ " " ++ show d
                              ++ "==" ++ show e ++ ": inconsistent assignment"
-              (_,_,_) -> g env (cs' ++ [CBinop op (x,y,z)])
-
+              (_,_,_) ->
+                case op of
+                  Add -> g env (cs' ++ [CBinop op (x,y,z)])
+                  Sub -> g env (cs' ++ [CBinop op (x,y,z)])
+                  Mult -> g env (cs' ++ [CBinop op (x,y,z)])
+                  Div -> g env (cs' ++ [CBinop op (x,y,z)])
+                  And -> error $ "unrecognized binary operation: " ++ show op
+                  Or  -> error $ "unrecognized binary operation: " ++ show op
+                  XOr -> error $ "unrecognized binary operation: " ++ show op
+                  
 r1c_of_c :: Field a => Int -> Constraint a -> R1C a
 r1c_of_c nw c = case c of
   CVal (x,c)    -> R1C (const_poly nw one,var_poly nw x,const_poly nw c)

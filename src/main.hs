@@ -10,6 +10,7 @@ import Prelude hiding
   , (-)    
   , (*)    
   , (/)
+  , (&&)        
   , return
   , fromRational
   , negate    
@@ -83,7 +84,7 @@ prog7
        ; y <- get (a,51)              
        ; ret $ x + y }
 
--- | 7. 'forall_pairs' test
+-- | 8. 'forall_pairs' test
 prog8 
   = do { a <- arr 25
        ; let index_of i j = (P.+) ((P.*) 5 i) j
@@ -92,6 +93,15 @@ prog8
        ; x <- get (a,5)  -- 5
        ; y <- get (a,24) -- 24
        ; ret $ x + y }
+
+-- | 9. 'and' test
+prog9 e1 e2
+  = do { ret (e1 && e2) }
+
+-- | 9. 'xor' test
+prog10 e1 e2
+  = do { ret (e1 `xor` e2) }
+
 
 -- | (1) Compile to R1CS.
 --   (2) Generate a satisfying assignment, w.
@@ -135,6 +145,16 @@ tests
     , (prog7, 100)
 
     , (prog8, 29)
+
+    , (prog9 0.0 0.0, 0)
+    , (prog9 0.0 1.0, 0)
+    , (prog9 1.0 0.0, 0)
+    , (prog9 1.0 1.0, 1)
+
+    , (prog10 0.0 0.0, 0)
+    , (prog10 0.0 1.0, 1)
+    , (prog10 1.0 0.0, 1)
+    , (prog10 1.0 1.0, 0)
     ]
 
 main = mapM_ run_test tests

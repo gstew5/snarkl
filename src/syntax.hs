@@ -10,6 +10,7 @@ import Prelude hiding
   , (-)    
   , (*)    
   , (/)
+  , (&&)    
   , return
   , fromRational
   , negate
@@ -155,7 +156,13 @@ ret = return
 (*) e1 e2 = EBinop Mult e1 e2
 
 (/) :: Exp Rational -> Exp Rational -> Exp Rational
-(/) e1 e2 = EBinop Inv e1 e2
+(/) e1 e2 = EBinop Div e1 e2
+
+(&&) :: Exp Rational -> Exp Rational -> Exp Rational
+(&&) e1 e2 = EBinop And e1 e2
+
+xor :: Exp Rational -> Exp Rational -> Exp Rational
+xor e1 e2 = EBinop XOr e1 e2
 
 fromRational r = EVal (r :: Rational)
 

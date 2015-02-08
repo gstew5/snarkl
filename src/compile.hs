@@ -40,21 +40,49 @@ fresh_var
        ; set_next_var (next + 1)
        ; return next }
 
--- | Add constraint 'x \/ y = c'
-add_or_constraints :: Field a => (Var,Var,Var) -> State (CEnv a) ()
-add_or_constraints (x,y,z)
+-- | Add constraint 'b^2 = b'.
+ensure_boolean :: Field a => Var -> State (CEnv a) ()
+ensure_boolean b
+  = do { b_sq <- fresh_var
+       ; add_constraint (CBinop Mult (b,b,b_sq))
+       ; add_constraint (CVar (b_sq,b)) }
+
+-- | Constraint 'x \/ y = z'.
+-- The encoding is: x+y - z = x*y;
+-- assumes the caller enforces that x and y are boolean.
+encode_or :: Field a => (Var,Var,Var) -> State (CEnv a) ()
+encode_or (x,y,z)
   = do { x_mult_y <- fresh_var
        ; x_plus_y <- fresh_var
        ; add_constraint (CBinop Mult (x,y,x_mult_y))
        ; add_constraint (CBinop Add (x,y,x_plus_y))
        ; add_constraint (CBinop Sub (x_plus_y,z,x_mult_y)) }
 
--- | Add constraint 'b^2 = b'
-ensure_boolean :: Field a => Var -> State (CEnv a) ()
-ensure_boolean b
-  = do { b_sq <- fresh_var
-       ; add_constraint (CBinop Mult (b,b,b_sq))
-       ; add_constraint (CVar (b_sq,b)) }
+-- | Constraint 'x xor y = z'.
+-- The encoding is: x+y - z = 2(x*y);
+-- assumes the caller enforces that x and y are boolean.
+encode_xor :: Field a => (Var,Var,Var) -> State (CEnv a) ()
+encode_xor (x,y,z)
+  = do { x_mult_y <- fresh_var
+       ; x_plus_y <- fresh_var
+       ; two_x_mult_y <- fresh_var
+       ; add_constraint (CBinop Mult (x,y,x_mult_y))
+       ; add_constraint (CBinop Add (x,y,x_plus_y))
+       ; add_constraint (CBinop Add (x_mult_y,x_mult_y,two_x_mult_y))
+       ; add_constraint (CBinop Sub (x_plus_y,z,two_x_mult_y)) }
+
+-- | Encode the boolean constraint 'x op y = z'.
+-- assumes the caller enforces that x and y are boolean.
+encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
+encode_binop op (x,y,z)
+  | is_boolean op
+  = let g And = encode_binop Mult (x,y,z)
+        g Or  = encode_or (x,y,z)
+        g XOr = encode_xor (x,y,z)
+    in g op
+
+  | otherwise
+  = add_constraint (CBinop op (x,y,z))
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
@@ -64,10 +92,14 @@ cs_of_exp out e = case e of
     do { add_constraint (CVal (out,c)) }
   EBinop op e1 e2 ->
     do { e1_out <- fresh_var
-       ; e2_out <- fresh_var        
+       ; e2_out <- fresh_var
+       ; if is_boolean op
+         then do { ensure_boolean e1_out
+                 ; ensure_boolean e2_out }
+         else return ()
        ; cs_of_exp e1_out e1
        ; cs_of_exp e2_out e2
-       ; add_constraint (CBinop op (e1_out,e2_out,out)) }
+       ; encode_binop op (e1_out,e2_out,out) }
   EIf b e1 e2 ->
     do { b_out  <- fresh_var -- b
        ; bn_out <- fresh_var -- (1-b)
@@ -84,7 +116,7 @@ cs_of_exp out e = case e of
        ; ensure_boolean b_out 
        ; add_constraint (CBinop Mult (b_out,e1_out,b_e1))
        ; add_constraint (CBinop Mult (bn_out,e2_out,bn_e2))
-       ; add_or_constraints (b_e1,bn_e2,out) }
+       ; encode_binop Or (b_e1,bn_e2,out) }
   EAssign e1 e2 ->
     do { let x = var_of_exp e1
        ; e2_out <- fresh_var
