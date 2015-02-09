@@ -23,6 +23,7 @@ import qualified Prelude as P
 
 import Syntax
 import Lang
+import Keccak
 
 -- | 1. A standalone "program" in the expression language
 prog1 x y z
@@ -91,9 +92,9 @@ prog7
 -- | 8. 'forall_pairs' test
 prog8 
   = do { a <- arr 25
-       ; let index_of i j = (P.+) ((P.*) 5 i) j
+       ; let index i j = (P.+) ((P.*) 5 i) j
        ; forall_pairs ([0..4],[0..4]) (\i j ->
-           set (a,index_of i j) (exp_of_int $ index_of i j))
+           set (a,index i j) (exp_of_int $ index i j))
        ; x <- get (a,5)  -- 5
        ; y <- get (a,24) -- 24
        ; ret $ x + y }
@@ -161,6 +162,8 @@ tests
     , (prog10 0.0 1.0, 1)
     , (prog10 1.0 0.0, 1)
     , (prog10 1.0 1.0, 0)
+
+    , (round1 1.0, 0)      
     ]
 
 main = mapM_ run_test tests

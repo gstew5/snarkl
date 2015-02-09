@@ -9,7 +9,8 @@ import Prelude hiding
   , (-)    
   , (*)    
   , (/)
-  , (&&)    
+  , (&&)
+  , not  
   , return
   , fromRational
   , negate
@@ -135,7 +136,7 @@ set (a,j) e
          -- sequencing, hence [last le] is always safe.
          ESeq le ->
            let all_but_last = init le
-               le' = filter (not . is_pure) all_but_last
+               le' = filter (P.not . is_pure) all_but_last
            in (exp_seq (ESeq le') e',s'')
          _ -> (exp_seq e e',s''))
 
@@ -164,6 +165,9 @@ ret = return
 
 (&&) :: Exp Rational -> Exp Rational -> Exp Rational
 (&&) e1 e2 = EBinop And e1 e2
+
+not :: Exp Rational -> Exp Rational
+not e = if e then 0.0 else 1.0
 
 xor :: Exp Rational -> Exp Rational -> Exp Rational
 xor e1 e2 = EBinop XOr e1 e2
