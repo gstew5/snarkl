@@ -5,7 +5,7 @@ GHC_OPTIONS=-Werror -Wall \
   -fno-warn-unused-do-bind
 
 all:
-	$(GHC) $(GHC_OPTIONS) main.hs
+	$(GHC) $(GHC_OPTIONS) Main.hs
 
 clean:
 	rm *.o *.hi *~ main.exe
