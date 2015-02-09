@@ -83,7 +83,7 @@ solve_constraints cs env0 = g env0 cs
                 g (Map.insert x (e `fn_op` d) env) (cs' ++ [c0])
               (Just c,Just d,Just e)  ->
                 if e == c `f_op` d then g env cs'
-                else error $ format_err cs env c d 
+                else error $ format_err cs env e (c `f_op` d) 
               (_,_,_) ->
                 case op of
                   Add -> g env (cs' ++ [c0])
