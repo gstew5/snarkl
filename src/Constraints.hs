@@ -107,9 +107,13 @@ r1c_of_c nw c = case c of
   CBinop CAdd  (x,y,z) ->
     if x /= y then R1C (const_poly nw one,add_poly nw x y,var_poly nw z)
     else R1C (const_poly nw (add one one),var_poly nw x,var_poly nw z)
-  CBinop CSub  (x,y,z) -> R1C (const_poly nw one,sub_poly nw x y,var_poly nw z)  
-  CBinop CMult (x,y,z) -> R1C (var_poly nw x,var_poly nw y,var_poly nw z)
-  CBinop CDiv (_,_,_) -> error "r1c_of_c: Div case not yet implemented"
+  CBinop CSub  (x,y,z) ->
+    if x /= y then R1C (const_poly nw one,sub_poly nw x y,var_poly nw z)
+    else r1c_of_c nw (CVal (z,zero))                   
+  CBinop CMult (x,y,z) ->
+    R1C (var_poly nw x,var_poly nw y,var_poly nw z)
+  CBinop CDiv (_,_,_) ->
+    error "r1c_of_c: Div case not yet implemented"
 
 r1cs_of_cs :: Field a => Int -> [Constraint a] -> R1CS a
 r1cs_of_cs nw cs = R1CS $ map (r1c_of_c nw) cs
