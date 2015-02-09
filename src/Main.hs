@@ -163,7 +163,7 @@ tests
     , (prog10 1.0 0.0, 1)
     , (prog10 1.0 1.0, 0)
 
-    , (round1 1.0, 0)      
+    , (keccak1 2, 0)      
     ]
 
 main = mapM_ run_test tests
