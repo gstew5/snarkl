@@ -1,7 +1,9 @@
 {-# LANGUAGE GADTs,TypeSynonymInstances,FlexibleInstances #-}
 
 module Lang 
-  ( Exp(..)
+  ( Op(..)
+  , is_boolean
+  , Exp(..)
   , exp_seq
   , is_pure
   , var_of_exp
@@ -13,6 +15,28 @@ import Field
 ----------------------------------------------------------------
 --                 Source Expression Language                 --
 ----------------------------------------------------------------
+
+data Op = Add | Sub | Mult | Div
+        | And | Or | XOr
+
+instance Show Op where
+  show Add  = "+"
+  show Sub  = "-"
+  show Mult = "*"
+  show Div  = "-*"
+  show And  = "&&"
+  show Or   = "||"  
+  show XOr  = "xor"
+
+is_boolean :: Op -> Bool
+is_boolean b = case b of
+  Add -> False
+  Sub -> False
+  Mult -> False
+  Div -> False
+  And -> True
+  Or -> True  
+  XOr -> True
 
 data Exp a where
   EVar    :: Var -> Exp a

@@ -15,6 +15,14 @@ data CEnv a =
   CEnv { cur_cs   :: [Constraint a]
        , next_var :: Var }
 
+cop_of_op :: Op -> COp
+cop_of_op op = case op of
+  Add -> CAdd
+  Sub -> CSub
+  Mult -> CMult
+  Div -> CDiv
+  _ -> error $ "internal error: attempt to compile binop " ++ show op
+
 add_constraint :: Constraint a -> State (CEnv a) ()
 add_constraint c = modify (\cenv -> cenv {cur_cs = c : cur_cs cenv})
 
@@ -44,7 +52,7 @@ fresh_var
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
 ensure_boolean b  
   = do { b_sq <- fresh_var
-       ; add_constraint (CBinop Mult (b,b,b_sq))
+       ; add_constraint (CBinop CMult (b,b,b_sq))
        ; add_constraint (CVar (b_sq,b)) } 
 
 -- | Constraint 'x \/ y = z'.
@@ -53,9 +61,9 @@ encode_or :: Field a => (Var,Var,Var) -> State (CEnv a) ()
 encode_or (x,y,z)
   = do { x_mult_y <- fresh_var
        ; x_plus_y <- fresh_var
-       ; add_constraint (CBinop Mult (x,y,x_mult_y))
-       ; add_constraint (CBinop Add (x,y,x_plus_y))
-       ; add_constraint (CBinop Sub (x_plus_y,z,x_mult_y)) }
+       ; add_constraint (CBinop CMult (x,y,x_mult_y))
+       ; add_constraint (CBinop CAdd (x,y,x_plus_y))
+       ; add_constraint (CBinop CSub (x_plus_y,z,x_mult_y)) }
 
 -- | Constraint 'x xor y = z'.
 -- The encoding is: x+y - z = 2(x*y); assumes x and y are boolean.
@@ -64,10 +72,10 @@ encode_xor (x,y,z)
   = do { x_mult_y <- fresh_var
        ; x_plus_y <- fresh_var
        ; two_x_mult_y <- fresh_var
-       ; add_constraint (CBinop Mult (x,y,x_mult_y))
-       ; add_constraint (CBinop Add (x,y,x_plus_y))
-       ; add_constraint (CBinop Add (x_mult_y,x_mult_y,two_x_mult_y))
-       ; add_constraint (CBinop Sub (x_plus_y,z,two_x_mult_y)) }
+       ; add_constraint (CBinop CMult (x,y,x_mult_y))
+       ; add_constraint (CBinop CAdd (x,y,x_plus_y))
+       ; add_constraint (CBinop CAdd (x_mult_y,x_mult_y,two_x_mult_y))
+       ; add_constraint (CBinop CSub (x_plus_y,z,two_x_mult_y)) }
 
 -- | Encode the boolean constraint 'x op y = z'.
 -- assumes the caller enforces that x and y are boolean.
@@ -84,7 +92,7 @@ encode_binop op (x,y,z)
     in g op
 
   | otherwise
-  = add_constraint (CBinop op (x,y,z))
+  = add_constraint (CBinop (cop_of_op op) (x,y,z))
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
@@ -116,8 +124,8 @@ cs_of_exp out e = case e of
        ; cs_of_exp e2_out e2
 
        ; ensure_boolean b_out 
-       ; add_constraint (CBinop Mult (b_out,e1_out,b_e1))
-       ; add_constraint (CBinop Mult (bn_out,e2_out,bn_e2))
+       ; add_constraint (CBinop CMult (b_out,e1_out,b_e1))
+       ; add_constraint (CBinop CMult (bn_out,e2_out,bn_e2))
        ; encode_binop Or (b_e1,bn_e2,out) }
   EAssign e1 e2 ->
     do { let x = var_of_exp e1
