@@ -45,7 +45,12 @@ fresh_var
 -- | Add constraint 'x = y'
 ensure_equal :: Field a => (Var,Var) -> State (CEnv a) ()
 ensure_equal (x,y)
-  = add_constraint (CConst CMult (one,x,y))
+  = add_constraint (CBinop CMult (TConst one,TVar True x,y))
+
+-- | Add constraint 'x = c'
+ensure_const :: Field a => (Var,a) -> State (CEnv a) ()
+ensure_const (x,c)
+  = add_constraint (CBinop CMult (TConst one,TConst c,x))
 
 -- | Add constraint 'b^2 = b'.
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
@@ -91,10 +96,10 @@ encode_binop op (x,y,z)
     in g op
 
   | otherwise
-  = let g Add = add_constraint (CBinop CAdd (Pos x,y,z))
-        g Sub = add_constraint (CBinop CAdd (Neg y,x,z))
-        g Mult = add_constraint (CBinop CMult (Pos x,y,z))
-        g Div = add_constraint (CBinop CMult (Neg y,x,z))
+  = let g Add = add_constraint (CBinop CAdd (TVar True x,TVar True y,z))
+        g Sub = add_constraint (CBinop CAdd (TVar True x,TVar False y,z))
+        g Mult = add_constraint (CBinop CMult (TVar True x,TVar True y,z))
+        g Div = add_constraint (CBinop CMult (TVar True x,TVar False y,z))
         g And = error "internal error"
         g Or  = error "internal error"
         g XOr = error "internal error"        
@@ -105,7 +110,7 @@ cs_of_exp out e = case e of
   EVar x ->
     do { ensure_equal (out,x) }
   EVal c ->
-    do { add_constraint (CVal (out,c)) }
+    do { ensure_const (out,c) }
   EBinop op e1 e2 ->
     do { e1_out <- fresh_var
        ; e2_out <- fresh_var
