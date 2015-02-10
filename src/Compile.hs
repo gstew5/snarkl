@@ -40,12 +40,17 @@ fresh_var
        ; set_next_var (next + 1)
        ; return next }
 
+-- | Add constraint 'x = y'
+ensure_equal :: Field a => (Var,Var) -> State (CEnv a) ()
+ensure_equal (x,y)
+  = add_constraint (CConst CMult (one,x,y))
+
 -- | Add constraint 'b^2 = b'.
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
 ensure_boolean b  
   = do { b_sq <- fresh_var
        ; encode_binop Mult (b,b,b_sq)
-       ; add_constraint (CVar (b_sq,b)) } 
+       ; ensure_equal (b_sq,b) }
 
 -- | Constraint 'x \/ y = z'.
 -- The encoding is: x+y - z = x*y; assumes x and y are boolean.
@@ -96,7 +101,7 @@ encode_binop op (x,y,z)
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
   EVar x ->
-    do { add_constraint (CVar (out,x)) }
+    do { ensure_equal (out,x) }
   EVal c ->
     do { add_constraint (CVal (out,c)) }
   EBinop op e1 e2 ->
@@ -130,7 +135,7 @@ cs_of_exp out e = case e of
     do { let x = var_of_exp e1
        ; e2_out <- fresh_var
        ; cs_of_exp e2_out e2
-       ; add_constraint (CVar (x,e2_out)) }
+       ; ensure_equal (x,e2_out) }
   ESeq le -> g le 
     where g []   = error "internal error: empty ESeq"
           g [e1] = cs_of_exp out e1

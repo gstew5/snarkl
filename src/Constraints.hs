@@ -31,20 +31,22 @@ inv_interp_op op = case op of
 
 data Constraint a where
   CVal   :: Field a => (Var,a)     -> Constraint a -- x = c
-  CVar   :: (Var,Var)              -> Constraint a -- x = y
+  CConst :: COp -> (a,Var,Var)     -> Constraint a -- c `op` y = z
   CBinop :: COp -> (Atom,Var,Var)  -> Constraint a -- x `op` y = z
 
 instance Show a => Show (Constraint a) where
   show (CVal (x,c)) = show x ++ "==" ++ show c
-  show (CVar (x,y)) = show x ++ "==" ++ show y
+  show (CConst op (c,y,z))
+    = show c ++ show op ++ show y ++ "==" ++ show z  
   show (CBinop op (x,y,z))
     = show x ++ show op ++ show y ++ "==" ++ show z
 
 type Assgn a = Map.Map Var a
 
-format_err :: Field a => [Constraint a] -> Assgn a -> a -> a -> String
-format_err cs env c d
-  = show c ++ " == " ++ show d
+format_err :: Field a => [Constraint a] -> Assgn a
+           -> COp -> a -> a -> a -> String
+format_err cs env op c d e
+  = show c ++ show op ++ show d ++ " == " ++ show e
     ++ ": inconsistent assignment, in constraint context: "
     ++ show cs ++ ", in partial assignment context: " ++ show env
 
@@ -59,15 +61,19 @@ solve_constraints :: Field a => [Constraint a] -- constraints to be solved
 solve_constraints cs env0 = g env0 cs
   where g env [] = env
         g env (CVal (x,c) : cs') = g (Map.insert x c env) cs'
-        g env (c0@(CVar (x,y)) : cs')
-          = case (Map.lookup x env,Map.lookup y env) of
+        g env (c0@(CConst op (c,y,z)) : cs')
+          = let f_op  = interp_op op
+                fn_op = inv_interp_op op
+            in case (Map.lookup y env,Map.lookup z env) of
               (Nothing,Nothing) -> g env (cs' ++ [c0])
-              (Just c,Nothing)  -> g (Map.insert y c env) cs'
-              (Nothing,Just d)  -> g (Map.insert x d env) cs'
-              (Just c,Just d)   ->
-                if c == d then g env cs' else error $ format_err cs env c d 
+              (Just d,Nothing)  -> g (Map.insert z (c `f_op` d) env) cs'
+              (Nothing,Just e)  -> g (Map.insert y (e `fn_op` c) env) cs'
+              (Just d,Just e)   ->
+                if c `f_op` d == e then g env cs'
+                else error $ format_err cs env op c d e
         g env (c0@(CBinop op (x,y,z)) : cs')
           = let f_op  = interp_op op
+                fn_op = inv_interp_op op
             in case ( Map.lookup (var_of_atom x) env
                     , Map.lookup y env
                     , Map.lookup z env) of
@@ -76,22 +82,29 @@ solve_constraints cs env0 = g env0 cs
                 in g (Map.insert z (c' `f_op` d) env) (cs' ++ [c0])
               (Just c,Nothing,Just e) ->
                 let c'  = if is_pos x then c else neg c
-                    res = neg c' `f_op` e
+                    res = e `fn_op` c'
                 in g (Map.insert y res env) (cs' ++ [c0])
               (Nothing,Just d,Just e) ->
-                let res = if is_pos x then neg d `f_op` e
-                          else neg (neg d `f_op` e)
-                in g (Map.insert (var_of_atom x) res env) (cs' ++ [c0])
+                let res  = e `fn_op` d
+                    res' = if is_pos x then res else neg res
+                in g (Map.insert (var_of_atom x) res' env) (cs' ++ [c0])
               (Just c,Just d,Just e)  ->
                 let c' = if is_pos x then c else neg c
                 in if e == c' `f_op` d then g env cs'
-                else error $ format_err cs env e (c' `f_op` d) 
+                else error $ format_err cs env op c' d e 
               (_,_,_) -> g env (cs' ++ [c0])
                   
 r1c_of_c :: Field a => Int -> Constraint a -> R1C a
 r1c_of_c nw c = case c of
-  CVal (x,c') -> R1C (const_poly nw one,var_poly nw (Pos x),const_poly nw c')
-  CVar (x,y)  -> R1C (const_poly nw one,var_poly nw (Pos x),var_poly nw (Pos y))
+  CVal (x,c') -> R1C ( const_poly nw one
+                     , var_poly nw (Pos x)
+                     , const_poly nw c')
+  CConst CAdd (c',y,z) ->  R1C ( const_poly nw one
+                               , cy_poly nw c' (Pos y)
+                               , var_poly nw (Pos z))
+  CConst CMult (c',y,z) -> R1C ( const_poly nw c'
+                               , var_poly nw (Pos y)
+                               , var_poly nw (Pos z))
   CBinop CAdd  (x,y,z) -> case x of
     Pos x'
       | x' == y -> R1C ( const_poly nw (add one one)

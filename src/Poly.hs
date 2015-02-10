@@ -27,9 +27,9 @@ var_poly nw x
   | otherwise  
   = error "variable exceeds bound"
 
--- the polynomial over 'nw' variables, equal 'x + y'
-add_poly :: Field a => Int -> Atom -> Atom -> Poly a
-add_poly nw x y
+-- the polynomial over 'nw' variables, equal 'c + x + y'
+cxy_poly :: Field a => Int -> a -> Atom -> Atom -> Poly a
+cxy_poly nw c x y
   | var_of_atom x < nw
   , var_of_atom y < nw  
   = let f z = if var_of_atom x == z then
@@ -37,10 +37,18 @@ add_poly nw x y
               else if var_of_atom y == z then 
                 if is_pos y then one else neg one
               else zero
-    in Poly $ zero : take nw (map f [0..])
+    in Poly $ c : take nw (map f [0..])
 
   | otherwise  
   = error "variable exceeds bound"
+
+-- the polynomial over 'nw' variables, equal 'c + y'
+cy_poly :: Field a => Int -> a -> Atom -> Poly a
+cy_poly nw c y = cxy_poly nw c y (Pos (-1))
+
+-- the polynomial over 'nw' variables, equal 'x + y'
+add_poly :: Field a => Int -> Atom -> Atom -> Poly a
+add_poly nw x y = cxy_poly nw zero x y
 
 -- the polynomial over 'nw' variables, equal 'x - y'
 sub_poly :: Field a => Int -> Atom -> Atom -> Poly a
