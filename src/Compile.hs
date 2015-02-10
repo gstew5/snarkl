@@ -138,11 +138,14 @@ cs_of_exp out e = case e of
        ; encode_binop Mult (b_out,e1_out,b_e1)
        ; encode_binop Mult (bn_out,e2_out,bn_e2)
        ; encode_binop Or (b_e1,bn_e2,out) }
+  -- NOTE: when compiling assignments, the naive thing to do is
+  -- to introduce a new var, e2_out, bound to result of e2 and
+  -- then ensure that e2_out == x. We optimize by passing x to
+  -- compilation of e2 directly.
   EAssign e1 e2 ->
     do { let x = var_of_exp e1
-       ; e2_out <- fresh_var
-       ; cs_of_exp e2_out e2
-       ; ensure_equal (x,e2_out) }
+       ; cs_of_exp x e2 }
+       } 
   ESeq le -> g le 
     where g []   = error "internal error: empty ESeq"
           g [e1] = cs_of_exp out e1
