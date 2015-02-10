@@ -84,10 +84,10 @@ encode_binop op (x,y,z)
     in g op
 
   | otherwise
-  = let g Add = add_constraint (CBinop CAdd (Pos x,Pos y,z))
-        g Sub = add_constraint (CBinop CAdd (Pos x,Neg y,z))
-        g Mult = add_constraint (CBinop CMult (Pos x,Pos y,z))
-        g Div = add_constraint (CBinop CMult (Pos x,Neg y,z))
+  = let g Add = add_constraint (CBinop CAdd (Pos x,y,z))
+        g Sub = add_constraint (CBinop CAdd (Neg y,x,z))
+        g Mult = add_constraint (CBinop CMult (Pos x,y,z))
+        g Div = add_constraint (CBinop CMult (Neg y,x,z))
         g And = error "internal error"
         g Or  = error "internal error"
         g XOr = error "internal error"        

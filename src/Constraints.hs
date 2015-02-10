@@ -32,13 +32,13 @@ inv_interp_op op = case op of
 data Constraint a where
   CVal   :: Field a => (Var,a)     -> Constraint a -- x = c
   CVar   :: (Var,Var)              -> Constraint a -- x = y
-  CBinop :: COp -> (Atom,Atom,Var) -> Constraint a -- x `op` y = z
+  CBinop :: COp -> (Atom,Var,Var)  -> Constraint a -- x `op` y = z
 
 instance Show a => Show (Constraint a) where
   show (CVal (x,c)) = show x ++ "==" ++ show c
   show (CVar (x,y)) = show x ++ "==" ++ show y
   show (CBinop op (x,y,z))
-    = show x ++ show op ++ show y ++ "==" ++ show z    
+    = show x ++ show op ++ show y ++ "==" ++ show z
 
 type Assgn a = Map.Map Var a
 
@@ -69,38 +69,48 @@ solve_constraints cs env0 = g env0 cs
         g env (c0@(CBinop op (x,y,z)) : cs')
           = let f_op  = interp_op op
             in case ( Map.lookup (var_of_atom x) env
-                    , Map.lookup (var_of_atom y) env
+                    , Map.lookup y env
                     , Map.lookup z env) of
               (Just c,Just d,Nothing) ->
                 let c' = if is_pos x then c else neg c
-                    d' = if is_pos y then d else neg d
-                in g (Map.insert z (c' `f_op` d') env) (cs' ++ [c0])
+                in g (Map.insert z (c' `f_op` d) env) (cs' ++ [c0])
               (Just c,Nothing,Just e) ->
                 let c'  = if is_pos x then c else neg c
-                    res = if is_pos y then neg c' `f_op` e
-                          else neg (neg c' `f_op` e)
-                in g (Map.insert (var_of_atom y) res env) (cs' ++ [c0])
+                    res = neg c' `f_op` e
+                in g (Map.insert y res env) (cs' ++ [c0])
               (Nothing,Just d,Just e) ->
-                let d'  = if is_pos y then d else neg d 
-                    res = if is_pos x then neg d' `f_op` e
-                          else neg (neg d' `f_op` e)
+                let res = if is_pos x then neg d `f_op` e
+                          else neg (neg d `f_op` e)
                 in g (Map.insert (var_of_atom x) res env) (cs' ++ [c0])
               (Just c,Just d,Just e)  ->
                 let c' = if is_pos x then c else neg c
-                    d' = if is_pos y then d else neg d
-                in if e == c' `f_op` d' then g env cs'
-                else error $ format_err cs env e (c' `f_op` d') 
+                in if e == c' `f_op` d then g env cs'
+                else error $ format_err cs env e (c' `f_op` d) 
               (_,_,_) -> g env (cs' ++ [c0])
                   
 r1c_of_c :: Field a => Int -> Constraint a -> R1C a
 r1c_of_c nw c = case c of
   CVal (x,c') -> R1C (const_poly nw one,var_poly nw (Pos x),const_poly nw c')
   CVar (x,y)  -> R1C (const_poly nw one,var_poly nw (Pos x),var_poly nw (Pos y))
-  CBinop CAdd  (x,y,z) ->
-    if x /= y then R1C (const_poly nw one,add_poly nw x y,var_poly nw (Pos z))
-    else R1C (const_poly nw (add one one),var_poly nw x,var_poly nw (Pos z))
+  CBinop CAdd  (x,y,z) -> case x of
+    Pos x'
+      | x' == y -> R1C ( const_poly nw (add one one)
+                       , var_poly nw x
+                       , var_poly nw (Pos z))
+    Pos _
+      | otherwise -> R1C ( const_poly nw one
+                       , add_poly nw x (Pos y)
+                       , var_poly nw (Pos z))
+    Neg x'
+      | x' == y -> R1C ( const_poly nw zero
+                       , const_poly nw zero
+                       , var_poly nw (Pos z))
+    Neg _
+      | otherwise -> R1C ( const_poly nw one
+                       , add_poly nw x (Pos y)
+                       , var_poly nw (Pos z))
   CBinop CMult (x,y,z) ->
-    R1C (var_poly nw x,var_poly nw y,var_poly nw (Pos z))
+    R1C (var_poly nw x,var_poly nw (Pos y),var_poly nw (Pos z))
 
 r1cs_of_cs :: Field a => Int -> [Constraint a] -> R1CS a
 r1cs_of_cs nw cs = R1CS $ map (r1c_of_c nw) cs
