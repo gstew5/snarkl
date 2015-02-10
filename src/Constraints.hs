@@ -14,6 +14,7 @@ import R1CS
 ----------------------------------------------------------------
 
 data COp = CAdd | CMult
+  deriving (Eq,Ord)
 
 instance Show COp where
   show CAdd  = "+"
@@ -29,10 +30,11 @@ inv_interp_op op = case op of
   CAdd -> \a1 a2 -> a1 `add` (neg a2)
   CMult -> \a1 a2 -> if a2 == zero then zero else a1 `mult` (inv a2)
 
-data Constraint a where
-  CVal   :: Field a => (Var,a)     -> Constraint a -- x = c
-  CConst :: COp -> (a,Var,Var)     -> Constraint a -- c `op` y = z
-  CBinop :: COp -> (Atom,Var,Var)  -> Constraint a -- x `op` y = z
+data Constraint a =
+    CVal (Var,a)              -- x = c
+  | CConst COp (a,Var,Var)    -- c `op` y = z
+  | CBinop COp (Atom,Var,Var) -- x `op` y = z
+  deriving (Eq,Ord)
 
 instance Show a => Show (Constraint a) where
   show (CVal (x,c)) = show x ++ "==" ++ show c

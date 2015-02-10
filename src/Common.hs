@@ -3,7 +3,7 @@ module Common where
 type Var = Int
 
 data Atom = Pos Var | Neg Var
-  deriving (Show,Eq)
+  deriving (Show,Eq,Ord)
 
 var_of_atom :: Atom -> Var
 var_of_atom a = case a of

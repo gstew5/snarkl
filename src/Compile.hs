@@ -3,6 +3,7 @@ module Compile
   ) where
 
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Control.Monad.State
 
 import Common
@@ -12,16 +13,17 @@ import Constraints
 import Lang
 
 data CEnv a =
-  CEnv { cur_cs   :: [Constraint a]
+  CEnv { cur_cs   :: Set.Set (Constraint a)
        , next_var :: Var }
 
-add_constraint :: Constraint a -> State (CEnv a) ()
-add_constraint c = modify (\cenv -> cenv {cur_cs = c : cur_cs cenv})
+add_constraint :: Ord a => Constraint a -> State (CEnv a) ()
+add_constraint c
+  = modify (\cenv -> cenv {cur_cs = Set.insert c $ cur_cs cenv})
 
 get_constraints :: State (CEnv a) [Constraint a]
 get_constraints
   = do { cenv <- get
-       ; return (cur_cs cenv) }
+       ; return $ Set.toList $ cur_cs cenv }
 
 get_next_var :: State (CEnv a) Var
 get_next_var
@@ -162,7 +164,7 @@ compile_exp :: Field a =>
                , R1CS a)    -- ^ The resulting rank-1 constraint system
 compile_exp nv e
   = let out = nv -- NOTE: Variables are zero-indexed by the frontend.
-        cenv_init    = CEnv [] (out+1) 
+        cenv_init    = CEnv Set.empty (out+1) 
         ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
         nw           = num_vars r1cs
         zero_map         = Map.fromList $ zip (take nw [0..]) (repeat zero)

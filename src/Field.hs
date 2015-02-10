@@ -4,7 +4,7 @@ module Field where
 
 import Data.Ratio
 
-class (Show a,Eq a) => Field a where
+class (Show a,Eq a,Ord a) => Field a where
   zero :: a
   one  :: a
   add  :: a -> a -> a
