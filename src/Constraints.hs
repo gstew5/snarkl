@@ -20,20 +20,10 @@ instance Show COp where
   show CAdd  = "+"
   show CMult = "*"
 
-unit_of_op :: Field a => COp -> a
-unit_of_op op = case op of
-  CAdd -> zero
-  CMult -> one
-
 interp_op :: Field a => COp -> a -> a -> a
 interp_op op = case op of
   CAdd -> add
   CMult -> mult
-
-inv_interp_op :: Field a => COp -> a -> a -> a
-inv_interp_op op = case op of
-  CAdd -> \a1 a2 -> a1 `add` (neg a2)
-  CMult -> \a1 a2 -> if a2 == zero then zero else a1 `mult` (inv a2)
 
 inv_op :: Field a => COp -> a -> a
 inv_op op = case op of
@@ -50,12 +40,62 @@ instance Show a => Show (Constraint a) where
 
 type Assgn a = Map.Map Var a
 
-format_err :: Field a => [Constraint a] -> Assgn a
-           -> COp -> a -> a -> a -> String
-format_err cs env op c d e
+format_err :: Field a => [Constraint a] -> Assgn a -> Var -> COp -> (a,a,a) -> String
+format_err cs env x op (c,d,e)
   = show c ++ show op ++ show d ++ " == " ++ show e
-    ++ ": inconsistent assignment, in constraint context: "
-    ++ show cs ++ ", in partial assignment context: " ++ show env
+    ++ ": inconsistent assignment, in constraint context: " ++ show cs
+    ++ ", in solved-variable context: " ++ show x    
+    ++ ", in partial assignment context: " ++ show env
+
+assert :: Field a => [Constraint a] -> Assgn a -> Var -> COp -> (a,a,a) -> Assgn a
+assert cs env x op (c,d,e) =
+  let fop = interp_op op
+  in if c `fop` d == e then env else error $ format_err cs env x op (c,d,e)
+
+solve_equation :: Field a
+               => [Constraint a]
+               -> Assgn a
+               -> COp 
+               -> (Term a,Term a,Term a) -- ^ Three terms, with zero or one unknowns
+               -> Assgn a
+solve_equation cs env op (tx,ty,tz) =
+  let fop    = interp_op op
+      invert = inv_op op
+  in case (tx,ty,tz) of
+    -- no unknowns 
+    (TConst c,TConst d,TConst e) -> assert cs env (-1) op (c,d,e)
+
+    -- one unknown
+    (TVar pos_x x,TConst d,TConst e) ->
+      case Map.lookup x env of
+        Nothing -> 
+          let v = invert d `fop` e
+          in Map.insert x (if pos_x then v else invert v) env
+        Just c -> assert cs env x op (if pos_x then c else invert c,d,e)
+    (TConst c,TVar pos_y y,TConst e) ->
+      case Map.lookup y env of
+        Nothing -> 
+          let v = invert c `fop` e
+          in Map.insert y (if pos_y then v else invert v) env
+        Just d -> assert cs env y op (c,if pos_y then d else invert d,e)
+    (TConst c,TConst d,TVar pos_z z) ->
+      case Map.lookup z env of
+        Nothing -> 
+          let v = c `fop` d
+          in Map.insert z (if pos_z then v else invert v) env
+        Just e -> assert cs env z op (c,d,if pos_z then e else invert e)
+
+    -- two or more unknowns
+    (_,_,_) -> error "expected equation with no greater than one unknown"
+
+
+lookup_term :: Field a => Assgn a -> COp -> Term a -> Term a
+lookup_term env op t = case t of
+  TConst _ -> t
+  TVar pos_x x ->
+    case Map.lookup x env of
+      Nothing -> t
+      Just c -> TConst $ if pos_x then c else inv_op op c
 
 -- | Starting from an initial partial assignment [env], solve the
 -- constraints [cs] and return the resulting complete assignment.
@@ -68,144 +108,29 @@ solve_constraints :: Field a
                   -> Assgn a -- ^ Resulting assignment
 solve_constraints cs env0 = g env0 cs
   where g env [] = env
-        g env (CBinop op (TConst c,TConst d,TConst e) : cs')
-          = let fop = interp_op op
-            in if c `fop` d == e then g env cs'
-               else error $ format_err cs env op c d e
-        g env (c0@(CBinop op (TConst c,TConst d,TVar pos_z z)) : cs')
-          = let fop = interp_op op
-            in case Map.lookup z env of
-              Nothing ->
-                let z_val = if pos_z then c `fop` d else inv_op op (c `fop` d)
-                in g (Map.insert z z_val env) (cs' ++ [c0])
-              Just e  ->
-                let z_val = if pos_z then e else inv_op op e
-                in if c `fop` d == z_val then g env cs'
-                   else error $ format_err cs env op c d z_val
-        g env (c0@(CBinop op (TConst c,TVar pos_y y,TConst e)) : cs')
-          = let fop  = interp_op op
-                fop' = inv_interp_op op
-            in case Map.lookup y env of
-              Nothing ->
-                let y_val = if pos_y then e `fop'` c else inv_op op (e `fop'` c)
-                in g (Map.insert y y_val env) (cs' ++ [c0])
-              Just d ->
-                let y_val = if pos_y then d else inv_op op d
-                in if c `fop` y_val == e then g env cs'
-                   else error $ format_err cs env op c y_val e
-        g env (c0@(CBinop op (TConst c,TVar pos_y y,TVar pos_z z)) : cs')
-          = let fop  = interp_op op
-                fop' = inv_interp_op op
-            in case (Map.lookup y env,Map.lookup z env) of
-              -- (y   ,   z)
-              (Nothing,Nothing) -> g env (cs' ++ [c0])
-              (Nothing,Just e) ->
-                let z_val = if pos_z then e else inv_op op e
-                    y_val = if pos_y then z_val `fop'` c
-                            else inv_op op (z_val `fop'` c)
-                in g (Map.insert y y_val env) (cs' ++ [c0])
-              (Just d,Nothing) ->
-                let y_val = if pos_y then d else inv_op op d
-                    z_val = if pos_z then (c `fop` y_val)
-                            else inv_op op (c `fop` y_val)
-                in g (Map.insert z z_val env) (cs' ++ [c0])
-              (Just d,Just e) ->
-                let y_val = if pos_y then d else inv_op op d
-                    z_val = if pos_z then e else inv_op op e
-                in if c `fop` y_val == z_val then g env cs'
-                   else error $ format_err cs env op c y_val z_val
-        g env (c0@(CBinop op (TVar pos_x x,TConst d,TConst e)) : cs')
-          = let fop  = interp_op op
-                fop' = inv_interp_op op
-            in case Map.lookup x env of
-              -- x
-              Nothing -> 
-                let x_val = if pos_x then e `fop'` d else inv_op op (e `fop'` d)
-                in g (Map.insert x x_val env) (cs' ++ [c0])
-              Just c ->
-                let x_val = if pos_x then c else inv_op op c
-                in if x_val `fop` d == e then g env cs'
-                   else error $ format_err cs env op x_val d e
-        g env (c0@(CBinop op (TVar pos_x x,TConst d,TVar pos_z z)) : cs')
-          = let fop  = interp_op op
-                fop' = inv_interp_op op
-            in case (Map.lookup x env,Map.lookup z env) of
-              -- (x   ,   z)              
-              (Nothing,Nothing) -> g env (cs' ++ [c0])
-              (Nothing,Just e) ->
-                let z_val = if pos_z then e else inv_op op e
-                    x_val = if pos_x then z_val `fop'` d
-                            else inv_op op (z_val `fop'` d)
-                in g (Map.insert x x_val env) (cs' ++ [c0])
-              (Just c,Nothing) ->
-                let x_val = if pos_x then c else inv_op op c
-                    z_val = if pos_z then x_val `fop` d
-                            else inv_op op (x_val `fop` d)
-                in g (Map.insert z z_val env) (cs' ++ [c0])
-              (Just c,Just e) ->
-                let x_val = if pos_x then c else inv_op op c
-                    z_val = if pos_z then e else inv_op op e
-                in if x_val `fop` d == z_val then g env cs'
-                   else error $ format_err cs env op x_val d z_val
-        g env (c0@(CBinop op (TVar pos_x x,TVar pos_y y,TConst e)) : cs')
-          = let fop  = interp_op op
-                fop' = inv_interp_op op
-            in case (Map.lookup x env,Map.lookup y env) of
-              -- (x   ,   y)              
-              (Nothing,Nothing) -> g env (cs' ++ [c0])
-              (Nothing,Just d) ->
-                let y_val = if pos_y then d else inv_op op d
-                    x_val = if pos_x then e `fop'` y_val
-                            else inv_op op (e `fop'` y_val)
-                in g (Map.insert x x_val env) (cs' ++ [c0])
-              (Just c,Nothing) ->
-                let x_val = if pos_x then c else inv_op op c
-                    y_val = if pos_y then e `fop'` x_val
-                            else inv_op op (e `fop'` x_val)
-                in g (Map.insert y y_val env) (cs' ++ [c0])
-              (Just c,Just d) ->
-                let x_val = if pos_x then c else inv_op op c
-                    y_val = if pos_y then d else inv_op op d
-                in if x_val `fop` y_val == e then g env cs'
-                else error $ format_err cs env op x_val y_val e
-        g env (c0@(CBinop op (TVar pos_x x,TVar pos_y y,TVar pos_z z)) : cs')
-          = let fop  = interp_op op
-                fop' = inv_interp_op op
-            in case (Map.lookup x env,Map.lookup y env,Map.lookup z env) of
-              -- (x   ,   y   ,   z)              
-              (Nothing,Nothing,Nothing) -> g env (cs' ++ [c0])
-              (Nothing,Nothing,Just _) -> g env (cs' ++ [c0])
-              (Nothing,Just _,Nothing) -> g env (cs' ++ [c0])
-              (Nothing,Just d,Just e) -> 
-                let z_val = if pos_z then e else inv_op op e
-                    y_val = if pos_y then d else inv_op op d
-                    x_val = if pos_x then z_val `fop'` y_val
-                            else inv_op op (z_val `fop'` y_val)
-                in g (Map.insert x x_val env) (cs' ++ [c0])
-              (Just _,Nothing,Nothing) -> g env (cs' ++ [c0])
-              (Just c,Nothing,Just e) ->
-                let z_val = if pos_z then e else inv_op op e
-                    x_val = if pos_x then c else inv_op op c
-                    y_val = if pos_y then z_val `fop'` x_val
-                            else inv_op op (z_val `fop'` x_val)
-                in g (Map.insert y y_val env) (cs' ++ [c0])
-              (Just c,Just d,Nothing) ->
-                let x_val = if pos_x then c else inv_op op c
-                    y_val = if pos_y then d else inv_op op d
-                    z_val = if pos_z then x_val `fop` y_val
-                            else inv_op op (x_val `fop` y_val)
-                in g (Map.insert z z_val env) (cs' ++ [c0])
-              (Just c,Just d,Just e) ->
-                let x_val = if pos_x then c else inv_op op c
-                    y_val = if pos_y then d else inv_op op d
-                    z_val = if pos_z then e else inv_op op e
-                in if x_val `fop` y_val == z_val then g env cs'
-                else error $ format_err cs env op x_val y_val e
+        g env (c0@(CBinop op (tx,ty,tz)) : cs')
+          = case ( lookup_term env op tx
+                 , lookup_term env op ty
+                 , lookup_term env op tz
+                 ) of
+              -- no unknowns
+              trip@(TConst _,TConst _,TConst _) ->
+                g (solve_equation cs env op trip) cs'
+              -- one unknown
+              trip@(TVar _ _,TConst _,TConst _) ->
+                g (solve_equation cs env op trip) $ cs' ++ [c0]
+              trip@(TConst _,TVar _ _,TConst _) ->
+                g (solve_equation cs env op trip) $ cs' ++ [c0]
+              trip@(TConst _,TConst _,TVar _ _) ->
+                g (solve_equation cs env op trip) $ cs' ++ [c0]
+              -- can't learn anything...two or more unknowns
+              _ -> g env $ cs' ++ [c0]
 
 -- | Interpret a single IL constraint as a rank-1 constraint
 r1c_of_c :: Field a => Int -> Constraint a -> R1C a
 r1c_of_c nw constr = case constr of
-  -- no unknowns 
+  -- no unknowns
+  -- c `op` d = e
   CBinop op (TConst c,TConst d,TConst e) ->
     let cd = interp_op op c d
     in if cd == e then
@@ -214,18 +139,19 @@ r1c_of_c nw constr = case constr of
             ++ " == " ++ show e
   
   -- one unknown
+  -- c `op` d = z
   CBinop op (TConst c,TConst d,TVar pos_z z) ->
     let cd = interp_op op c d
     in R1C (const_poly nw one,var_poly nw (pos_z,z),const_poly nw cd)
   CBinop op (TConst c,TVar pos_y y,TConst e) ->
-    r1c_of_c nw (CBinop op
-                 ( TConst $ unit_of_op op 
-                 , TConst $ inv_interp_op op e c
+    r1c_of_c nw (CBinop CMult
+                 ( TConst one
+                 , TConst $ interp_op op e (inv_op op c)
                  , TVar pos_y y))
   CBinop op (TVar pos_x x,TConst d,TConst e) ->
-    r1c_of_c nw (CBinop op
-                 ( TConst $ unit_of_op op
-                 , TConst $ inv_interp_op op e d
+    r1c_of_c nw (CBinop CMult
+                 ( TConst one
+                 , TConst $ interp_op op e (inv_op op d)
                  , TVar pos_x x))
 
   -- two unknowns

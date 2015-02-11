@@ -33,8 +33,8 @@ var_poly nw (pos,x)
 cxy_poly :: Field a
          => Int -- ^ Number of variables
          -> a -- ^ Constant a
-         -> (Bool,Var) -- ^ Polarity of x, with x itself
-         -> (Bool,Var) -- ^ Polarity of y, with y itself         
+         -> (Bool,Var) -- ^ Polarity of x, along with x
+         -> (Bool,Var) -- ^ Polarity of y, along with y
          -> Poly a -- ^ Resulting polynomial
 cxy_poly nw c (pos_x,x) (pos_y,y)
   | x < nw
