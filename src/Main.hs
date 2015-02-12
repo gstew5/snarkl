@@ -23,7 +23,7 @@ import qualified Prelude as P
 
 import Syntax
 import Lang
-import Keccak
+-- import Keccak
 
 -- | 1. A standalone "program" in the expression language
 prog1 x y z
@@ -77,7 +77,7 @@ prog5 e
 -- | 6. 'times' test
 prog6 e
   = do { a <- arr 100
-       ; times 100 (set (a,3) e)
+       ; times 1 (set (a,3) e)
        ; x <- get (a,3)
        ; ret x }
 
@@ -163,7 +163,7 @@ tests
     , (prog10 1.0 0.0, 1)
     , (prog10 1.0 1.0, 0)
 
-    , (keccak1 2, 0)      
+--    , (keccak1 1, 0)      
     ]
 
 main = mapM_ run_test tests

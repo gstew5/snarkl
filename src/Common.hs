@@ -8,8 +8,12 @@ data Term a =
   deriving (Show,Eq,Ord)
 
 var_of_term :: Term a -> Maybe Var
-var_of_term a = case a of
-  (TConst _) -> Nothing  
-  (TVar _ x) -> Just x
+var_of_term t = case t of
+  TConst _ -> Nothing  
+  TVar _ x -> Just x
 
+is_const :: Term a -> Bool
+is_const t = case t of
+  TConst _ -> True
+  TVar _ _ -> False
 

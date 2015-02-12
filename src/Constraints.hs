@@ -23,12 +23,12 @@ instance Show COp where
 interp_op :: Field a => COp -> a -> a -> a
 interp_op op = case op of
   CAdd -> add
-  CMult -> mult
+  CMult -> \x y -> if x == zero || y == zero then zero else mult x y
 
 inv_op :: Field a => COp -> a -> a
 inv_op op = case op of
-  CAdd -> neg
-  CMult -> inv
+  CAdd -> neg 
+  CMult -> \x -> if x == zero then zero else inv x
 
 data Constraint a =
   CBinop COp (Term a,Term a,Term a) -- x `op` y = z
@@ -66,18 +66,28 @@ solve_equation cs env op (tx,ty,tz) =
     (TConst c,TConst d,TConst e) -> assert cs env (-1) op (c,d,e)
 
     -- one unknown
-    (TVar pos_x x,TConst d,TConst e) ->
-      case Map.lookup x env of
-        Nothing -> 
-          let v = invert d `fop` e
-          in Map.insert x (if pos_x then v else invert v) env
-        Just c -> assert cs env x op (if pos_x then c else invert c,d,e)
-    (TConst c,TVar pos_y y,TConst e) ->
-      case Map.lookup y env of
-        Nothing -> 
-          let v = invert c `fop` e
-          in Map.insert y (if pos_y then v else invert v) env
-        Just d -> assert cs env y op (c,if pos_y then d else invert d,e)
+    -- NOTE: We must be careful here when either c or d is zero,
+    -- and op = CMult, in which case the equation is still unsolvable.
+    (TVar pos_x x,TConst d,TConst e)
+      | if op == CMult then d /= zero else True
+     -> case Map.lookup x env of
+          Nothing -> 
+            let v = invert d `fop` e
+            in Map.insert x (if pos_x then v else invert v) env
+          Just c -> assert cs env x op (if pos_x then c else invert c,d,e)
+    (TVar _ _,TConst _,TConst _)
+      | otherwise
+      -> env
+    (TConst c,TVar pos_y y,TConst e)
+      | if op == CMult then c /= zero else True    
+     -> case Map.lookup y env of
+          Nothing -> 
+            let v = invert c `fop` e
+            in Map.insert y (if pos_y then v else invert v) env
+          Just d -> assert cs env y op (c,if pos_y then d else invert d,e)
+    (TConst _,TVar _ _,TConst _)
+      | otherwise 
+     -> env
     (TConst c,TConst d,TVar pos_z z) ->
       case Map.lookup z env of
         Nothing -> 
@@ -139,20 +149,25 @@ r1c_of_c nw constr = case constr of
             ++ " == " ++ show e
   
   -- one unknown
-  -- c `op` d = z
-  CBinop op (TConst c,TConst d,TVar pos_z z) ->
-    let cd = interp_op op c d
-    in R1C (const_poly nw one,var_poly nw (pos_z,z),const_poly nw cd)
-  CBinop op (TConst c,TVar pos_y y,TConst e) ->
-    r1c_of_c nw (CBinop CMult
-                 ( TConst one
-                 , TConst $ interp_op op e (inv_op op c)
-                 , TVar pos_y y))
-  CBinop op (TVar pos_x x,TConst d,TConst e) ->
-    r1c_of_c nw (CBinop CMult
-                 ( TConst one
-                 , TConst $ interp_op op e (inv_op op d)
-                 , TVar pos_x x))
+  -- c + d = z
+  CBinop CAdd (TConst c,TConst d,TVar pos_z z) ->
+    R1C (const_poly nw one,const_poly nw (c `add` d),var_poly nw (pos_z,z))
+  -- c + y = e
+  CBinop CAdd (TConst c,TVar pos_y y,TConst e) ->
+    R1C (const_poly nw one,cy_poly nw c (pos_y,y),const_poly nw e)
+  -- x + d = e
+  CBinop CAdd (TVar pos_x x,TConst d,TConst e) ->
+    R1C (const_poly nw one,cy_poly nw d (pos_x,x),const_poly nw e)
+
+  -- c * d = z
+  CBinop CMult (TConst c,TConst d,TVar pos_z z) ->
+    R1C (const_poly nw c,const_poly nw d,var_poly nw (pos_z,z))
+  -- c * y = e
+  CBinop CMult (TConst c,TVar pos_y y,TConst e) ->
+    R1C (const_poly nw c,var_poly nw (pos_y,y),const_poly nw e)
+  -- x * d = e
+  CBinop CMult (TVar pos_x x,TConst d,TConst e) ->
+    R1C (var_poly nw (pos_x,x),const_poly nw d,const_poly nw e)
 
   -- two unknowns
   -- c + y = z

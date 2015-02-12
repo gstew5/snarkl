@@ -10,6 +10,7 @@ import Common
 import Field
 import R1CS
 import Constraints
+import Simplify
 import Lang
 
 data CEnv a =
@@ -82,7 +83,7 @@ encode_xor (x,y,z)
        ; encode_binop Sub  (x_plus_y,z,two_x_mult_y) }
 
 -- | Encode the boolean constraint 'x op y = z'.
--- assumes the caller enforces that x and y are boolean.
+-- Assumes the caller enforces that x and y are boolean.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
 encode_binop op (x,y,z)
   | is_boolean op
@@ -161,8 +162,10 @@ r1cs_of_exp out e
   = do { cs_of_exp out e
        ; nv <- get_num_vars
        ; cs <- get_constraints
-       ; let f = solve_constraints cs
-       ; return $ (f,r1cs_of_cs nv cs) } 
+       ; let pinned_vars = [out]
+       ; let cs' = Set.toList $ simplify pinned_vars nv $ Set.fromList cs
+       ; let f = solve_constraints cs'
+       ; return $ (f,r1cs_of_cs nv cs') } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
@@ -174,14 +177,14 @@ compile_exp nv e
         cenv_init    = CEnv Set.empty (out+1) 
         ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
         nw           = num_vars r1cs
-        zero_map         = Map.fromList $ zip (take nw [0..]) (repeat zero)
+        initial_map      = Map.fromList $ zip [0..nw-1] (repeat $ neg one)
         input_map inputs = Map.fromList (zip [0..] inputs)
         -- NOTE: Even if some variables appear in none of the
         -- generated constraints, we must assign some (dummy) value in
         -- the witness. The dummies ensure that the witness list has
         -- the required length (we treat witnesses interchangeably as
-        -- maps and position-indexed lists in places).
+        -- maps and position-indexed lists).
         g inputs
-          = let witness_map = f (input_map inputs) `Map.union` zero_map
+          = let witness_map = f (input_map inputs) `Map.union` initial_map
             in map snd $ Map.toList witness_map
     in (g,r1cs)
