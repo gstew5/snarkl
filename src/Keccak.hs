@@ -42,7 +42,7 @@ round1 a rc
        ; forall [0..24] (\i -> set (a,i) 1.0)
        ; forall [0..24] (\i -> set (b,i) 0.0)
        ; forall [0..4]  (\i -> set (c,i) 0.0)
-       ; forall [0..4]  (\i -> set (c,i) 0.0)
+       ; forall [0..4]  (\i -> set (d,i) 0.0)
          -- | \theta step         
        ; forall [0..4] (\x ->
            do q <- get (a,index_of x 0)
@@ -104,5 +104,7 @@ keccak_f1 num_rounds a
       round1 a (exp_of_int (trunc 1 $ round_consts !! i)))
 
 keccak1 num_rounds
-  = do { a <- arr num_lanes;
-         keccak_f1 num_rounds a }
+  = do { a <- arr num_lanes
+       ; keccak_f1 num_rounds a
+       ; v <- get (a,23)
+       ; ret v }

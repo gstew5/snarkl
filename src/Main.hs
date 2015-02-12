@@ -23,7 +23,7 @@ import qualified Prelude as P
 
 import Syntax
 import Lang
--- import Keccak
+import Keccak
 
 -- | 1. A standalone "program" in the expression language
 prog1 x y z
@@ -163,7 +163,7 @@ tests
     , (prog10 1.0 0.0, 1)
     , (prog10 1.0 1.0, 0)
 
---    , (keccak1 1, 0)      
+    , (keccak1 3, 1)      
     ]
 
 main = mapM_ run_test tests
