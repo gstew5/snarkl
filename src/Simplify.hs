@@ -42,11 +42,29 @@ new_simplstate nv
   = do { uf <- new_uf nv
        ; return $ SimplState Map.empty uf }
 
+do_simplify :: Field a
+            => [Var] -- ^ Pinned variables (e.g., outputs)
+                     -- These should not be optimized away.
+            -> Int -- ^ Number of variables
+            -> [Constraint a] -- ^ Constraint set to be simplified 
+            -> [Constraint a]
+do_simplify pinned_vars nv sigma
+  = let sigma' = Set.fromList sigma
+    in Set.toList $ g (5 :: Int) sigma' sigma'
+  where g budget s_prev s
+        -- ^ budget: the number of nonmonotonic iterations
+          | Set.size s >= Set.size s_prev
+          = if budget == 0 then s
+            else g (budget-1) s (simplify pinned_vars nv s)  
+        g budget _ s
+          | otherwise
+          = g budget s (simplify pinned_vars nv s)
+
+
 simplify :: Field a
-         => [Var] -- ^ Pinned variables (e.g., outputs)
-                  -- These should not be optimized away.
-         -> Int -- ^ Number of variables
-         -> ConstraintSet a -- ^ Constraint set to be simplified 
+         => [Var] 
+         -> Int 
+         -> ConstraintSet a
          -> ConstraintSet a
 simplify pinned_vars nv sigma
   = runST $ do { st <- new_simplstate nv
@@ -177,6 +195,7 @@ learn st constr =
           -> do { unite (eqs st) x z
                 ; return st }
 
+
          -- arithmetic simplifications
          -- x - x = z ==> z = 0
          CBinop CAdd (TVar pos_x x,TVar pos_y y,TVar _ z)
@@ -224,11 +243,11 @@ learn st constr =
                        else inv_op op (interp_op op e (inv_op op c))
            in bind_var st (y,y_val)
 
-         -- x `op` d = e
+{-         -- x `op` d = e
          CBinop op (TVar pos_x x,TConst d,TConst e) ->
            let x_val = if pos_x then interp_op op e (inv_op op d)
                        else inv_op op (interp_op op e (inv_op op d))
            in bind_var st (x,x_val)
-
+-}
          CBinop _ (_,_,_) -> return st }
 

@@ -125,14 +125,14 @@ run_test (prog,res) =
 
 tests :: [(Comp,Rational)]
 tests
-  = [ (prog1 1.0 0.0 1.0, 0)
+  = [ {-(prog1 1.0 0.0 1.0, 0)
 
     , (prog2 0.0 4, 10)
     , (prog2 1.0 4, 15)
     , (prog2 2.0 4, 20)      
     , (prog2 10.0 10, 165)            
 
-    , (prog3 8.0, 512)
+    ,-} (prog3 8.0, 512)
     , (prog3 16.0, 4096)
     , (prog3 0.0, 0)
     , (prog3 (-1.0), 1)            
@@ -163,7 +163,7 @@ tests
     , (prog10 1.0 0.0, 1)
     , (prog10 1.0 1.0, 0)
 
-    , (keccak1 3, 1)      
+    , (keccak1 8, 1)      
     ]
 
 main = mapM_ run_test tests

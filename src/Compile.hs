@@ -162,8 +162,8 @@ r1cs_of_exp out e
   = do { cs_of_exp out e
        ; nv <- get_num_vars
        ; cs <- get_constraints
-       ; let pinned_vars = [out]
-       ; let cs' = Set.toList $ simplify pinned_vars nv $ Set.fromList cs
+       ; let pinned_vars = [5,6,out]
+       ; let cs' = do_simplify pinned_vars nv cs
        ; let f = solve_constraints cs'
        ; return $ (f,r1cs_of_cs nv cs') } 
 
