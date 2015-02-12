@@ -40,8 +40,9 @@ data State s a = State (s -> (a,s))
 
 type ArrMap = Map.Map (Var,Int) Var
 
-data Env = Env { next_var   :: Int
-               , arr_map    :: ArrMap }
+data Env = Env { next_var :: Int
+               , input_vars :: [Int]
+               , arr_map  :: ArrMap }
            deriving Show
 
 type Comp = State Env (Exp Rational)
@@ -60,11 +61,21 @@ dec n = (P.-) n 1
 var :: Comp
 var = State (\s -> ( EVar (next_var s)
                    , Env (inc (next_var s))
+                         (input_vars s)
                          (arr_map s)
                    )
             )
 
--- | Arrays: initial values currently considered "input", may change
+-- | Allocate a new input variable (instantiated by user)
+input :: Comp
+input = State (\s -> ( EVar (next_var s)
+                     , Env (inc (next_var s))
+                           (next_var s : input_vars s)
+                           (arr_map s)
+                     )
+              )
+
+-- | Arrays: uninitialized
 declare_vars :: Int -> Comp
 declare_vars 0 = error "must declare >= 1 vars"
 declare_vars n =
@@ -74,12 +85,22 @@ declare_vars n =
   where g 0 = ret EUnit
         g m = var >> g (dec m)
 
+-- Like declare_vars, except vars. are marked explicitly as inputs
+declare_inputs :: Int -> Comp
+declare_inputs 0 = error "must declare >= 1 vars"
+declare_inputs n =
+  do { x <- input
+     ; _ <- g (dec n)
+     ; ret x }
+  where g 0 = ret EUnit
+        g m = input >> g (dec m)
+
 add_arr_bindings :: [((Var,Int),Var)] -> Comp
 add_arr_bindings bindings
   = State (\s -> case s of
-              Env nv m -> ( EUnit 
-                          , Env nv (Map.fromList bindings `Map.union` m)
-                          )
+              Env nv ivs m -> ( EUnit
+                              , Env nv ivs (Map.fromList bindings `Map.union` m)
+                              )
           )
 
 add_arr_mapping :: Exp Rational -> Int -> Comp
@@ -95,13 +116,20 @@ arr sz = do { a <- declare_vars sz
             ; _ <- add_arr_mapping a sz
             ; ret a }
 
+-- Like arr, except array variables are marked as "inputs"
+input_arr :: Int -> Comp
+input_arr 0  = error "array must have size > 0"
+input_arr sz = do { a <- declare_inputs sz
+            ; _ <- add_arr_mapping a sz
+            ; ret a }
+
 get :: ( Exp Rational -- select from array a
        , Int )        -- at index i
     -> Comp -- result e
 get (a,i)
   = let x = var_of_exp a
     in State (\s -> case s of
-                 env@(Env _ m) ->
+                 env@(Env _ _ m) ->
                    case Map.lookup (x,i) m of
                      Just y  -> (EVar y, env)
                      Nothing -> error $ "unbound var " ++ show (x,i)
@@ -224,11 +252,12 @@ data Result =
 
 check :: Comp -> [Rational] -> Result
 check mf inputs
-  = let (e,s)    = runState mf (Env (P.fromInteger 0) Map.empty)
+  = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty)
         nv       = next_var s
-        (f,r1cs) = compile_exp nv e
+        in_vars  = input_vars s
+        (f,r1cs) = compile_exp nv in_vars e
         nw = num_vars r1cs
         ng = num_constraints r1cs
-        wit = f inputs
+        wit = f $ zip in_vars inputs
         out = head $ drop nv wit 
     in Result (sat_r1cs wit r1cs) nw ng out

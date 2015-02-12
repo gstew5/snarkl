@@ -104,7 +104,7 @@ keccak_f1 num_rounds a
       round1 a (exp_of_int (trunc 1 $ round_consts !! i)))
 
 keccak1 num_rounds
-  = do { a <- arr num_lanes
+  = do { a <- input_arr num_lanes
        ; keccak_f1 num_rounds a
        ; v <- get (a,23)
        ; ret v }

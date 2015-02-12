@@ -156,29 +156,33 @@ cs_of_exp out e = case e of
   EUnit ->
     do { return () }
 
-r1cs_of_exp :: Field a => Var -> Exp a
+r1cs_of_exp :: Field a
+            => Var -- ^ Output variable
+            -> [Var] -- ^ Input variable
+            -> Exp a
             -> State (CEnv a) (Assgn a -> Assgn a,R1CS a)
-r1cs_of_exp out e
+r1cs_of_exp out in_vars e
   = do { cs_of_exp out e
        ; nv <- get_num_vars
        ; cs <- get_constraints
-       ; let pinned_vars = [5,6,out]
+       ; let pinned_vars = out : in_vars
        ; let cs' = do_simplify pinned_vars nv cs
        ; let f = solve_constraints cs'
        ; return $ (f,r1cs_of_cs nv cs') } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
+            -> [Var] -- ^ Input variables (determined by frontend)
             -> Exp a -- ^ Expression to be compiled
-            -> ( [a] -> [a] -- ^ Function from inputs to witnesses
+            -> ( [(Var,a)] -> [a] -- ^ Function from inputs to witnesses
                , R1CS a)    -- ^ The resulting rank-1 constraint system
-compile_exp nv e
+compile_exp nv in_vars e
   = let out = nv -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init    = CEnv Set.empty (out+1) 
-        ((f,r1cs),_) = runState (r1cs_of_exp out e) cenv_init
+        ((f,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
         nw           = num_vars r1cs
         initial_map      = Map.fromList $ zip [0..nw-1] (repeat $ neg one)
-        input_map inputs = Map.fromList (zip [0..] inputs)
+        input_map inputs = Map.fromList inputs
         -- NOTE: Even if some variables appear in none of the
         -- generated constraints, we must assign some (dummy) value in
         -- the witness. The dummies ensure that the witness list has

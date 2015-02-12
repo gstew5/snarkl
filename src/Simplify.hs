@@ -50,45 +50,43 @@ do_simplify :: Field a
             -> [Constraint a]
 do_simplify pinned_vars nv sigma
   = let sigma' = Set.fromList sigma
-    in Set.toList $ g (5 :: Int) sigma' sigma'
-  where g budget s_prev s
-        -- ^ budget: the number of nonmonotonic iterations
-          | Set.size s >= Set.size s_prev
-          = if budget == 0 then s
-            else g (budget-1) s (simplify pinned_vars nv s)  
-        g budget _ s
+    in Set.toList $ g Set.empty sigma'
+  where g s_prev s
+          | Set.size s == Set.size s_prev
+          = if Set.difference s s_prev `Set.isSubsetOf` Set.empty then s
+            else g s (simplify pinned_vars nv s)  
+        g _ s
           | otherwise
-          = g budget s (simplify pinned_vars nv s)
-
+          = g s (simplify pinned_vars nv s)
 
 simplify :: Field a
          => [Var] 
          -> Int 
          -> ConstraintSet a
          -> ConstraintSet a
-simplify pinned_vars nv sigma
-  = runST $ do { st <- new_simplstate nv
-               ; (st',sigma') <- simplify_aux st (Set.empty,sigma)
-               ; sigma'' <- mapM (subst_constr st') $ Set.toList sigma'
-               ; sigma_taut <-
-                   mapM (\t -> do { b <- is_taut st' t
-                                  ; return (b,t) }) sigma''
-               ; let sigma''' = map snd $ filter (not . fst) sigma_taut
-               ; -- NOTE: We handle pinned vars. [x] as follows:
-                 --  (1) Look up the term associated with
-                 --      the pinned variable, if any (call it [t]).
-                 --  (2) If there is no such term (other than x itself),
-                 --      do nothing (clauses containing the pinned
-                 --      variable must still contain the pinned variable).
-                 --  (3) Otherwise, introduce a new equation [x = t].
-                 pinned_terms <-
-                   mapM (\x -> do { tx <- subst_term st' CMult (TVar True x)
-                                  ; return (x,tx) }) pinned_vars
-               ; let pin_eqns
-                       = map (\(x,tx) ->
-                               CBinop CMult (TConst one,TVar True x,tx))
-                         $ pinned_terms
-               ; return $ Set.fromList $ pin_eqns ++ sigma''' }
+simplify pinned_vars nv sigma = runST $
+  do { st <- new_simplstate nv
+     ; (st',sigma') <- simplify_aux st (Set.empty,sigma)
+     ; sigma'' <- mapM (subst_constr st') $ Set.toList sigma'
+     ; sigma_taut <-
+       mapM (\t -> do { b <- is_taut st' t
+                      ; return (b,t) }) sigma''
+     ; let sigma''' = map snd $ filter (not . fst) sigma_taut
+     ; -- NOTE: We handle pinned vars. [x] as follows:
+       --  (1) Look up the term associated with
+       --      the pinned variable, if any (call it [t]).
+       --  (2) If there is no such term (other than x itself),
+       --      do nothing (clauses containing the pinned
+       --      variable must still contain the pinned variable).
+       --  (3) Otherwise, introduce a new equation [x = t].
+       pinned_terms <-
+         mapM (\x -> do { tx <- subst_term st' CMult (TVar True x)
+                        ; return (x,tx) }) pinned_vars
+     ; let pin_eqns
+             = map (\(x,tx) ->
+                     CBinop CMult (TConst one,TVar True x,tx))
+               $ pinned_terms
+     ; return $ Set.fromList $ pin_eqns ++ sigma''' }
 
 simplify_aux :: Field a
              => SimplState s a
