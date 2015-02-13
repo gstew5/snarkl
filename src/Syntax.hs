@@ -217,6 +217,9 @@ iter n f e = g n f e
   where g 0 f' e' = f' 0 e'
         g m f' e' = f' m $ g (dec m) f' e'
 
+unit :: Exp Rational
+unit = EUnit
+
 bigsum :: Int
        -> (Int -> Exp Rational)
        -> Exp Rational
@@ -258,6 +261,10 @@ check mf inputs
         (f,r1cs) = compile_exp nv in_vars e
         nw = num_vars r1cs
         ng = num_constraints r1cs
-        wit = f $ zip in_vars inputs
+        wit = case length in_vars /= length inputs of
+                True ->
+                  error $ "expected " ++ show (length in_vars) ++ " input(s)"
+                  ++ " but got " ++ show (length inputs) ++ " input(s)"
+                False -> f $ zip in_vars inputs
         out = head $ drop nv wit 
     in Result (sat_r1cs wit r1cs) nw ng out
