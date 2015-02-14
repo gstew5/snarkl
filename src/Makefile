@@ -10,6 +10,9 @@ GHC_PROF_OPTIONS=-prof -fprof-auto
 all:
 	$(GHC) $(GHC_OPTIONS) Main.hs
 
+debug:
+	$(GHC) Main.hs
+
 prof:
 	$(GHC) $(GHC_OPTIONS) $(GHC_PROF_OPTIONS) Main.hs
 

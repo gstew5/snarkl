@@ -1,49 +1,56 @@
 module UnionFind where
 
-{- The code in this file is adapted from the following Gist
-     https://gist.github.com/kseo/8693028
-   as originally written by Github user kseo -}
-
-import Data.Array.ST
-import Control.Monad (liftM2)
-import Control.Monad.ST.Safe
+import qualified Data.Map.Strict as Map
+import Data.Maybe
 
 import Common
 
-data UnionFind s =
-  UnionFind { ids :: STUArray s Var Var
-            , sizes :: STUArray s Var Int }
+data UnionFind a =
+  UnionFind { ids :: Map.Map Var Var
+            , sizes :: Map.Map Var Int
+            , extras :: Map.Map Var a }
 
-new_uf :: Int -- ^ Number of variables
-       -> ST s (UnionFind s)
-new_uf nv =
-  let new_ids   = newListArray (0,nv-1) [0..nv-1]
-      new_sizes = newArray (0,nv-1) 1
-  in liftM2 UnionFind new_ids new_sizes
+new_uf :: UnionFind a
+new_uf = UnionFind Map.empty Map.empty Map.empty
 
-root :: UnionFind s -> Var -> ST s Var
+id_of :: UnionFind a -> Var -> Var
+id_of uf x = fromMaybe x $ Map.lookup x (ids uf)
+
+size_of :: UnionFind a -> Var -> Int
+size_of uf x = fromMaybe 1 $ Map.lookup x (sizes uf)
+
+extra_of :: UnionFind a -> Var -> Maybe a
+extra_of uf x = Map.lookup x (extras uf)
+
+root :: (Show a,Eq a) => UnionFind a -> Var -> (Var,UnionFind a)
 root uf x
-  = do { px <- readArray (ids uf) x
-       ; if px == x then return x
-         else do { gpx <- readArray (ids uf) px
-                 ; writeArray (ids uf) x gpx
-                 ; root uf px }
-       }
+  = let px = id_of uf x
+    in if px == x then (x,uf)
+       else let gpx = id_of uf px
+                uf' = merge_extras uf x gpx
+            in root (uf' { ids = Map.insert x gpx (ids uf) }) px
 
-unite :: UnionFind s -> Var -> Var -> ST s ()
+merge_extras :: (Show a,Eq a) => UnionFind a -> Var -> Var -> UnionFind a
+merge_extras uf x y
+  = case (Map.lookup x (extras uf), Map.lookup y (extras uf)) of
+      (Nothing,Nothing) -> uf
+      (Nothing,Just d) -> uf { extras = Map.insert x d (extras uf) }
+      (Just c,Nothing) -> uf { extras = Map.insert y c (extras uf) }
+      (Just c,Just d) ->
+        if c == d then uf
+        else error $ "in UnionFind, extra data doesn't match: "
+             ++ show (x,c) ++ " != " ++ show (y,d)
+
+unite :: (Show a,Eq a) => UnionFind a -> Var -> Var -> UnionFind a
 unite uf x y
-  = do { rx <- root uf x
-       ; ry <- root uf y
-       ; sz_rx <- readArray (sizes uf) rx
-       ; sz_ry <- readArray (sizes uf) ry
-       ; if sz_rx > sz_ry then 
-           do { writeArray (ids uf) y rx
-              ; writeArray (sizes uf) x (sz_rx + sz_ry) }
-         else
-           do { writeArray (ids uf) x ry
-              ; writeArray (sizes uf) y (sz_rx + sz_ry) }
-       }
-
-find :: UnionFind s -> Var -> Var -> ST s Bool
-find uf x y = liftM2 (==) (root uf x) (root uf y)
+  = let (rx,uf2) = root uf x
+        (ry,uf') = root uf2 y
+        sz_rx = size_of uf' rx
+        sz_ry = size_of uf' ry
+    in if sz_rx > sz_ry then
+         uf' { ids = Map.insert y rx (ids uf')
+             , sizes = Map.insert x (sz_rx + sz_ry) (sizes uf') }
+       else 
+         uf' { ids = Map.insert x ry (ids uf')
+             , sizes = Map.insert y (sz_rx + sz_ry) (sizes uf') }
 
