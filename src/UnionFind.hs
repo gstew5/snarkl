@@ -41,13 +41,15 @@ merge_extras uf x y
         else error $ "in UnionFind, extra data doesn't match: "
              ++ show (x,c) ++ " != " ++ show (y,d)
 
+-- | Unify x with y.
+-- Left-based: if size x == size y, prefer x as root.
 unite :: (Show a,Eq a) => UnionFind a -> Var -> Var -> UnionFind a
 unite uf x y
   = let (rx,uf2) = root uf x
         (ry,uf') = root uf2 y
         sz_rx = size_of uf' rx
         sz_ry = size_of uf' ry
-    in if sz_rx > sz_ry then
+    in if sz_rx >= sz_ry then
          uf' { ids = Map.insert y rx (ids uf')
              , sizes = Map.insert x (sz_rx + sz_ry) (sizes uf') }
        else 

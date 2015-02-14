@@ -20,19 +20,12 @@ type ConstraintSet a = Set.Set (Constraint a)
 data SEnv a =
   SEnv { eqs :: UnionFind a } -- ^ Equalities among variables,
                               -- together with a partial map from variables
-                              -- to constants
+                              -- to constants (hidden inside the UnionFind
+                              -- data structure [see UnionFind.v]).
 
 unite_vars :: Field a => Var -> Var -> State (SEnv a) ()
 unite_vars x y
   = do { modify (\senv -> senv { eqs = unite (eqs senv) x y }) }
-
-add_renamings :: Field a => [(Var,Var)] -> State (SEnv a) ()
-add_renamings renamings = g renamings
-  where g [] = return ()
-        g ((x,y) : renamings')
-          = do { unite_vars x y
-               ; g renamings'
-               }
 
 -- | Bind variable x to c.
 bind_var :: Field a => (Var,a) -> State (SEnv a) ()
@@ -135,15 +128,31 @@ constraint_vars cs = my_nub $ concatMap get_var cs
 
 -- | Sequentially renumber term variables 0..max_root-1.
 --   Return renumbered constraints, together with total number of vars
---   in (renumberd) constraint set.
-normalize_constraints :: Field a
+--   in (renumberd) constraint set and a mapping that encapsulates
+--   the renaming (used to rename input variables)
+renumber_constraints :: Field a
                       => [Constraint a]
-                      -> (Int,[Constraint a])
-normalize_constraints cs = (num_vars,cs')
-  where cs' = fst $ runState g (SEnv new_uf)
-        g = do { add_renamings (zip (constraint_vars cs) [0..])
-               ; mapM subst_constr cs }              
-        num_vars = length $ constraint_vars cs
+                      -> (Int,Var -> Var,[Constraint a])
+renumber_constraints cs = (num_vars,renum_f,cs')
+  where cs' = map (renum_constr env) cs
+        env = Map.fromList $ zip (constraint_vars cs) [0..]
+        renum_f x = case Map.lookup x env of
+          Nothing -> error $ "input variable " ++ show x
+                     ++ " not found in " ++ show env
+          Just y -> y           
+        num_vars = length $ constraint_vars cs'
+
+        renum_constr env0 c0 
+          = case c0 of
+              CBinop op (tx,ty,tz) ->
+                CBinop op (renum_term env tx,renum_term env ty,renum_term env tz)
+
+        renum_term env0 tm@(TConst _) = tm
+        renum_term env0 (TVar pos_x x)
+          = case Map.lookup x env0 of
+              Nothing -> error $ "in renumber_constraints, variable " ++ show x
+                         ++ " not found in environment " ++ show env0
+              Just y -> TVar pos_x y                         
 
 format_err :: Field a 
            => [Constraint a]

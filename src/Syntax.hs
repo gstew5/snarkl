@@ -258,7 +258,7 @@ check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty)
         nv       = next_var s
         in_vars  = input_vars s
-        (f,r1cs) = compile_exp nv in_vars e
+        (f,out_var,r1cs) = compile_exp nv in_vars e
         nw = num_vars r1cs
         ng = num_constraints r1cs
         wit = case length in_vars /= length inputs of
@@ -266,5 +266,5 @@ check mf inputs
                   error $ "expected " ++ show (length in_vars) ++ " input(s)"
                   ++ " but got " ++ show (length inputs) ++ " input(s)"
                 False -> f $ zip in_vars inputs
-        out = head $ drop nv wit 
+        out = wit !! out_var
     in Result (sat_r1cs wit r1cs) nw ng out

@@ -158,38 +158,40 @@ cs_of_exp out e = case e of
 
 r1cs_of_exp :: Field a
             => Var -- ^ Output variable
-            -> [Var] -- ^ Input variable
+            -> [Var] -- ^ Input variables
             -> Exp a
-            -> State (CEnv a) (Assgn a -> Assgn a,R1CS a)
+            -> State (CEnv a) (Assgn a -> Assgn a,Var,R1CS a)
 r1cs_of_exp out in_vars e
   = do { cs_of_exp out e
        ; nv <- get_num_vars
        ; cs <- get_constraints
        ; let pinned_vars = out : in_vars
        ; let (_,cs') = do_simplify pinned_vars nv Map.empty cs
-       ; -- let (nv',cs'') = normalize_constraints cs'
-       ; let f = solve_constraints nv cs' (constraint_vars cs') 
-       ; return $ (f,r1cs_of_cs nv cs') } 
+       ; let (nv',renumber_f,cs'') = renumber_constraints cs'
+       ; let renumber_inputs assgn
+               = Map.fromList $ map (\(x,c) -> (renumber_f x,c)) $ Map.toList assgn
+       ; let f = solve_constraints nv' cs'' (constraint_vars cs'') . renumber_inputs
+       ; return $ (f,renumber_f out,r1cs_of_cs nv' cs'') } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
             -> [Var] -- ^ Input variables (determined by frontend)
             -> Exp a -- ^ Expression to be compiled
             -> ( [(Var,a)] -> [a] -- ^ Function from inputs to witnesses
+               , Var        -- ^ The output variable           
                , R1CS a)    -- ^ The resulting rank-1 constraint system
 compile_exp nv in_vars e
   = let out = nv -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init    = CEnv Set.empty (out+1) 
-        ((f,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
+        ((f,out_var,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
         nw           = num_vars r1cs
-        initial_map      = Map.fromList $ zip [0..nw-1] (repeat $ neg one)
-        input_map inputs = Map.fromList inputs
+        initial_map  = Map.fromList $ zip [0..nw-1] (repeat $ neg one)
         -- NOTE: Even if some variables appear in none of the
         -- generated constraints, we must assign some (dummy) value in
         -- the witness. The dummies ensure that the witness list has
         -- the required length (we treat witnesses interchangeably as
         -- maps and position-indexed lists).
         g inputs
-          = let witness_map = f (input_map inputs) `Map.union` initial_map
+          = let witness_map = f (Map.fromList inputs) `Map.union` initial_map
             in map snd $ Map.toList witness_map
-    in (g,r1cs)
+    in (g,out_var,r1cs)
