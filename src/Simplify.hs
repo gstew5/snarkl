@@ -2,8 +2,6 @@ module Simplify where
 
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
-import Data.Maybe
-import Control.Monad.ST.Safe
 import Control.Monad.State
 
 import Field
@@ -14,7 +12,7 @@ import UnionFind
 type ConstraintSet a = Set.Set (Constraint a)
 
 ----------------------------------------------------------------
---                    Simplification Monad                    --
+--                         Simplifier                         --
 ----------------------------------------------------------------
 
 data SEnv a =
@@ -125,52 +123,6 @@ constraint_vars cs = my_nub $ concatMap get_var cs
         get_var (CBinop _ (tx,ty,tz)) = concatMap get_term_var [tx,ty,tz]
         get_term_var (TConst _) = []
         get_term_var (TVar _ x) = [x]
-
--- | Sequentially renumber term variables 0..max_root-1.
---   Return renumbered constraints, together with total number of vars
---   in (renumberd) constraint set and a mapping that encapsulates
---   the renaming (used to rename input variables)
-renumber_constraints :: Field a
-                      => [Constraint a]
-                      -> (Int,Var -> Var,[Constraint a])
-renumber_constraints cs = (num_vars,renum_f,cs')
-  where cs' = map (renum_constr env) cs
-        env = Map.fromList $ zip (constraint_vars cs) [0..]
-        renum_f x = case Map.lookup x env of
-          Nothing -> error $ "input variable " ++ show x
-                     ++ " not found in " ++ show env
-          Just y -> y           
-        num_vars = length $ constraint_vars cs'
-
-        renum_constr env0 c0 
-          = case c0 of
-              CBinop op (tx,ty,tz) ->
-                CBinop op (renum_term env tx,renum_term env ty,renum_term env tz)
-
-        renum_term env0 tm@(TConst _) = tm
-        renum_term env0 (TVar pos_x x)
-          = case Map.lookup x env0 of
-              Nothing -> error $ "in renumber_constraints, variable " ++ show x
-                         ++ " not found in environment " ++ show env0
-              Just y -> TVar pos_x y                         
-
-format_err :: Field a 
-           => [Constraint a]
-           -> Assgn a
-           -> COp
-           -> (a,a,a)
-           -> String
-format_err cs env op (c,d,e)
-  = show c ++ show op ++ show d ++ " == " ++ show e
-    ++ ": inconsistent assignment, in constraint context: " ++ show cs
-    ++ ", in partial assignment context: " ++ show env
-
-assert :: Field a => COp -> (a,a,a) -> State (SEnv a) ()
-assert op (c,d,e) =
-  let fop = interp_op op
-  in if c `fop` d == e then return ()
-     else error $ format_err [] Map.empty op (c,d,e)
-
 
 learn :: Field a
       => Constraint a
@@ -357,6 +309,25 @@ simplify_once sigma
             in (head l,Set.fromList $ tail l)
 
 
+format_err :: Field a 
+           => [Constraint a]
+           -> Assgn a
+           -> COp
+           -> (a,a,a)
+           -> String
+format_err cs env op (c,d,e)
+  = show c ++ show op ++ show d ++ " == " ++ show e
+    ++ ": inconsistent assignment, in constraint context: " ++ show cs
+    ++ ", in partial assignment context: " ++ show env
+
+assert :: Field a => COp -> (a,a,a) -> State (SEnv a) ()
+assert op (c,d,e) =
+  let fop = interp_op op
+  in if c `fop` d == e then return ()
+     else error $ format_err [] Map.empty op (c,d,e)
+
+
+
 -- | Starting from an initial partial assignment [env], solve the
 -- constraints [cs] and return the resulting complete assignment.
 -- If the constraints are unsolvable from [env], report the first
@@ -381,3 +352,33 @@ solve_constraints nv cs vars env =
           = case Map.lookup x assgn of
               Nothing -> False
               Just _ -> True
+
+
+
+-- | Sequentially renumber term variables 0..max_root-1.
+--   Return renumbered constraints, together with total number of vars
+--   in (renumberd) constraint set and a mapping that encapsulates
+--   the renaming (used to rename input variables)
+renumber_constraints :: Field a
+                      => [Constraint a]
+                      -> (Int,Var -> Var,[Constraint a])
+renumber_constraints cs = (num_vars,renum_f,cs')
+  where cs' = map renum_constr cs
+        env = Map.fromList $ zip (constraint_vars cs) [0..]
+        renum_f x = case Map.lookup x env of
+          Nothing -> error $ "input variable " ++ show x
+                     ++ " not found in " ++ show env
+          Just y -> y           
+        num_vars = length $ constraint_vars cs'
+
+        renum_constr c0 
+          = case c0 of
+              CBinop op (tx,ty,tz) ->
+                CBinop op (renum_term tx,renum_term ty,renum_term tz)
+
+        renum_term tm@(TConst _) = tm
+        renum_term (TVar pos_x x)
+          = case Map.lookup x env of
+              Nothing -> error $ "in renumber_constraints, variable " ++ show x
+                         ++ " not found in environment " ++ show env
+              Just y -> TVar pos_x y                         

@@ -156,6 +156,13 @@ cs_of_exp out e = case e of
   EUnit ->
     do { return () }
 
+-- | Compile an expression to a rank-1 constraint system.
+-- Takes as input the name of the output variable and input variables
+-- and returns
+--   (1) a function mapping input partial assignments to witnesses,
+--       in the form of (complete) variable assignments;
+--   (2) the name of the (possibly renumbered) output variable;
+--   (3) the R1CS  .
 r1cs_of_exp :: Field a
             => Var -- ^ Output variable
             -> [Var] -- ^ Input variables
@@ -181,17 +188,9 @@ compile_exp :: Field a =>
                , Var        -- ^ The output variable           
                , R1CS a)    -- ^ The resulting rank-1 constraint system
 compile_exp nv in_vars e
-  = let out = nv -- NOTE: Variables are zero-indexed by the frontend.
-        cenv_init    = CEnv Set.empty (out+1) 
+  = let out = nv 
+        -- NOTE: Variables are zero-indexed by the frontend.
+        cenv_init = CEnv Set.empty (out+1) 
         ((f,out_var,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
-        nw           = num_vars r1cs
-        initial_map  = Map.fromList $ zip [0..nw-1] (repeat $ neg one)
-        -- NOTE: Even if some variables appear in none of the
-        -- generated constraints, we must assign some (dummy) value in
-        -- the witness. The dummies ensure that the witness list has
-        -- the required length (we treat witnesses interchangeably as
-        -- maps and position-indexed lists).
-        g inputs
-          = let witness_map = f (Map.fromList inputs) `Map.union` initial_map
-            in map snd $ Map.toList witness_map
+        g inputs = map snd $ Map.toList $ f (Map.fromList inputs)
     in (g,out_var,r1cs)
