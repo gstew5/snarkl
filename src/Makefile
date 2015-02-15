@@ -7,8 +7,15 @@ GHC_OPTIONS=-Werror -Wall \
 
 GHC_PROF_OPTIONS=-prof -fprof-auto
 
+HADDOCK=haddock
+
+HADDOCK_OPTS=-o doc --html
+
 all:
 	$(GHC) $(GHC_OPTIONS) Main.hs
+
+doc:
+	$(HADDOCK) $(HADDOCK_OPTS) *.hs
 
 debug:
 	$(GHC) Main.hs
@@ -17,4 +24,4 @@ prof:
 	$(GHC) $(GHC_OPTIONS) $(GHC_PROF_OPTIONS) Main.hs
 
 clean:
-	rm *.o *.hi *~ main.exe
+	rm *.o *.hi *~ main.exe doc/*
