@@ -1,4 +1,8 @@
-module Simplify where
+module Simplify
+  ( do_simplify
+  , renumber_constraints
+  , solve_constraints
+  ) where
 
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
@@ -325,11 +329,11 @@ assert op (c,d,e) =
 -- case should NOT occur).
 solve_constraints :: Field a
                   => [Constraint a] -- ^ Constraints to be solved
-                  -> [Var] -- ^ Variables for which bindings should exist
                   -> Assgn a -- ^ Initial assignment
                   -> Assgn a -- ^ Resulting assignment
-solve_constraints cs vars env = 
-  let (assgn,cs') = do_simplify [] env cs 
+solve_constraints cs env = 
+  let (assgn,cs') = do_simplify [] env cs
+      vars = constraint_vars cs
   in if all_assigned vars assgn then assgn
      else error $ "some variables are unassigned, "
           ++ "in assignment context " ++ show assgn ++ ", "

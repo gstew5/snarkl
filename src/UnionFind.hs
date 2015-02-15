@@ -1,4 +1,10 @@
-module UnionFind where
+module UnionFind
+  ( root
+  , unite
+  , new_uf
+  , extra_of
+  , UnionFind(..)
+  ) where
 
 import qualified Data.Map.Strict as Map
 import Data.Maybe

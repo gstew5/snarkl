@@ -183,8 +183,7 @@ r1cs_of_exp out in_vars e
                  $ map (\(x,c) -> (renumber_f x,c))
                  $ Map.toList assgn
          -- 'f' is a function mapping input bindings to witnesses.                 
-       ; let f = solve_constraints cs' (constraint_vars cs') 
-                 . renumber_inputs 
+       ; let f = solve_constraints cs' . renumber_inputs 
        ; return $ (f,renumber_f out,r1cs_of_cs nv' cs')
        } 
 
