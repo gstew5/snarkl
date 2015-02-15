@@ -106,5 +106,5 @@ keccak_f1 num_rounds a
 keccak1 num_rounds
   = do { a <- input_arr num_lanes
        ; keccak_f1 num_rounds a
-       ; v <- get (a,23)
+       ; v <- get (a,0)
        ; ret v }
