@@ -115,11 +115,17 @@ prog9
        ; e2 <- input
        ; ret (e1 && e2) }
 
--- | 9. 'xor' test
+-- | 10. 'xor' test
 prog10 
   = do { e1 <- input
        ; e2 <- input
        ; ret (e1 `xor` e2) }
+
+-- | 11. are unused input variables treated properly?
+prog11
+  = do { _ <- input
+       ; b <- input
+       ; ret b }
 
 
 -- | (1) Compile to R1CS.
@@ -177,7 +183,10 @@ tests
     , (prog10, map fromIntegral [1::Int,0], 1)
     , (prog10, map fromIntegral [1::Int,1], 0)
 
-    , (keccak1 1, map fromIntegral [(0::Int)..dec num_lanes], 1)      
+    , (prog11, map fromIntegral [1::Int,1], 1)            
+
+    , (keccak1 1, map fromIntegral
+                  $ take num_lanes $ repeat (0::Int), 1)
     ]
 
 main = mapM_ run_test tests
