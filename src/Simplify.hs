@@ -231,12 +231,11 @@ solve_equation op (tx,ty,tz) =
 do_simplify :: Field a
             => [Var] -- ^ Pinned variables (e.g., outputs)
                      -- These should not be optimized away.
-            -> Int -- ^ Total number of variables in constraint set
             -> Assgn a -- ^ Initial variable assignment
             -> [Constraint a] -- ^ Constraint set to be simplified 
             -> (Assgn a,[Constraint a])
                 -- ^ Resulting assignment, simplified constraint set
-do_simplify pinned_vars nv env cs
+do_simplify pinned_vars env cs
   = fst $ runState g (SEnv (new_uf { extras = env }))
   where g = do { sigma' <- simplify pinned_vars $ Set.fromList cs
                ; assgn <- assgn_of_vars (constraint_vars cs)
@@ -335,13 +334,12 @@ assert op (c,d,e) =
 -- constraint that is violated (under normal operation, this error
 -- case should NOT occur).
 solve_constraints :: Field a
-                  => Int -- ^ Number of variables
-                  -> [Constraint a] -- ^ Constraints to be solved
+                  => [Constraint a] -- ^ Constraints to be solved
                   -> [Var] -- ^ Variables for which bindings should exist
                   -> Assgn a -- ^ Initial assignment
                   -> Assgn a -- ^ Resulting assignment
-solve_constraints nv cs vars env = 
-  let (assgn,cs') = do_simplify [] nv env cs
+solve_constraints cs vars env = 
+  let (assgn,cs') = do_simplify [] env cs 
   in if all_assigned vars assgn then assgn
      else error $ "some variables are unassigned, "
           ++ "in assignment context " ++ show assgn ++ ", "

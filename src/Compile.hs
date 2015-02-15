@@ -31,9 +31,6 @@ get_next_var
   = do { cenv <- get
        ; return (next_var cenv) }
 
-get_num_vars :: State (CEnv a) Int
-get_num_vars = get_next_var
-
 set_next_var :: Var -> State (CEnv a) ()
 set_next_var next = modify (\cenv -> cenv { next_var = next })
 
@@ -170,13 +167,12 @@ r1cs_of_exp :: Field a
             -> State (CEnv a) (Assgn a -> Assgn a,Var,R1CS a)
 r1cs_of_exp out in_vars e
   = do { cs_of_exp out e
-       ; nv <- get_num_vars
        ; cs <- get_constraints
        ; let pinned_vars = out : in_vars
-       ; let (_,cs') = do_simplify pinned_vars nv Map.empty cs
+       ; let (_,cs') = do_simplify pinned_vars Map.empty cs
        ; let (nv',out',cs'') = renumber_constraints in_vars out cs'
        ; let f assgn
-               = solve_constraints nv' cs'' (constraint_vars cs'') assgn
+               = solve_constraints cs'' (constraint_vars cs'') assgn
                  `Map.union` Map.fromList (zip [0..nv'-1] (repeat (neg zero)))
        ; return $ (f,out',r1cs_of_cs nv' cs'') } 
 
