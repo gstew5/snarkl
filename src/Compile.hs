@@ -166,23 +166,39 @@ r1cs_of_exp :: Field a
             -> Exp a
             -> State (CEnv a) (Assgn a -> Assgn a,Var,R1CS a)
 r1cs_of_exp out in_vars e
-  = do { cs_of_exp out e
+  = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
+         cs_of_exp out e
        ; cs <- get_constraints
+         -- Pinned vars: inputs plus output wire.
        ; let pinned_vars = out : in_vars
-       ; let (_,cs') = do_simplify pinned_vars Map.empty cs
-       ; let (nv',out',cs'') = renumber_constraints in_vars out cs'
-       ; let f assgn
-               = solve_constraints cs'' (constraint_vars cs'') assgn
-                 `Map.union` Map.fromList (zip [0..nv'-1] (repeat (neg zero)))
-       ; return $ (f,out',r1cs_of_cs nv' cs'') } 
+         -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
+       ; let (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
+         -- Renumber constraint variables sequentially, from 0 to 'max_var'.
+         -- * 'nv'' is the new total number of variables in 'cs''.
+         -- * 'renumber_f' is a function mapping variables to their
+         --   renumbered counterparts.    
+       ; let (nv',renumber_f,cs') = renumber_constraints in_vars cs_simpl
+       ; let renumber_inputs assgn
+               = Map.fromList
+                 $ map (\(x,c) -> (renumber_f x,c))
+                 $ Map.toList assgn
+         -- 'f' is a function mapping input bindings to witnesses.                 
+       ; let f = solve_constraints cs' (constraint_vars cs') 
+                 . renumber_inputs 
+       ; return $ (f,renumber_f out,r1cs_of_cs nv' cs')
+       } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
             -> [Var] -- ^ Input variables (determined by frontend)
             -> Exp a -- ^ Expression to be compiled
-            -> ( [(Var,a)] -> [a] -- ^ Function from inputs to witnesses
-               , Var        -- ^ The output variable           
-               , R1CS a)    -- ^ The resulting rank-1 constraint system
+            -- | Returns:
+            --   (1) Function from input binding lists to witnesses,
+            --   (2) The output variable,
+            --   (3) The resulting rank-1 constraint system.
+            -> ( [(Var,a)] -> [a] 
+               , Var        
+               , R1CS a)    
 compile_exp nv in_vars e
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.

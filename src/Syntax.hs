@@ -135,10 +135,10 @@ get (a,i)
                      Just y  -> (EVar y, env)
                      Nothing -> error $ "unbound var " ++ show (x,i)
              )
-    
-set :: ( Exp Rational -- ^ Update array a
-       , Int )        -- ^ At position j
-    -> Exp Rational   -- ^ To expression e
+
+-- | Update array 'a' at position 'j' to expression 'e'.
+set :: (Exp Rational, Int)        
+    -> Exp Rational   
     -> Comp
 set (a,j) e
   = let x = var_of_exp a

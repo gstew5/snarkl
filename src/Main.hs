@@ -185,8 +185,8 @@ tests
 
     , (prog11, map fromIntegral [1::Int,1], 1)            
 
-    , (keccak1 1, map fromIntegral
-                  $ take num_lanes $ repeat (0::Int), 1)
+    , (keccak1 4, map fromIntegral
+                  $ take num_lanes $ repeat (0::Int), 0)
     ]
 
 main = mapM_ run_test tests

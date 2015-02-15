@@ -36,13 +36,13 @@ rot_tbl _ _ = 1
 
 round1 :: Exp Rational -> Exp Rational -> Comp
 round1 a rc
-  = do { -- | Allocate local array variables [b], [c], [d].
+  = do { -- Allocate local array variables [b], [c], [d].
          b <- arr num_lanes; c <- arr 5; d <- arr 5
-         -- | Initialize arrays.
+         -- Initialize arrays.
        ; forall [0..24] (\i -> set (b,i) 0.0)
        ; forall [0..4]  (\i -> set (c,i) 0.0)
        ; forall [0..4]  (\i -> set (d,i) 0.0)
-         -- | \theta step         
+         -- \theta step         
        ; forall [0..4] (\x ->
            do q <- get (a,index_of x 0)
               u <- get (a,index_of x 1)
@@ -60,19 +60,19 @@ round1 a rc
            do q <- get (a,index_of x y)
               u <- get (d,x)
               set (a,index_of x y) (q `xor` u))
-         -- | \rho and \pi steps         
+         -- \rho and \pi steps         
        ; forall_pairs ([0..4],[0..4]) (\x y ->
            do q <- get (a,index_of x y)
               let e = rot (q,rot_tbl x y)
               set (b,index_of y ((P.+) ((P.*) 2 x) ((P.*) 3 y))) e)
-         -- | \chi step         
+         -- \chi step         
        ; forall_pairs ([0..4],[0..4]) (\x y ->
            do q <- get (b,index_of x y)
               u <- get (b,index_of (inc x) y)
               v <- get (b,index_of ((inc . inc) x) y)
               let e = q `xor` (not u && v)
               set (a,index_of x y) e)
-         -- | \iota step
+         -- \iota step
        ; do q <- get (a,index_of 0 0)
             set (a,index_of 0 0) (q `xor` rc)
        }

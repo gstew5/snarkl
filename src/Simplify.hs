@@ -9,24 +9,26 @@ import Common
 import Constraints
 import UnionFind
 
-type ConstraintSet a = Set.Set (Constraint a)
 
 ----------------------------------------------------------------
---                         Simplifier                         --
+--                  Simplifier State Monad                    --
 ----------------------------------------------------------------
+
+type ConstraintSet a = Set.Set (Constraint a)
 
 data SEnv a =
   SEnv { eqs :: UnionFind a } -- ^ Equalities among variables,
                               -- together with a partial map from variables
-                              -- to constants (hidden inside the UnionFind
-                              -- data structure [see UnionFind.v]).
+                              -- to constants (hidden inside the "UnionFind"
+                              -- data structure).
   deriving Show
 
+-- | Unify variables 'x' and 'y'.
 unite_vars :: Field a => Var -> Var -> State (SEnv a) ()
 unite_vars x y
   = do { modify (\senv -> senv { eqs = unite (eqs senv) x y }) }
 
--- | Bind variable x to c.
+-- | Bind variable 'x' to 'c'.
 bind_var :: Field a => (Var,a) -> State (SEnv a) ()
 bind_var (x,c)
   = do { rx <- root_of_var x
@@ -35,7 +37,7 @@ bind_var (x,c)
        ; put $ senv { eqs = eqs' }
        }
 
--- | Return x's root (the representative of its equivalence class).
+-- | Return 'x''s root (the representative of its equivalence class).
 root_of_var :: Field a => Var -> State (SEnv a) Var
 root_of_var x 
   = do { senv <- get
@@ -44,7 +46,7 @@ root_of_var x
        ; return rx
        }
 
--- | Return the binding associated with variable x, or x's root
+-- | Return the binding associated with variable 'x', or 'x''s root
 -- if no binding exists.
 bind_of_var :: Field a => Var -> State (SEnv a) (Either Var a)
 bind_of_var x
@@ -55,7 +57,7 @@ bind_of_var x
            Just c -> return $ Right c
        }
 
--- | For [vars], construct a partial assignment to field elements.
+-- | Construct a partial assignment from 'vars' to field elements.
 assgn_of_vars :: Field a => [Var] -> State (SEnv a) (Assgn a)
 assgn_of_vars vars
   = do { binds <- mapM bind_of_var vars
@@ -67,12 +69,25 @@ assgn_of_vars vars
          $ zip vars binds
        }
 
+
+----------------------------------------------------------------
+--                         Substitution                       --
+----------------------------------------------------------------
+
+-- | Return the set of variables occurring in constraints 'cs'.
+constraint_vars cs = my_nub $ concatMap get_var cs
+  where my_nub = Set.toList . Set.fromList
+        get_var (CBinop _ (tx,ty,tz)) = concatMap get_term_var [tx,ty,tz]
+        get_term_var (TConst _) = []
+        get_term_var (TVar _ x) = [x]
+
+
 subst_term :: Field a
-           => COp -- ^ In operator context op
-           -> Term a -- ^ For input term t
-           -> State (SEnv a) (Term a) -- ^ Return canonicalized term t',
-                                      -- under equalities and partial assignment
-                                      -- recorded in state st.
+           => COp -- ^ In operator context 'op',
+           -> Term a -- ^ For input term 't',
+           -> State (SEnv a) (Term a) -- ^ Return canonicalized term 't'',
+                                      -- under the equalities and partial 
+                                      -- assignment currently recorded.
 subst_term op t = case t of
   TConst _ -> return t
   TVar pos_x x ->
@@ -83,7 +98,7 @@ subst_term op t = case t of
                       else return $ TConst $ inv_op op c
        }
 
--- | Canonicalize constraint [constr], with respect to the current state.
+-- | Canonicalize constraint 'constr', with respect to the current state.
 subst_constr :: Field a
              => Constraint a
              -> State (SEnv a) (Constraint a)
@@ -95,7 +110,12 @@ subst_constr constr = case constr of
        ; return $ CBinop op (tx',ty',tz')
        }
 
--- | Is constr a tautology?
+
+----------------------------------------------------------------
+--                  Constraint Minimization                   --
+----------------------------------------------------------------
+
+-- | Is 'constr' a tautology?
 is_taut :: Field a
         => Constraint a 
         -> State (SEnv a) Bool
@@ -118,13 +138,7 @@ remove_tauts sigma
                            ; return (b,t) }) sigma
        ; return $ map snd $ filter (not . fst) sigma_taut }
 
--- | Return the set of variables occurring in constraints [cs].
-constraint_vars cs = my_nub $ concatMap get_var cs
-  where my_nub = Set.toList . Set.fromList
-        get_var (CBinop _ (tx,ty,tz)) = concatMap get_term_var [tx,ty,tz]
-        get_term_var (TConst _) = []
-        get_term_var (TVar _ x) = [x]
-
+-- | Learn bindings and variable equalities from constraint 'constr'.
 learn :: Field a
       => Constraint a
       -> State (SEnv a) ()
@@ -132,104 +146,84 @@ learn constr
   = do { constr' <- subst_constr constr
        ; case constr' of
            CBinop op (tx,ty,tz) -> learn_arith op (tx,ty,tz) }
+  where learn_arith :: Field a
+                    => COp
+                    -> (Term a,Term a,Term a)
+                    -> State (SEnv a) ()
+        learn_arith op (tx,ty,tz) = case (op,tx,ty,tz) of
+          -- variable equalities
+          -- 0+y = z ==> y = z  
+          (CAdd,TConst zero_val,TVar pos_y y,TVar pos_z z) 
+            | pos_y == pos_z, zero_val == zero -> unite_vars y z
+          -- x+0 = z ==> x = z
+          (CAdd,TVar pos_x x,TConst zero_val,TVar pos_z z)
+            | pos_x == pos_z, zero_val == zero -> unite_vars x z
+          -- 1*y = z ==> y = z
+          (CMult,TConst one_val,TVar pos_y y,TVar pos_z z)
+            | pos_y == pos_z, one_val == one -> unite_vars y z
+          -- x*1 = z ==> x = z
+          (CMult,TVar pos_x x,TConst one_val,TVar pos_z z)
+            | pos_x == pos_z, one_val == one -> unite_vars x z
 
-learn_arith :: Field a
-            => COp
-            -> (Term a,Term a,Term a)
-            -> State (SEnv a) ()
-learn_arith op (tx,ty,tz) = case (op,tx,ty,tz) of
-   -- variable equalities
-   -- 0+y = z ==> y = z  
-  (CAdd,TConst zero_val,TVar pos_y y,TVar pos_z z) 
-    | pos_y == pos_z
-    , zero_val == zero 
-   -> unite_vars y z
-   -- x+0 = z ==> x = z
-  (CAdd,TVar pos_x x,TConst zero_val,TVar pos_z z)
-    | pos_x == pos_z
-    , zero_val == zero
-   -> unite_vars x z
-   -- 1*y = z ==> y = z
-  (CMult,TConst one_val,TVar pos_y y,TVar pos_z z)
-    | pos_y == pos_z
-    , one_val == one
-   -> unite_vars y z
-   -- x*1 = z ==> x = z
-  (CMult,TVar pos_x x,TConst one_val,TVar pos_z z)
-    | pos_x == pos_z
-    , one_val == one
-   -> unite_vars x z
+          -- arithmetic simplifications
+          -- x - x = z ==> z = 0
+          (CAdd,TVar pos_x x,TVar pos_y y,TVar _ z)
+            | pos_x == not pos_y, x == y -> bind_var (z,zero)
+          -- c - c = z ==> z = 0
+          (CAdd,TConst c,TConst d,TVar _ z)
+            | c == neg d -> bind_var (z,zero)
+          -- x / x = z ==> z = 1 (we never generate constraints n / 0)
+          (CMult,TVar pos_x x,TVar pos_y y,TVar _ z)
+            | pos_x == not pos_y, x == y -> bind_var (z,one)
+          -- c / c = z ==> z = 1 
+          (CMult,TConst c,TConst d,TVar pos_z z)
+            | c == inv_op CMult d, d /= zero
+           -> bind_var (z,if pos_z then one else neg one)
+          -- 0 * y = z ==> z = 0 
+          (CMult,TConst zero_val,_,TVar _ z)
+            | zero_val == zero -> bind_var (z,zero)
+          -- x * 0 = z ==> z = 0 
+          (CMult,_,TConst zero_val,TVar _ z)
+            | zero_val == zero -> bind_var (z,zero)
+   
+          (_,_,_,_) -> solve_equation op (tx,ty,tz)
 
-   -- arithmetic simplifications
-   -- x - x = z ==> z = 0
-  (CAdd,TVar pos_x x,TVar pos_y y,TVar _ z)
-   | pos_x == not pos_y
-   , x == y
-   -> bind_var (z,zero)
-   -- c - c = z ==> z = 0
-  (CAdd,TConst c,TConst d,TVar _ z)
-   | c == neg d
-   -> bind_var (z,zero)
-   -- x / x = z ==> z = 1 (we never generate constraints n / 0)
-  (CMult,TVar pos_x x,TVar pos_y y,TVar _ z)
-   | pos_x == not pos_y
-   , x == y
-   -> bind_var (z,one)
-   -- c / c = z ==> z = 1 
-  (CMult,TConst c,TConst d,TVar pos_z z)
-   | c == inv_op CMult d
-   , d /= zero
-   -> bind_var (z,if pos_z then one else neg one)
-   -- 0 * y = z ==> z = 0 
-  (CMult,TConst zero_val,_,TVar _ z)
-   | zero_val == zero
-   -> bind_var (z,zero)
-   -- x * 0 = z ==> z = 0 
-  (CMult,_,TConst zero_val,TVar _ z)
-   | zero_val == zero
-   -> bind_var (z,zero)
-  
-  (_,_,_,_) -> solve_equation op (tx,ty,tz)
+        solve_equation :: Field a
+                      => COp 
+                      -> (Term a,Term a,Term a)
+                      -> State (SEnv a) ()
+        solve_equation op (tx,ty,tz) =
+         let fop    = interp_op op
+             invert = inv_op op
+         in case (tx,ty,tz) of
+           -- no unknowns 
+           (TConst c,TConst d,TConst e) -> assert op (c,d,e)
 
-solve_equation :: Field a
-               => COp 
-               -> (Term a,Term a,Term a)
-               -> State (SEnv a) ()
-solve_equation op (tx,ty,tz) =
-  let fop    = interp_op op
-      invert = inv_op op
-  in case (tx,ty,tz) of
-    -- no unknowns 
-    (TConst c,TConst d,TConst e)
-      -> assert op (c,d,e)
+           -- one unknown
+           -- NOTE: We must be careful here when either c or d is zero,
+           -- and op = CMult, in which case the equation is still unsolvable.
+           (TVar pos_x x,TConst d,TConst e)
+             | if op == CMult then d /= zero else True
+            -> let v = invert d `fop` e
+               in bind_var (x,if pos_x then v else invert v)
+           (TVar _ _,TConst _,TConst _)
+             | otherwise -> return ()
+           (TConst c,TVar pos_y y,TConst e)
+             | if op == CMult then c /= zero else True    
+            -> let v = invert c `fop` e
+               in bind_var (y,if pos_y then v else invert v)
+           (TConst _,TVar _ _,TConst _)
+             | otherwise -> return ()
+           (TConst c,TConst d,TVar pos_z z) ->
+             let v = c `fop` d
+             in bind_var (z,if pos_z then v else invert v)
 
-    -- one unknown
-    -- NOTE: We must be careful here when either c or d is zero,
-    -- and op = CMult, in which case the equation is still unsolvable.
-    (TVar pos_x x,TConst d,TConst e)
-      | if op == CMult then d /= zero else True
-     -> let v = invert d `fop` e
-        in bind_var (x,if pos_x then v else invert v)
-    (TVar _ _,TConst _,TConst _)
-      | otherwise
-      -> return ()
-    (TConst c,TVar pos_y y,TConst e)
-      | if op == CMult then c /= zero else True    
-     -> let v = invert c `fop` e
-        in bind_var (y,if pos_y then v else invert v)
-    (TConst _,TVar _ _,TConst _)
-      | otherwise 
-     -> return ()
-    (TConst c,TConst d,TVar pos_z z) ->
-      let v = c `fop` d
-      in bind_var (z,if pos_z then v else invert v)
-
-    -- two or more unknowns
-    (_,_,_) -> return ()
+           -- two or more unknowns
+           (_,_,_) -> return ()
 
 
 do_simplify :: Field a
-            => [Var] -- ^ Pinned variables (e.g., outputs)
+            => [Var] -- ^ Pinned variables (e.g., outputs).
                      -- These should not be optimized away.
             -> Assgn a -- ^ Initial variable assignment
             -> [Constraint a] -- ^ Constraint set to be simplified 
@@ -255,13 +249,13 @@ simplify pinned_vars sigma
        ; return $ Set.fromList sigma_pinned
        }
 
-  where -- NOTE: We handle pinned vars. [x] as follows:
+  where -- NOTE: We handle pinned variables 'x' as follows:
         --  (1) Look up the term associated with
-        --      the pinned variable, if any (call it [t]).
-        --  (2) If there is no such term (other than x itself),
+        --      the pinned variable, if any (call it 't').
+        --  (2) If there is no such term (other than 'x' itself),
         --      do nothing (clauses containing the pinned
         --      variable must still contain the pinned variable).
-        --  (3) Otherwise, introduce a new equation [x = t].
+        --  (3) Otherwise, introduce a new equation 'x = t'.
         add_pin_eqns sigma0
           = do { pinned_terms <-
                     mapM (\x -> do { tx <- subst_term CMult (TVar True x)
@@ -281,19 +275,16 @@ simplify_rec sigma
            simplify_rec sigma'
          else return sigma'
        }
-
-
-simplify_once :: Field a
-              => ConstraintSet a -- ^ Initial constraint set
-              -> State (SEnv a) (ConstraintSet a)
-                 -- ^ Resulting simplified constraint set
-simplify_once sigma
-  = do { sigma2 <- g Set.empty sigma
-       ; sigma' <- remove_tauts (Set.toList sigma2)
-       ; return $ Set.fromList sigma'
-       }
-
-  where g ws us | Set.size us == 0 = return ws
+  where simplify_once :: Field a
+                     => ConstraintSet a -- ^ Initial constraint set
+                     -> State (SEnv a) (ConstraintSet a)
+                     -- ^ Resulting simplified constraint set
+        simplify_once sigma0
+          = do { sigma2 <- g Set.empty sigma0
+               ; sigma' <- remove_tauts (Set.toList sigma2)
+               ; return $ Set.fromList sigma'
+               }
+        g ws us | Set.size us == 0 = return ws
         g ws us | otherwise
           = let (given,us') = choose us
             in do { given_taut <- is_taut given
@@ -304,7 +295,7 @@ simplify_once sigma
                       g ws' us'
                   }
 
-        choose s -- ^ Assumes input set is nonempty
+        choose s -- Assumes input set is nonempty
           = let l = Set.toList s
             in (head l,Set.fromList $ tail l)
 
@@ -325,7 +316,6 @@ assert op (c,d,e) =
   let fop = interp_op op
   in if c `fop` d == e then return ()
      else error $ format_err [] Map.empty op (c,d,e)
-
 
 
 -- | Starting from an initial partial assignment [env], solve the
@@ -355,27 +345,24 @@ solve_constraints cs vars env =
 
 
 
--- | Sequentially renumber term variables 0..max_root.
+-- | Sequentially renumber term variables '0..max_var'.
 --   Return renumbered constraints, together with the total number of
 --   variables in the (renumberd) constraint set and the
 --   (possibly renumbered) out variable (input vars. are always mapped
 --   by the identity function).
 renumber_constraints :: Field a
                       => [Var] -- ^ Input variables
-                      -> Var -- ^ Out variable
                       -> [Constraint a]
-                      -> (Int,Var,[Constraint a])
-renumber_constraints in_vars out cs = (num_vars,new_out,cs')
+                      -> (Int,Var -> Var,[Constraint a])
+renumber_constraints in_vars cs = (num_vars,renum_f,cs')
   where cs' = map renum_constr cs
         not_input = filter (not . flip elem in_vars)
-        env = Map.fromList
-              $ [(x,x) | x <- in_vars]
-                ++ zip (not_input $ constraint_vars cs) (not_input [0..])
+        env = Map.fromList $ zip (in_vars ++ not_input (constraint_vars cs)) [0..]
         num_vars = Map.size env
-        new_out
-          = case Map.lookup out env of
-              Nothing -> error $ "can't find a binding for out var. " ++ show out
-              Just out' -> out'
+        renum_f x
+          = case Map.lookup x env of
+              Nothing -> error $ "can't find a binding for var. " ++ show x
+              Just x' -> x'
 
         renum_constr c0 
           = case c0 of
