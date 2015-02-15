@@ -9,6 +9,7 @@ data UnionFind a =
   UnionFind { ids :: Map.Map Var Var
             , sizes :: Map.Map Var Int
             , extras :: Map.Map Var a }
+  deriving Show
 
 new_uf :: UnionFind a
 new_uf = UnionFind Map.empty Map.empty Map.empty

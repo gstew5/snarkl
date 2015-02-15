@@ -27,7 +27,7 @@ var_poly nw (pos,x)
     in Poly $ zero : take nw (map f [0..])
 
   | otherwise  
-  = error "variable exceeds bound"
+  = error $ "variable " ++ show x ++ " exceeds bound of " ++ show nw
 
 -- | The polynomial over 'nw' variables, equal 'c + x + y'
 cxy_poly :: Field a

@@ -20,6 +20,7 @@ data SEnv a =
                               -- together with a partial map from variables
                               -- to constants (hidden inside the UnionFind
                               -- data structure [see UnionFind.v]).
+  deriving Show
 
 unite_vars :: Field a => Var -> Var -> State (SEnv a) ()
 unite_vars x y
@@ -238,7 +239,7 @@ do_simplify :: Field a
 do_simplify pinned_vars nv env cs
   = fst $ runState g (SEnv (new_uf { extras = env }))
   where g = do { sigma' <- simplify pinned_vars $ Set.fromList cs
-               ; assgn <- assgn_of_vars [0..nv-1]
+               ; assgn <- assgn_of_vars (constraint_vars cs)
                ; return (assgn,Set.toList sigma')
                }
 
@@ -345,7 +346,8 @@ solve_constraints nv cs vars env =
      else error $ "some variables are unassigned, "
           ++ "in assignment context " ++ show assgn ++ ", "
           ++ "in variable context " ++ show vars ++ ", "
-          ++ "in optimized-constraint context " ++ show cs'
+          ++ "in optimized-constraint context " ++ show cs' ++ ", "
+          ++ "in constraint context " ++ show cs          
 
   where all_assigned vars0 assgn = all id $ map (is_mapped assgn) vars0
         is_mapped assgn x
@@ -355,21 +357,27 @@ solve_constraints nv cs vars env =
 
 
 
--- | Sequentially renumber term variables 0..max_root-1.
---   Return renumbered constraints, together with total number of vars
---   in (renumberd) constraint set and a mapping that encapsulates
---   the renaming (used to rename input variables)
+-- | Sequentially renumber term variables 0..max_root.
+--   Return renumbered constraints, together with the total number of
+--   variables in the (renumberd) constraint set and the
+--   (possibly renumbered) out variable (input vars. are always mapped
+--   by the identity function).
 renumber_constraints :: Field a
-                      => [Constraint a]
-                      -> (Int,Var -> Var,[Constraint a])
-renumber_constraints cs = (num_vars,renum_f,cs')
+                      => [Var] -- ^ Input variables
+                      -> Var -- ^ Out variable
+                      -> [Constraint a]
+                      -> (Int,Var,[Constraint a])
+renumber_constraints in_vars out cs = (num_vars,new_out,cs')
   where cs' = map renum_constr cs
-        env = Map.fromList $ zip (constraint_vars cs) [0..]
-        renum_f x = case Map.lookup x env of
-          Nothing -> error $ "input variable " ++ show x
-                     ++ " not found in " ++ show env
-          Just y -> y           
-        num_vars = length $ constraint_vars cs'
+        not_input = filter (not . flip elem in_vars)
+        env = Map.fromList
+              $ [(x,x) | x <- in_vars]
+                ++ zip (not_input $ constraint_vars cs) (not_input [0..])
+        num_vars = Map.size env
+        new_out
+          = case Map.lookup out env of
+              Nothing -> error $ "can't find a binding for out var. " ++ show out
+              Just out' -> out'
 
         renum_constr c0 
           = case c0 of

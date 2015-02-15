@@ -161,8 +161,8 @@ cs_of_exp out e = case e of
 -- and returns
 --   (1) a function mapping input partial assignments to witnesses,
 --       in the form of (complete) variable assignments;
---   (2) the name of the (possibly renumbered) output variable;
---   (3) the R1CS  .
+--   (2) the name of the output variable;
+--   (3) the R1CS. 
 r1cs_of_exp :: Field a
             => Var -- ^ Output variable
             -> [Var] -- ^ Input variables
@@ -174,11 +174,11 @@ r1cs_of_exp out in_vars e
        ; cs <- get_constraints
        ; let pinned_vars = out : in_vars
        ; let (_,cs') = do_simplify pinned_vars nv Map.empty cs
-       ; let (nv',renumber_f,cs'') = renumber_constraints cs'
-       ; let renumber_inputs assgn
-               = Map.fromList $ map (\(x,c) -> (renumber_f x,c)) $ Map.toList assgn
-       ; let f = solve_constraints nv' cs'' (constraint_vars cs'') . renumber_inputs
-       ; return $ (f,renumber_f out,r1cs_of_cs nv' cs'') } 
+       ; let (nv',out',cs'') = renumber_constraints in_vars out cs'
+       ; let f assgn
+               = solve_constraints nv' cs'' (constraint_vars cs'') assgn
+                 `Map.union` Map.fromList (zip [0..nv'-1] (repeat (neg zero)))
+       ; return $ (f,out',r1cs_of_cs nv' cs'') } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
