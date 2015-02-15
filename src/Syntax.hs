@@ -59,6 +59,7 @@ dec n = (P.-) n 1
 
 -- | Allocate a new internal variable (not instantiated by user)
 var :: Comp
+
 var = State (\s -> ( EVar (next_var s)
                    , Env (inc (next_var s))
                          (input_vars s)
@@ -164,7 +165,7 @@ set (a,j) e
          -- sequencing, hence [last le] is always safe.
          ESeq le ->
            let all_but_last = init le
-               le' = filter (P.not . is_pure) all_but_last
+               le' = filter (P.not . is_pure) all_but_last ++ [last le]
            in (exp_seq (ESeq le') e',s'')
          _ -> (exp_seq e e',s''))
 
@@ -257,7 +258,7 @@ check :: Comp -> [Rational] -> Result
 check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty)
         nv       = next_var s
-        in_vars  = input_vars s
+        in_vars  = reverse $ input_vars s
         (f,out_var,r1cs) = compile_exp nv in_vars e
         nw = num_vars r1cs
         ng = num_constraints r1cs
