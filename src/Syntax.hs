@@ -17,6 +17,11 @@ import Prelude hiding
   )
 import qualified Prelude as P
 
+import System.IO
+  ( hFlush
+  , stdout
+  )
+
 import qualified Data.Map.Strict as Map
 
 import Common
@@ -269,3 +274,20 @@ check mf inputs
                 False -> f $ zip in_vars inputs
         out = wit !! out_var
     in Result (sat_r1cs wit r1cs) nw ng out
+
+
+-- | (1) Compile to R1CS.
+--   (2) Generate a satisfying assignment, w.
+--   (3) Check whether 'w' satisfies the constraint system produced in (1).
+--   (4) Check that results match.
+run_test (prog,inputs,res) =
+  let print_ln s = (P.>>) (putStrLn s) (hFlush stdout)
+  in case check prog inputs of
+    r@(Result True _ _ res') ->
+      case res == res' of
+        True  ->  print_ln $ show r
+        False ->  print_ln $ show $ "error: results don't match: "
+                  ++ "expected " ++ show res ++ " but got " ++ show res'
+    Result False _ _ _ ->
+      print_ln $ "error: witness failed to satisfy constraints"
+

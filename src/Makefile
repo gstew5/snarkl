@@ -14,6 +14,8 @@ HADDOCK_OPTS=-o doc --html
 all:
 	$(GHC) $(GHC_OPTIONS) Main.hs
 
+keccak:
+	$(GHC) $(GHC_OPTIONS) app/keccak/Main.hs
 doc:
 	$(HADDOCK) $(HADDOCK_OPTS) *.hs
 
@@ -24,4 +26,4 @@ prof:
 	$(GHC) $(GHC_OPTIONS) $(GHC_PROF_OPTIONS) Main.hs
 
 clean:
-	rm *.o *.hi *~ main.exe doc/*
+	rm *.o *.hi *~ main.exe doc/* app/*/*.o app/*/*.hi app/*/main.exe

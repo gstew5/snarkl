@@ -2,11 +2,6 @@
 
 module Main where
 
-import System.IO
-  ( hFlush
-  , stdout
-  )
-
 import Prelude hiding 
   ( (>>)
   , (>>=)
@@ -23,7 +18,6 @@ import qualified Prelude as P
 
 import Syntax
 import Lang
-import Keccak
 
 -- | 1. A standalone "program" in the expression language
 prog1 
@@ -127,22 +121,6 @@ prog11
        ; b <- input
        ; ret b }
 
-
--- | (1) Compile to R1CS.
---   (2) Generate a satisfying assignment, w.
---   (3) Check whether 'w' satisfies the constraint system produced in (1).
---   (4) Check that results match.
-run_test (prog,inputs,res) =
-  let print_ln s = (P.>>) (putStrLn s) (hFlush stdout)
-  in case check prog inputs of
-    r@(Result True _ _ res') ->
-      case res == res' of
-        True  ->  print_ln $ show r
-        False ->  print_ln $ show $ "error: results don't match: "
-                  ++ "expected " ++ show res ++ " but got " ++ show res'
-    Result False _ _ _ ->
-      print_ln $ "error: witness failed to satisfy constraints"
-
 tests :: [(Comp,[Rational],Rational)]
 tests
   = [ (prog1, map fromIntegral [(1::Int),0,1], 0)
@@ -184,9 +162,6 @@ tests
     , (prog10, map fromIntegral [1::Int,1], 0)
 
     , (prog11, map fromIntegral [1::Int,1], 1)            
-
-    , (keccak1 4, map fromIntegral
-                  $ take num_lanes $ repeat (0::Int), 0)
     ]
 
 main = mapM_ run_test tests

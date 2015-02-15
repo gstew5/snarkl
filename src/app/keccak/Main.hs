@@ -1,6 +1,6 @@
 {-# LANGUAGE RebindableSyntax #-}
 
-module Keccak where
+module Main where
 
 import Data.Bits hiding (xor)
 
@@ -106,3 +106,8 @@ keccak1 num_rounds
   = do { a <- input_arr num_lanes
        ; keccak_f1 num_rounds a
        ; get (a,0) }
+
+tests = [ (keccak1 4, map fromIntegral
+                      $ take num_lanes $ repeat (0::Int), 0) ]
+  
+main = mapM_ run_test tests
