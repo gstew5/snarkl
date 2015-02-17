@@ -176,16 +176,20 @@ learn constr
           -- c - c = z ==> z = 0
           (CAdd,TConst c,TConst d,TVar _ z)
             | c == neg d -> bind_var (z,zero)
-          -- x / x = z ==> z = 1 (we never generate constraints n / 0)
+          -- x / x = z ==> z = 1 
           (CMult,TVar pos_x x,TVar pos_y y,TVar _ z)
             | pos_x == not pos_y, x == y -> bind_var (z,one)
-          -- c / c = z ==> z = 1 
+          -- c / c = z /\ c != 0 ==> z = 1 
           (CMult,TConst c,TConst d,TVar pos_z z)
             | c == inv_op CMult d, d /= zero
            -> bind_var (z,if pos_z then one else neg one)
-          -- x * y = x /\ x != y ==> y = 1
-          (CMult,TVar pos_x x,TVar _ y,TVar pos_x' x')
-            | x == x', pos_x == pos_x', x /= y
+          -- tx * y = tx /\ tx != ty /\ tx != 0 ==> y = 1
+          (CMult,tx1,ty'@(TVar _ y),tx2)
+            | tx1 == tx2, tx1 /= ty', tx1 /= TConst zero
+           -> bind_var (y, one)
+          -- y * tx = tx /\ tx != ty /\ tx != 0 ==> y = 1
+          (CMult,ty'@(TVar _ y),tx1,tx2)
+            | tx1 == tx2, tx1 /= ty', tx1 /= TConst zero
            -> bind_var (y, one)
           -- 0 * y = z ==> z = 0 
           (CMult,TConst zero_val,_,TVar _ z)
@@ -209,7 +213,8 @@ learn constr
 
            -- one unknown
            -- NOTE: We must be careful here when either c or d is zero,
-           -- and op = CMult, in which case the equation is still unsolvable.
+           -- and op = CMult, in which case the equation is still
+           -- unsolvable.
            (TVar pos_x x,TConst d,TConst e)
              | if op == CMult then d /= zero else True
             -> let v = invert d `fop` e
