@@ -78,7 +78,7 @@ round1 a rc
        }
            
 -- round constants
-round_consts :: [Int]
+round_consts :: [Integer]
 round_consts
   = [ 0x00000001
     , 0x00008082
@@ -91,12 +91,26 @@ round_consts
     , 0x0000008a
     , 0x00000088
     , 0x80008009
-    , 0x8000000a      
+    , 0x8000000a
+
+    , 0x8000808b
+    , 0x800000000000008b
+    , 0x8000000000008089
+    , 0x8000000000008003
+    , 0x8000000000008002
+    , 0x8000000000000080
+    , 0x800000000000800a
+    , 0x800000008000000a
+    , 0x8000000080008081
+    , 0x8000000080008080
+    , 0x0000000080000001
+    , 0x8000000080008008                        
     ]
 
-trunc :: Int -> Int -> Int
+trunc :: Int -> Integer -> Int
 trunc _ rc
-  = rc .&. 0x1 -- FIXME; this doesn't generalize to larger lane sizes
+  -- FIXME; this doesn't generalize to larger lane sizes
+  = fromIntegral rc .&. 0x1 
 
 keccak_f1 num_rounds a 
   = forall [0..dec num_rounds] (\i ->
@@ -107,7 +121,7 @@ keccak1 num_rounds
        ; keccak_f1 num_rounds a
        ; get (a,0) }
 
-tests = [ (keccak1 4, map fromIntegral
+tests = [ (keccak1 24, map fromIntegral
                       $ take num_lanes $ repeat (0::Int), 0) ]
   
 main = mapM_ run_test tests
