@@ -1,5 +1,8 @@
 module Compile 
-  ( compile_exp 
+  ( CEnv
+  , fresh_var
+  , cs_of_exp
+  , compile_exp
   ) where
 
 import qualified Data.Map.Strict as Map
