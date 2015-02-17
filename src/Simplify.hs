@@ -183,6 +183,10 @@ learn constr
           (CMult,TConst c,TConst d,TVar pos_z z)
             | c == inv_op CMult d, d /= zero
            -> bind_var (z,if pos_z then one else neg one)
+          -- x * y = x /\ x != y ==> y = 1
+          (CMult,TVar pos_x x,TVar _ y,TVar pos_x' x')
+            | x == x', pos_x == pos_x', x /= y
+           -> bind_var (y, one)
           -- 0 * y = z ==> z = 0 
           (CMult,TConst zero_val,_,TVar _ z)
             | zero_val == zero -> bind_var (z,zero)
