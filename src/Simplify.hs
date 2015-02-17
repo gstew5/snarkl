@@ -244,7 +244,7 @@ do_simplify :: Field a
                 -- ^ Resulting assignment, simplified constraint set
 do_simplify pinned_vars env cs
   = fst $ runState g (SEnv (new_uf { extras = env }))
-  where g = do { sigma' <- simplify pinned_vars $ Set.fromList cs
+  where g = do { sigma' <- simplify_until_fixpoint pinned_vars $ Set.fromList cs
                  -- NOTE: In the next line, it's OK that 'pinned_vars' may
                  -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may
                  -- just do a bit of duplicate work (to look up the same
@@ -253,6 +253,18 @@ do_simplify pinned_vars env cs
                ; return (assgn,Set.toList sigma')
                }
 
+
+simplify_until_fixpoint :: Field a
+                        => [Var]
+                        -> ConstraintSet a
+                        -> State (SEnv a) (ConstraintSet a)
+simplify_until_fixpoint pinned_vars sigma
+  = do { sigma' <- simplify pinned_vars sigma
+       ; if Set.difference sigma sigma' `Set.isSubsetOf` Set.empty then
+           return sigma'
+         else simplify_until_fixpoint pinned_vars sigma'
+       }
+            
 
 simplify :: Field a
          => [Var] 
@@ -302,8 +314,10 @@ simplify_rec sigma
                ; sigma' <- remove_tauts (Set.toList sigma2)
                ; return $ Set.fromList sigma'
                }
-        g ws us | Set.size us == 0 = return ws
-        g ws us | otherwise
+        g ws us
+          | Set.size us == 0 = return ws
+        g ws us
+          | otherwise
           = let (given,us') = choose us
             in do { given_taut <- is_taut given
                   ; if given_taut then g ws us'
@@ -314,10 +328,7 @@ simplify_rec sigma
                   }
 
         -- NOTE: Assumes input set is nonempty
-        choose s  
-          = let given = Set.elemAt 0 s
-                rest  = Set.deleteAt 0 s
-            in (given,rest)
+        choose s = Set.deleteFindMin s 
 
 
 format_err :: Field a 
@@ -378,11 +389,13 @@ renumber_constraints :: Field a
 renumber_constraints in_vars cs = (num_vars,renum_f,cs')
   where cs' = map renum_constr cs
         not_input = filter (not . flip elem in_vars)
-        env = Map.fromList $ zip (in_vars ++ not_input (constraint_vars cs)) [0..]
+        env = Map.fromList
+              $ zip (in_vars ++ not_input (constraint_vars cs)) [0..]
         num_vars = Map.size env
         renum_f x
           = case Map.lookup x env of
-              Nothing -> error $ "can't find a binding for var. " ++ show x
+              Nothing ->
+                error $ "can't find a binding for variable " ++ show x
               Just x' -> x'
 
         renum_constr c0 
@@ -393,6 +406,7 @@ renumber_constraints in_vars cs = (num_vars,renum_f,cs')
         renum_term tm@(TConst _) = tm
         renum_term (TVar pos_x x)
           = case Map.lookup x env of
-              Nothing -> error $ "in renumber_constraints, variable " ++ show x
-                         ++ " not found in environment " ++ show env
+              Nothing ->
+                error $ "in renumber_constraints, variable " ++ show x
+                        ++ " not found in environment " ++ show env
               Just y -> TVar pos_x y                         
