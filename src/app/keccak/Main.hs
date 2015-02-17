@@ -107,7 +107,7 @@ keccak1 num_rounds
        ; keccak_f1 num_rounds a
        ; get (a,0) }
 
-tests = [ (keccak1 4, map fromIntegral
-                      $ take num_lanes $ repeat (0::Int), 0) ]
+tests = [ (keccak1 12, map fromIntegral
+                       $ take num_lanes $ repeat (0::Int), 1) ]
   
 main = mapM_ run_test tests

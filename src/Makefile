@@ -4,6 +4,7 @@ GHC_OPTIONS=-Werror -Wall \
   -fno-warn-missing-signatures \
   -fno-warn-unused-do-bind \
   -rtsopts \
+  -threaded \
   -O2 \
   -optc-O3
 
