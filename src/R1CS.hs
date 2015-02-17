@@ -11,6 +11,7 @@ module R1CS
   ) where
 
 import qualified Data.Map.Strict as Map
+import Control.Parallel.Strategies
 
 import Common
 import Field
@@ -52,12 +53,14 @@ sat_r1c w c
 sat_r1cs :: Field a => Map.Map Var a -> R1CS a -> Bool
 sat_r1cs w cs
   | R1CS cs' <- cs
-  = g cs'
-    where g [] = True
-          g (c : cs'') =
-            if sat_r1c w c then g cs''
-            else error $ "sat_r1cs: witness failed to satisfy constraint: "
-                         ++ show w ++ " " ++ show c
+  = all id $ is_sat cs'
+  where is_sat cs0 = map g cs0 `using` parListChunk (chunk_sz cs0) rseq
+        num_chunks = 4
+        chunk_sz cs0
+          = truncate $ (fromIntegral (length cs0) :: Rational) / num_chunks
+        g c = if sat_r1c w c then True
+              else error $ "sat_r1cs: witness failed to satisfy constraint: "
+                           ++ show w ++ " " ++ show c
 
 
   
