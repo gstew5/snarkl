@@ -240,7 +240,11 @@ do_simplify :: Field a
 do_simplify pinned_vars env cs
   = fst $ runState g (SEnv (new_uf { extras = env }))
   where g = do { sigma' <- simplify pinned_vars $ Set.fromList cs
-               ; assgn <- assgn_of_vars (constraint_vars cs)
+                 -- NOTE: In the next line, it's OK that 'pinned_vars' may
+                 -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may
+                 -- just do a bit of duplicate work (to look up the same
+                 -- key more than once).          
+               ; assgn <- assgn_of_vars (pinned_vars ++ constraint_vars cs)
                ; return (assgn,Set.toList sigma')
                }
 
@@ -267,10 +271,11 @@ simplify pinned_vars sigma
         add_pin_eqns sigma0
           = do { pinned_terms <-
                     mapM (\x -> do { tx <- subst_term CMult (TVar True x)
-                                   ; return (x,tx) }) pinned_vars
+                                   ; return (x,tx)
+                                   }) pinned_vars
                ; let pin_eqns
                        = map (\(x,tx) -> CBinop CMult (TConst one,TVar True x,tx))
-                         $ pinned_terms 
+                         $ filter (\(x,tx) -> TVar True x /= tx) pinned_terms
                ; return $ pin_eqns ++ sigma0 }
 
 simplify_rec :: Field a
@@ -332,11 +337,12 @@ assert op (c,d,e) =
 -- constraint that is violated (under normal operation, this error
 -- case should NOT occur).
 solve_constraints :: Field a
-                  => [Constraint a] -- ^ Constraints to be solved
+                  => [Var] -- ^ Pinned variables
+                  -> [Constraint a] -- ^ Constraints to be solved
                   -> Assgn a -- ^ Initial assignment
                   -> Assgn a -- ^ Resulting assignment
-solve_constraints cs env = 
-  let (assgn,cs') = do_simplify [] env cs
+solve_constraints pinned_vars cs env = 
+  let (assgn,cs') = do_simplify pinned_vars env cs
       vars = constraint_vars cs
   in if all_assigned vars assgn then assgn
      else error $ "some variables are unassigned, "
