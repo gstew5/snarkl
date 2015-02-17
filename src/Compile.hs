@@ -164,7 +164,7 @@ r1cs_of_exp :: Field a
             => Var -- ^ Output variable
             -> [Var] -- ^ Input variables
             -> Exp a
-            -> State (CEnv a) (Assgn a -> Assgn a,Var,R1CS a)
+            -> State (CEnv a) (Int,Assgn a -> Assgn a,Var,R1CS a)
 r1cs_of_exp out in_vars e
   = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
          cs_of_exp out e
@@ -174,7 +174,7 @@ r1cs_of_exp out in_vars e
          -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
        ; let (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
          -- Renumber constraint variables sequentially, from 0 to 'max_var'.
-         -- * 'nv'' is the new total number of variables in 'cs''.
+         -- * 'nv'' is the new total number of variables in the renumbered system
          -- * 'renumber_f' is a function mapping variables to their
          --   renumbered counterparts.    
        ; let (nv',renumber_f,cs') = renumber_constraints in_vars cs_simpl
@@ -184,7 +184,7 @@ r1cs_of_exp out in_vars e
                  $ Map.toList assgn
          -- 'f' is a function mapping input bindings to witnesses.                 
        ; let f = solve_constraints pinned_vars cs' . renumber_inputs 
-       ; return $ (f,renumber_f out,r1cs_of_cs nv' cs')
+       ; return $ (nv',f,renumber_f out,r1cs_of_cs cs')
        } 
 
 compile_exp :: Field a =>
@@ -192,16 +192,19 @@ compile_exp :: Field a =>
             -> [Var] -- ^ Input variables (determined by frontend)
             -> Exp a -- ^ Expression to be compiled
             -- | Returns:
-            --   (1) Function from input binding lists to witnesses,
-            --   (2) The output variable,
-            --   (3) The resulting rank-1 constraint system.
-            -> ( [(Var,a)] -> [a] 
+            --   (1) Number of variables in the system,
+            --   (2) Function from input binding lists to witnesses,
+            --   (3) The output variable,
+            --   (4) The resulting rank-1 constraint system.
+            -> ( Int
+               , [(Var,a)] -> Map.Map Var a
                , Var        
-               , R1CS a)    
+               , R1CS a
+               )    
 compile_exp nv in_vars e
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init = CEnv Set.empty (out+1) 
-        ((f,out_var,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
-        g inputs = map snd $ Map.toList $ f (Map.fromList inputs)
-    in (g,out_var,r1cs)
+        ((nv',f,out_var,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
+        g inputs = f (Map.fromList inputs)
+    in (nv',g,out_var,r1cs)

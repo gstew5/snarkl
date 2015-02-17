@@ -264,15 +264,17 @@ check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty)
         nv       = next_var s
         in_vars  = reverse $ input_vars s
-        (f,out_var,r1cs) = compile_exp nv in_vars e
-        nw = num_vars r1cs
+        (nw,f,out_var,r1cs) = compile_exp nv in_vars e
         ng = num_constraints r1cs
         wit = case length in_vars /= length inputs of
                 True ->
                   error $ "expected " ++ show (length in_vars) ++ " input(s)"
                   ++ " but got " ++ show (length inputs) ++ " input(s)"
-                False -> f $ zip in_vars inputs
-        out = wit !! out_var
+                False -> f (zip in_vars inputs)
+        out = case Map.lookup out_var wit of
+                Nothing -> error $ "output variable " ++ show out_var
+                                   ++ "not mapped, in " ++ show wit
+                Just out_val -> out_val
     in Result (sat_r1cs wit r1cs) nw ng out
 
 
