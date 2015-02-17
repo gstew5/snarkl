@@ -11,6 +11,8 @@ module R1CS
   , num_constraints
   ) where
 
+import Data.List
+
 import Common
 import Field
 import Poly
@@ -48,7 +50,7 @@ sat_r1c w c
           inner p w'
             | Poly v <- p
             , length v == 1 + length w'
-            = foldl add zero $ map (uncurry mult) (zip v (one : w'))
+            = foldl' add zero $ map (uncurry mult) (zip v (one : w'))
 
             | Poly v <- p
             , otherwise

@@ -308,9 +308,11 @@ simplify_rec sigma
                       g ws' us'
                   }
 
-        choose s -- Assumes input set is nonempty
-          = let l = Set.toList s
-            in (head l,Set.fromList $ tail l)
+        -- NOTE: Assumes input set is nonempty
+        choose s  
+          = let given = Set.elemAt 0 s
+                rest  = Set.deleteAt 0 s
+            in (given,rest)
 
 
 format_err :: Field a 
