@@ -1,7 +1,8 @@
 module Compile 
-  ( CEnv
+  ( CEnv(CEnv)
   , fresh_var
   , cs_of_exp
+  , get_constraints
   , compile_exp
   ) where
 
