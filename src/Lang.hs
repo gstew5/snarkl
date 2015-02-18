@@ -17,7 +17,7 @@ import Field
 ----------------------------------------------------------------
 
 data Op = Add | Sub | Mult | Div
-        | And | Or | XOr
+        | And | Or | XOr | Eq
 
 instance Show Op where
   show Add  = "+"
@@ -27,6 +27,7 @@ instance Show Op where
   show And  = "&&"
   show Or   = "||"  
   show XOr  = "xor"
+  show Eq   = "=="  
 
 is_boolean :: Op -> Bool
 is_boolean b = case b of
@@ -37,6 +38,7 @@ is_boolean b = case b of
   And -> True
   Or -> True  
   XOr -> True
+  Eq -> True  
 
 data Exp a where
   EVar    :: Var -> Exp a

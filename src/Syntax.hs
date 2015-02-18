@@ -206,6 +206,9 @@ not e = if e then 0.0 else 1.0
 xor :: Exp Rational -> Exp Rational -> Exp Rational
 xor e1 e2 = EBinop XOr e1 e2
 
+eq :: Exp Rational -> Exp Rational -> Exp Rational
+eq e1 e2 = EBinop Eq e1 e2
+
 fromRational :: Rational -> Exp Rational
 fromRational r = EVal (r :: Rational)
 

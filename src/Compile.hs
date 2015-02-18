@@ -82,6 +82,21 @@ encode_xor (x,y,z)
        ; encode_binop Add  (x_mult_y,x_mult_y,two_x_mult_y)
        ; encode_binop Sub  (x_plus_y,z,two_x_mult_y) }
 
+-- | Constraint 'x == y = z' ASSUMING x, y are boolean.
+-- The encoding is: x*y + (1-x)*(1-y) = z.
+encode_boolean_eq :: Field a => (Var,Var,Var) -> State (CEnv a) ()
+encode_boolean_eq (x,y,z)
+  = do { x_mult_y <- fresh_var
+       ; neg_x    <- fresh_var
+       ; neg_y    <- fresh_var
+       ; neg_x_mult_neg_y <- fresh_var
+       ; encode_binop Mult (x,y,x_mult_y)
+       ; add_constraint (CBinop CAdd (TConst one,TVar False x,TVar True neg_x))
+       ; add_constraint (CBinop CAdd (TConst one,TVar False y,TVar True neg_y))
+       ; encode_binop Mult (neg_x,neg_y,neg_x_mult_neg_y)
+       ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
+       }
+
 -- | Encode the boolean constraint 'x op y = z'.
 -- Assumes the caller enforces that x and y are boolean.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
@@ -90,6 +105,7 @@ encode_binop op (x,y,z)
   = let g And = encode_binop Mult (x,y,z)
         g Or  = encode_or (x,y,z)
         g XOr = encode_xor (x,y,z)
+        g Eq  = encode_boolean_eq (x,y,z)        
         g Add = error "internal error"
         g Sub = error "internal error"
         g Mult = error "internal error"
@@ -103,7 +119,8 @@ encode_binop op (x,y,z)
         g Div = add_constraint (CBinop CMult (TVar True x,TVar False y,TVar True z))
         g And = error "internal error"
         g Or  = error "internal error"
-        g XOr = error "internal error"        
+        g XOr = error "internal error"
+        g Eq = error "internal error"                
     in g op
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()

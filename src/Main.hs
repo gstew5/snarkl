@@ -121,6 +121,13 @@ prog11
        ; b <- input
        ; ret b }
 
+-- | 12. does boolean 'a' equal boolean 'b'?
+prog12
+  = do { a <- input
+       ; b <- input
+       ; ret (a `eq` b)
+       }
+
 tests :: [(Comp,[Rational],Rational)]
 tests
   = [ (prog1, map fromIntegral [(1::Int),0,1], 0)
@@ -161,7 +168,12 @@ tests
     , (prog10, map fromIntegral [1::Int,0], 1)
     , (prog10, map fromIntegral [1::Int,1], 0)
 
-    , (prog11, map fromIntegral [1::Int,1], 1)            
+    , (prog11, map fromIntegral [1::Int,1], 1)
+
+    , (prog12, map fromIntegral [0::Int,0], 1)
+    , (prog12, map fromIntegral [0::Int,1], 0)
+    , (prog12, map fromIntegral [1::Int,0], 0)
+    , (prog12, map fromIntegral [1::Int,1], 1)            
     ]
 
 main = mapM_ run_test tests
