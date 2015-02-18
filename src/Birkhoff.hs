@@ -44,10 +44,42 @@ data Prop a where
   PropEq :: Tm a -> Tm a -> Prop a
   deriving (Show,Eq)
   
-data Pf a where
-  Eq_refl  :: Pf (PropEq t t)
-  Eq_sym   :: Pf (PropEq s t) -> Pf (PropEq t s)
-  Eq_trans :: Pf (PropEq s t) -> Pf (PropEq t u) -> Pf (PropEq s u)
+data Pf b a where
+  Eq_refl  :: Pf b (PropEq t t)
+  Eq_sym   :: Pf b (PropEq s t) -> Pf b (PropEq t s)
+  Eq_trans :: b
+           -> Pf b (PropEq s t)
+           -> Pf b (PropEq t u)
+           -> Pf b (PropEq s u)
+
+wit_of_proof :: Field b => Int -> Int -> Pf b a -> Map.Map Var b
+wit_of_proof bound level pf
+  = let level_vars = 7
+        var_offset = (bound-(bound-level))*level_vars
+        choose_refl_var  = var_offset+3
+        choose_sym_var   = var_offset+4
+        choose_trans_var = var_offset+5
+        trans_u_var = var_offset+6        
+    in case pf of
+      Eq_refl ->
+        Map.fromList [ (choose_refl_var,one)
+                     , (choose_sym_var,zero)
+                     , (choose_trans_var,zero)
+                     , (trans_u_var,zero) ]
+      Eq_sym pf' ->
+        Map.fromList [ (choose_refl_var,zero)
+                     , (choose_sym_var,one)
+                     , (choose_trans_var,zero)
+                     , (trans_u_var,zero) ]
+        `Map.union` wit_of_proof bound (level+1) pf'
+      Eq_trans t pf1 pf2 ->
+        Map.fromList [ (choose_refl_var,zero)
+                     , (choose_sym_var,zero)
+                     , (choose_trans_var,one)
+                     , (trans_u_var,t) ]
+        `Map.union` wit_of_proof bound (level+1) pf1
+        `Map.union` wit_of_proof bound (level+2) pf2        
+
 
 compile_spec :: Field a
              => Int -- | A bound on supported proof-tree depth
