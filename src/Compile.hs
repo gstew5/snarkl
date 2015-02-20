@@ -194,7 +194,7 @@ r1cs_of_constraints out out_vars in_vars cs
         (nv',renumber_f,cs') = renumber_constraints in_vars cs_simpl
         renumber_inputs = Map.mapKeys renumber_f
          -- 'f' is a function mapping input bindings to witnesses.                 
-        f = solve_constraints pinned_vars cs' . renumber_inputs 
+        f = solve_constraints (map renumber_f pinned_vars) cs' . renumber_inputs 
     in r1cs_of_cs cs' nv' (map renumber_f in_vars) (map renumber_f $ out : out_vars) f
 
 -- | Compile an expression to a rank-1 constraint system.  Takes as

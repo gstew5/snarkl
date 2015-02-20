@@ -172,5 +172,5 @@ test bound p pf
         wit = wit_of_proof vtree pf
     in f wit
 
-test1 = test 3 prop1 pf1       
+test1 = Map.lookup 0 $ test 4 prop1 pf1       
 

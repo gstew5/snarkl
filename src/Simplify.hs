@@ -361,11 +361,10 @@ solve_constraints :: Field a
                   -> Assgn a -- ^ Resulting assignment
 solve_constraints pinned_vars cs env = 
   let (assgn,cs') = do_simplify pinned_vars env cs
-      vars = constraint_vars cs
-  in if all_assigned vars assgn then assgn
+  in if all_assigned pinned_vars assgn then assgn
      else error $ "some variables are unassigned, "
           ++ "in assignment context " ++ show assgn ++ ", "
-          ++ "in variable context " ++ show vars ++ ", "
+          ++ "in pinned-variable context " ++ show pinned_vars ++ ", "
           ++ "in optimized-constraint context " ++ show cs' ++ ", "
           ++ "in constraint context " ++ show cs          
 
@@ -374,7 +373,6 @@ solve_constraints pinned_vars cs env =
           = case Map.lookup x assgn of
               Nothing -> False
               Just _ -> True
-
 
 
 -- | Sequentially renumber term variables '0..max_var'.
