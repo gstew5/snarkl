@@ -174,6 +174,29 @@ cs_of_exp out e = case e of
   EUnit ->
     do { return () }
 
+-- | Compile a list of arithmetic constraints to a rank-1 constraint
+-- system.  Takes as input the constraints, the input variables, and
+-- the output variables, and return the corresponding R1CS.
+r1cs_of_constraints :: Field a
+                    => Var -- ^ Designated output "wire"
+                    -> [Var] -- ^ Remaining output variables (observables)
+                    -> [Var] -- ^ Input variables
+                    -> [Constraint a] -- ^ Constraints
+                    -> R1CS a
+r1cs_of_constraints out out_vars in_vars cs
+  = let pinned_vars = out : out_vars ++ in_vars
+         -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
+        (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
+         -- Renumber constraint variables sequentially, from 0 to 'max_var'.
+         -- * 'nv'' is the new total number of variables in the renumbered system
+         -- * 'renumber_f' is a function mapping variables to their
+         --   renumbered counterparts.    
+        (nv',renumber_f,cs') = renumber_constraints in_vars cs_simpl
+        renumber_inputs = Map.mapKeys renumber_f
+         -- 'f' is a function mapping input bindings to witnesses.                 
+        f = solve_constraints pinned_vars cs' . renumber_inputs 
+    in r1cs_of_cs cs' nv' (map renumber_f in_vars) (map renumber_f $ out : out_vars) f
+
 -- | Compile an expression to a rank-1 constraint system.  Takes as
 -- input the expression, the expression's input variables, and the
 -- name of the output variable and returns the corresponding R1CS.
@@ -186,22 +209,7 @@ r1cs_of_exp out in_vars e
   = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
          cs_of_exp out e
        ; cs <- get_constraints
-         -- Pinned vars: inputs plus output wire.
-       ; let pinned_vars = out : in_vars
-         -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
-       ; let (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
-         -- Renumber constraint variables sequentially, from 0 to 'max_var'.
-         -- * 'nv'' is the new total number of variables in the renumbered system
-         -- * 'renumber_f' is a function mapping variables to their
-         --   renumbered counterparts.    
-       ; let (nv',renumber_f,cs') = renumber_constraints in_vars cs_simpl
-       ; let renumber_inputs assgn
-               = Map.fromList
-                 $ map (\(x,c) -> (renumber_f x,c))
-                 $ Map.toList assgn
-         -- 'f' is a function mapping input bindings to witnesses.                 
-       ; let f = solve_constraints pinned_vars cs' . renumber_inputs 
-       ; return $ r1cs_of_cs cs' nv' (map renumber_f in_vars) (map renumber_f [out]) f
+       ; return $ r1cs_of_constraints out [] in_vars cs
        } 
 
 compile_exp :: Field a =>
