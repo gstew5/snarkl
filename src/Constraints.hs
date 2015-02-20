@@ -2,8 +2,6 @@
 
 module Constraints where
 
-import qualified Data.Map as Map
-
 import Common
 import Field
 import Poly
@@ -37,8 +35,6 @@ data Constraint a =
 instance Show a => Show (Constraint a) where
   show (CBinop op (x,y,z))
     = show x ++ show op ++ show y ++ "==" ++ show z
-
-type Assgn a = Map.Map Var a
 
 -- | Interpret a single IL constraint as a rank-1 constraint
 r1c_of_c :: Field a => Constraint a -> R1C a
@@ -110,5 +106,11 @@ r1c_of_c constr = case constr of
   CBinop CMult (TVar pos_x x,TVar pos_y y,TVar pos_z z) ->
     R1C (var_poly (pos_x,x),var_poly (pos_y,y),var_poly (pos_z,z))
 
-r1cs_of_cs :: Field a => [Constraint a] -> R1CS a
-r1cs_of_cs cs = R1CS $ map r1c_of_c cs
+r1cs_of_cs :: Field a 
+           => [Constraint a] -- ^ Constraints
+           -> Int -- ^ Total number of variables
+           -> [Var] -- ^ Input variables
+           -> [Var] -- ^ Output variables
+           -> (Assgn a -> Assgn a) -- ^ Witness generator
+           -> R1CS a
+r1cs_of_cs cs = R1CS (map r1c_of_c cs) 

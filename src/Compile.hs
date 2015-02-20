@@ -174,18 +174,14 @@ cs_of_exp out e = case e of
   EUnit ->
     do { return () }
 
--- | Compile an expression to a rank-1 constraint system.
--- Takes as input the name of the output variable and input variables
--- and returns
---   (1) a function mapping input partial assignments to witnesses,
---       in the form of (complete) variable assignments;
---   (2) the name of the output variable;
---   (3) the R1CS. 
+-- | Compile an expression to a rank-1 constraint system.  Takes as
+-- input the expression, the expression's input variables, and the
+-- name of the output variable and returns the corresponding R1CS.
 r1cs_of_exp :: Field a
             => Var -- ^ Output variable
             -> [Var] -- ^ Input variables
-            -> Exp a
-            -> State (CEnv a) (Int,Assgn a -> Assgn a,Var,R1CS a)
+            -> Exp a -- ^ Expression
+            -> State (CEnv a) (R1CS a)
 r1cs_of_exp out in_vars e
   = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
          cs_of_exp out e
@@ -205,27 +201,17 @@ r1cs_of_exp out in_vars e
                  $ Map.toList assgn
          -- 'f' is a function mapping input bindings to witnesses.                 
        ; let f = solve_constraints pinned_vars cs' . renumber_inputs 
-       ; return $ (nv',f,renumber_f out,r1cs_of_cs cs')
+       ; return $ r1cs_of_cs cs' nv' (map renumber_f in_vars) (map renumber_f [out]) f
        } 
 
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
             -> [Var] -- ^ Input variables (determined by frontend)
             -> Exp a -- ^ Expression to be compiled
-            -- | Returns:
-            --   (1) Number of variables in the system,
-            --   (2) Function from input binding lists to witnesses,
-            --   (3) The output variable,
-            --   (4) The resulting rank-1 constraint system.
-            -> ( Int
-               , [(Var,a)] -> Map.Map Var a
-               , Var        
-               , R1CS a
-               )    
+            -- | Returns the resulting rank-1 constraint system.
+            -> R1CS a
 compile_exp nv in_vars e
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.
-        cenv_init = CEnv Set.empty (out+1) 
-        ((nv',f,out_var,r1cs),_) = runState (r1cs_of_exp out in_vars e) cenv_init
-        g inputs = f (Map.fromList inputs)
-    in (nv',g,out_var,r1cs)
+        cenv_init = CEnv Set.empty (out+1)
+    in fst $ runState (r1cs_of_exp out in_vars e) cenv_init

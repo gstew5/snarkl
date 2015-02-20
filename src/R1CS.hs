@@ -27,17 +27,22 @@ data R1C a where
 instance Show a => Show (R1C a) where
   show (R1C (aV,bV,cV)) = show aV ++ "*" ++ show bV ++ "==" ++ show cV
 
-data R1CS a where
-  R1CS :: Field a => [R1C a] -> R1CS a
-
+data R1CS a =
+  R1CS { clauses :: [R1C a]
+       , num_vars :: Int         
+       , r1cs_in_vars :: [Var]
+       , r1cs_out_vars :: [Var]
+       , gen_witness :: Assgn a -> Assgn a
+       }
+         
 instance Show a => Show (R1CS a) where
-  show (R1CS cs) = show cs
+  show (R1CS cs nvs ivs ovs _) = show (cs,nvs,ivs,ovs)
 
 num_constraints :: R1CS a -> Int
-num_constraints (R1CS ls) = length ls
+num_constraints = length . clauses
 
 -- sat_r1c: Does witness 'w' satisfy constraint 'c'?
-sat_r1c :: Field a => Map.Map Var a -> R1C a -> Bool
+sat_r1c :: Field a => Assgn a -> R1C a -> Bool
 sat_r1c w c
   | R1C (aV, bV, cV) <- c
   = inner aV w `mult` inner bV w == inner cV w
@@ -50,10 +55,8 @@ sat_r1c w c
             = (v_val `mult` Map.findWithDefault zero v_key w') `add` acc
 
 -- sat_r1cs: Does witness 'w' satisfy constraint set 'cs'?
-sat_r1cs :: Field a => Map.Map Var a -> R1CS a -> Bool
-sat_r1cs w cs
-  | R1CS cs' <- cs
-  = all id $ is_sat cs'
+sat_r1cs :: Field a => Assgn a -> R1CS a -> Bool
+sat_r1cs w cs = all id $ is_sat (clauses cs)
   where is_sat cs0 = map g cs0 `using` parListChunk (chunk_sz cs0) rseq
         num_chunks = 4
         chunk_sz cs0

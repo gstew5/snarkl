@@ -267,8 +267,11 @@ check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty)
         nv       = next_var s
         in_vars  = reverse $ input_vars s
-        (nw,f,out_var,r1cs) = compile_exp nv in_vars e
-        ng = num_constraints r1cs
+        r1cs     = compile_exp nv in_vars e
+        nw        = num_vars r1cs
+        f         = gen_witness r1cs . Map.fromList
+        [out_var] = r1cs_out_vars r1cs
+        ng  = num_constraints r1cs
         wit = case length in_vars /= length inputs of
                 True ->
                   error $ "expected " ++ show (length in_vars) ++ " input(s)"
