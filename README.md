@@ -19,3 +19,7 @@ snårkl builds with GHC version >= 7.8.3. It may compile with earlier versions a
 ```
 
 from the `src` directory, contains a basic implementation of the Keccak (SHA3) round function, for lane width 1.
+
+## Limitations
+
+snårkl is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to such a system has not yet been implemented.
