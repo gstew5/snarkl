@@ -128,6 +128,11 @@ prog12
        ; ret (a `eq` b)
        }
 
+-- | 13. multiplicative identity
+prog13
+  = do { a <- input; ret $ 1.0 * a
+       }
+
 tests :: [(Comp,[Rational],Rational)]
 tests
   = [ (prog1, map fromIntegral [(1::Int),0,1], 0)
@@ -150,7 +155,7 @@ tests
     , (prog5, [fromIntegral (8::Int)], 8^(101::Int))
     , (prog5, [fromIntegral (16::Int)], 16^(101::Int))
     , (prog5, [fromIntegral (0::Int)], 0)
-    , (prog5, [fromIntegral (dec 0::Int)], fromIntegral $ dec 0)            
+    , (prog5, [fromIntegral (dec 0::Int)], fromIntegral $ dec 0)
 
     , (prog6, [fromIntegral (8::Int)], 8)
 
@@ -173,7 +178,9 @@ tests
     , (prog12, map fromIntegral [0::Int,0], 1)
     , (prog12, map fromIntegral [0::Int,1], 0)
     , (prog12, map fromIntegral [1::Int,0], 0)
-    , (prog12, map fromIntegral [1::Int,1], 1)            
+    , (prog12, map fromIntegral [1::Int,1], 1)
+
+    , (prog13, map fromIntegral [1::Int], 1)      
     ]
 
 main = mapM_ run_test tests

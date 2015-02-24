@@ -19,7 +19,8 @@ import Lang
 
 data CEnv a =
   CEnv { cur_cs   :: Set.Set (Constraint a)
-       , next_var :: Var }
+       , next_var :: Var
+       }
 
 add_constraint :: Ord a => Constraint a -> State (CEnv a) ()
 add_constraint c
@@ -28,12 +29,14 @@ add_constraint c
 get_constraints :: State (CEnv a) [Constraint a]
 get_constraints
   = do { cenv <- get
-       ; return $ Set.toList $ cur_cs cenv }
+       ; return $ Set.toList $ cur_cs cenv
+       }
 
 get_next_var :: State (CEnv a) Var
 get_next_var
   = do { cenv <- get
-       ; return (next_var cenv) }
+       ; return (next_var cenv)
+       }
 
 set_next_var :: Var -> State (CEnv a) ()
 set_next_var next = modify (\cenv -> cenv { next_var = next })
@@ -42,46 +45,53 @@ fresh_var :: State (CEnv a) Var
 fresh_var
   = do { next <- get_next_var
        ; set_next_var (next + 1)
-       ; return next }
+       ; return next
+       }
 
 -- | Add constraint 'x = y'
 ensure_equal :: Field a => (Var,Var) -> State (CEnv a) ()
 ensure_equal (x,y)
-  = add_constraint (CBinop CMult (TConst one,TVar True x,TVar True y))
+  = add_constraint
+    $ CAdd zero
+    $ Map.fromList [(x,one),(y,neg one)]
 
 -- | Add constraint 'x = c'
 ensure_const :: Field a => (Var,a) -> State (CEnv a) ()
 ensure_const (x,c)
-  = add_constraint (CBinop CMult (TConst one,TConst c,TVar True x))
+  = add_constraint
+    $ CAdd c
+    $ Map.fromList [(x,neg one)]
 
 -- | Add constraint 'b^2 = b'.
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
 ensure_boolean b  
   = do { b_sq <- fresh_var
        ; encode_binop Mult (b,b,b_sq)
-       ; ensure_equal (b_sq,b) }
+       ; ensure_equal (b_sq,b)
+       }
 
 -- | Constraint 'x \/ y = z'.
 -- The encoding is: x+y - z = x*y; assumes x and y are boolean.
 encode_or :: Field a => (Var,Var,Var) -> State (CEnv a) ()
 encode_or (x,y,z)
   = do { x_mult_y <- fresh_var
-       ; x_plus_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
-       ; encode_binop Add (x,y,x_plus_y)
-       ; encode_binop Sub (x_plus_y,z,x_mult_y) }
+       ; add_constraint
+         $ CAdd zero
+         $ Map.fromList [(x,one),(y,one),(z,neg one),(x_mult_y,neg one)]
+       }
 
 -- | Constraint 'x xor y = z'.
 -- The encoding is: x+y - z = 2(x*y); assumes x and y are boolean.
 encode_xor :: Field a => (Var,Var,Var) -> State (CEnv a) ()
 encode_xor (x,y,z)
   = do { x_mult_y <- fresh_var
-       ; x_plus_y <- fresh_var
-       ; two_x_mult_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
-       ; encode_binop Add  (x,y,x_plus_y)
-       ; encode_binop Add  (x_mult_y,x_mult_y,two_x_mult_y)
-       ; encode_binop Sub  (x_plus_y,z,two_x_mult_y) }
+       ; add_constraint
+         $ CAdd zero
+         $ Map.fromList [(x,one),(y,one),(z,neg one)
+                        ,(x_mult_y,neg (one `add`one))]
+       }
 
 -- | Constraint 'x == y = z' ASSUMING x, y are boolean.
 -- The encoding is: x*y + (1-x)*(1-y) = z.
@@ -92,11 +102,12 @@ encode_boolean_eq (x,y,z)
        ; neg_y    <- fresh_var
        ; neg_x_mult_neg_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
-       ; add_constraint (CBinop CAdd (TConst one,TVar False x,TVar True neg_x))
-       ; add_constraint (CBinop CAdd (TConst one,TVar False y,TVar True neg_y))
+       ; add_constraint (CAdd one $ Map.fromList [(x,neg one),(neg_x,neg one)])
+       ; add_constraint (CAdd one $ Map.fromList [(y,neg one),(neg_y,neg one)])   
        ; encode_binop Mult (neg_x,neg_y,neg_x_mult_neg_y)
        ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
        }
+
 
 -- | Encode the boolean constraint 'x op y = z'.
 -- Assumes the caller enforces that x and y are boolean.
@@ -114,10 +125,13 @@ encode_binop op (x,y,z)
     in g op
 
   | otherwise
-  = let g Add = add_constraint (CBinop CAdd (TVar True x,TVar True y,TVar True z))
-        g Sub = add_constraint (CBinop CAdd (TVar True x,TVar False y,TVar True z))
-        g Mult = add_constraint (CBinop CMult (TVar True x,TVar True y,TVar True z))
-        g Div = add_constraint (CBinop CMult (TVar True x,TVar False y,TVar True z))
+  = let g Add = add_constraint
+                $ CAdd zero $ Map.fromList [(x,one),(y,one),(z,neg one)]
+        g Sub = add_constraint
+                $ CAdd zero $ Map.fromList [(x,one),(y,neg one),(z,neg one)]    
+        g Mult = add_constraint
+                 $ CMult (one,x) (one,y) (one,Just z)
+        g Div = error "division not yet implemented"
         g And = error "internal error"
         g Or  = error "internal error"
         g XOr = error "internal error"
@@ -223,3 +237,4 @@ compile_exp nv in_vars e
         -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init = CEnv Set.empty (out+1)
     in fst $ runState (r1cs_of_exp out in_vars e) cenv_init
+

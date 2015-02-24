@@ -2,6 +2,8 @@
 
 module Constraints where
 
+import qualified Data.Map.Strict as Map
+
 import Common
 import Field
 import Poly
@@ -11,100 +13,24 @@ import R1CS
 --            Intermediate Constraint Language                --
 ----------------------------------------------------------------
 
-data COp = CAdd | CMult
-  deriving (Eq,Ord)
-
-instance Show COp where
-  show CAdd  = "+"
-  show CMult = "*"
-
-interp_op :: Field a => COp -> a -> a -> a
-interp_op op = case op of
-  CAdd -> add
-  CMult -> \x y -> if x == zero || y == zero then zero else mult x y
-
-inv_op :: Field a => COp -> a -> a
-inv_op op = case op of
-  CAdd -> neg 
-  CMult -> \x -> if x == zero then zero else inv x
-
 data Constraint a =
-  CBinop COp (Term a,Term a,Term a) -- x `op` y = z
+    CAdd a (Assgn a)
+  | CMult (a,Var) (a,Var) (a, Maybe Var)
   deriving (Eq,Ord)
 
 instance Show a => Show (Constraint a) where
-  show (CBinop op (x,y,z))
-    = show x ++ show op ++ show y ++ "==" ++ show z
+  show (CAdd a m) = show a ++ " + " ++ go (Map.toList m)
+    where go [] = " == 0"
+          go [(x,c)] = show c ++ "x" ++ show x ++ go []
+          go ((x,c) : c_xs) = show c ++ "x" ++ show x ++ " + " ++ go c_xs
 
--- | Interpret a single IL constraint as a rank-1 constraint
-r1c_of_c :: Field a => Constraint a -> R1C a
-r1c_of_c constr = case constr of
-  -- no unknowns
-  -- c `op` d = e
-  CBinop op (TConst c,TConst d,TConst e) ->
-    let cd = interp_op op c d
-    in if cd == e then
-         R1C (const_poly zero,const_poly zero,const_poly zero)
-       else error $ "not satisfiable: " ++ show c ++ show op ++ show d
-            ++ " == " ++ show e
-  
-  -- one unknown
-  -- c + d = z
-  CBinop CAdd (TConst c,TConst d,TVar pos_z z) ->
-    R1C (const_poly one,const_poly (c `add` d),var_poly (pos_z,z))
-  -- c + y = e
-  CBinop CAdd (TConst c,TVar pos_y y,TConst e) ->
-    R1C (const_poly one,cy_poly c (pos_y,y),const_poly e)
-  -- x + d = e
-  CBinop CAdd (TVar pos_x x,TConst d,TConst e) ->
-    R1C (const_poly one,cy_poly d (pos_x,x),const_poly e)
-
-  -- c * d = z
-  CBinop CMult (TConst c,TConst d,TVar pos_z z) ->
-    R1C (const_poly c,const_poly d,var_poly (pos_z,z))
-  -- c * y = e
-  CBinop CMult (TConst c,TVar pos_y y,TConst e) ->
-    R1C (const_poly c,var_poly (pos_y,y),const_poly e)
-  -- x * d = e
-  CBinop CMult (TVar pos_x x,TConst d,TConst e) ->
-    R1C (var_poly (pos_x,x),const_poly d,const_poly e)
-
-  -- two unknowns
-  -- c + y = z
-  CBinop CAdd (TConst c,TVar pos_y y,TVar pos_z z) ->
-    R1C (const_poly one,cy_poly c (pos_y,y),var_poly (pos_z,z))
-  -- x + d = z    
-  CBinop CAdd (TVar pos_x x,TConst d,TVar pos_z z) ->
-    R1C (const_poly one,cy_poly d (pos_x,x),var_poly (pos_z,z))
-  -- x + y = e    
-  CBinop CAdd (TVar pos_x x,TVar pos_y y,TConst e) ->
-    R1C (const_poly one,cxy_poly zero (pos_x,x) (pos_y,y),const_poly e)
-
-  -- c * y = z
-  CBinop CMult (TConst c,TVar pos_y y,TVar pos_z z) ->
-    R1C (const_poly c,var_poly (pos_y,y),var_poly (pos_z,z))
-  -- x * d = z    
-  CBinop CMult (TVar pos_x x,TConst d,TVar pos_z z) ->
-    R1C (const_poly d,var_poly (pos_x,x),var_poly (pos_z,z))
-  -- x * y = e    
-  CBinop CMult (TVar pos_x x,TVar pos_y y,TConst e) ->
-    R1C (var_poly (pos_x,x),var_poly (pos_y,y),const_poly e)
-
-  -- three unknowns
-  -- x + y = z
-  CBinop CAdd (TVar pos_x x,TVar pos_y y,TVar pos_z z)
-    | x == y, pos_x == pos_y ->
-      R1C (const_poly (add one one),var_poly (pos_x,x),var_poly (pos_z,z)) 
-  CBinop CAdd (TVar pos_x x,TVar pos_y y,TVar pos_z z) 
-    | x == y, pos_x /= pos_y ->
-      R1C (const_poly zero,const_poly zero,var_poly (pos_z,z)) 
-  CBinop CAdd (TVar pos_x x,TVar pos_y y,TVar pos_z z) 
-    | otherwise ->
-      R1C (const_poly one,add_poly (pos_x,x) (pos_y,y),var_poly (pos_z,z))
-
-  -- x * y = z
-  CBinop CMult (TVar pos_x x,TVar pos_y y,TVar pos_z z) ->
-    R1C (var_poly (pos_x,x),var_poly (pos_y,y),var_poly (pos_z,z))
+  show (CMult (c,x) (d,y) (e,mz))
+    = let show_term c0 x0 = show c0 ++ "x" ++ show x0
+      in show_term c x ++ " * " ++ show_term d y
+         ++ " == " 
+         ++ case mz of
+              Nothing -> show e
+              Just z  -> show_term e z
 
 r1cs_of_cs :: Field a 
            => [Constraint a] -- ^ Constraints
@@ -113,4 +39,18 @@ r1cs_of_cs :: Field a
            -> [Var] -- ^ Output variables
            -> (Assgn a -> Assgn a) -- ^ Witness generator
            -> R1CS a
-r1cs_of_cs cs = R1CS (map r1c_of_c cs) 
+r1cs_of_cs cs = R1CS $ go cs
+  where go [] = []
+        go (CAdd a m : cs')
+          = R1C (const_poly one,Poly $ Map.insert (-1) a m,const_poly zero) : go cs'
+
+        go (CMult cx dy (e,Nothing) : cs')
+          = R1C (var_poly cx,var_poly dy,const_poly e) : go cs'
+
+        go (CMult cx dy (e,Just z) : cs')
+          = R1C (var_poly cx,var_poly dy,var_poly (e,z)) : go cs'
+
+
+            
+
+        
