@@ -15,7 +15,7 @@ import R1CS
 
 -- | Constraints are either
 --   * 'CAdd a m': A linear combination of the constant 'a' with
---     variable-coeff. terms in map 'm : Map.Map Var a'.
+--     the variable-coeff. terms given by map 'm : Map.Map Var a'.
 --   * 'CMult (c,x) (d,y) (e,mz)': A multiplicative constraint with
 --     interpretation cx * dy = e (when mz = Nothing), or
 --                    cx * dy = ez (when mz = Just z). 

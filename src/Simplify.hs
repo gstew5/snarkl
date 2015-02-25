@@ -227,7 +227,7 @@ learn constr
         go (CAdd _ _)
           | otherwise
           = return ()
-{-
+
         go constr'@(CMult (c,_) (d,_) (e,Nothing))
           | c==zero || d==zero
           = if e==zero then return ()
@@ -237,13 +237,6 @@ learn constr
           | (c==zero || d==zero) && e/= zero
           = bind_var (z,zero)
 
-        go (CMult (c,_) (d,y) (e,Just z))
-          | c==one && d==e
-          = unite_vars y z
-        go (CMult (c,x) (d,_) (e,Just z))
-          | d==one && c==e
-          = unite_vars x z
-
         go (CMult (c,x) (d,y) (e,Just z))
           | (c,x)==(e,z) && (c,x)/=(d,y) && c/=zero && d/=zero
           = bind_var (z,one `mult` inv d)            
@@ -251,7 +244,7 @@ learn constr
         go (CMult (c,x) (d,y) (e,Just z))
           | (d,y)==(e,z) && (c,x)/=(d,y) && c/=zero && d/=zero
           = bind_var (z,one `mult` inv c)
--}
+
         go _ | otherwise = return ()
 
 
