@@ -17,6 +17,9 @@ HADDOCK_OPTS=-o doc --html
 all:
 	$(GHC) $(GHC_OPTIONS) Main.hs
 
+test:   all keccak
+	./Main && app/keccak/Main
+
 keccak:
 	$(GHC) $(GHC_OPTIONS) app/keccak/Main.hs
 doc:
