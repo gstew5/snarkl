@@ -108,9 +108,9 @@ compile_spec bound out p
            ; (trans_vars_left,trans_vars_right)
                <- compile_trans bound choose_trans choose_u trans_out s t
              
-           ; let e = EBinop XOr (EVar refl_out)
-                                (EBinop XOr (EVar sym_out)
-                                            (EVar trans_out))
+           ; let e = EBinop XOr [EVar refl_out
+                                ,EBinop XOr [EVar sym_out
+                                            ,EVar trans_out]]
            ; cs_of_exp out e
            ; return $ VarNode (choose_refl,choose_sym,choose_trans,choose_u)
                               sym_vars trans_vars_left trans_vars_right 
@@ -119,8 +119,8 @@ compile_spec bound out p
 -- | fresh_var += 13
 compile_refl :: Field a => Var -> Var -> Tm a -> Tm a -> State (CEnv a) ()
 compile_refl choose_refl out s t
-  = do { let c = EBinop Eq (exp_of_tm s) (exp_of_tm t)
-       ; let e = EBinop And (EVar choose_refl) c 
+  = do { let c = EBinop Eq [exp_of_tm s,exp_of_tm t]
+       ; let e = EBinop And [EVar choose_refl,c]
        ; cs_of_exp out e
        }
 
@@ -129,7 +129,7 @@ compile_sym :: Field a => Int -> Var -> Var -> Tm a -> Tm a -> State (CEnv a) Va
 compile_sym bound choose_sym out s t
   = do { eq_ts      <- fresh_var -- +1
        ; recur_vars <- compile_spec (bound-1) eq_ts (PropEq t s) 
-       ; let e = EBinop And (EVar choose_sym) (EVar eq_ts)
+       ; let e = EBinop And [EVar choose_sym,EVar eq_ts]
        ; cs_of_exp out e
        ; return recur_vars
        }
@@ -143,8 +143,8 @@ compile_trans bound choose_trans choose_u out s t
        ; eq_ut <- fresh_var 
        ; recur_left  <- compile_spec (bound-1) eq_su (PropEq s (TmVar $ nat_of_var choose_u)) 
        ; recur_right <- compile_spec (bound-1) eq_ut (PropEq (TmVar $ nat_of_var choose_u) t) 
-       ; let e = EBinop And (EVar choose_trans)
-                            (EBinop And (EVar eq_su) (EVar eq_ut)) 
+       ; let e = EBinop And [EVar choose_trans
+                            ,EBinop And [EVar eq_su,EVar eq_ut]] 
        ; cs_of_exp out e
        ; return (recur_left,recur_right)
        }
