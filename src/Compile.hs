@@ -138,6 +138,11 @@ encode_binop op (x,y,z)
         g Eq = error "internal error"                
     in g op
 
+encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
+encode_linear out xs
+  = add_constraint
+    $ CAdd zero $ Map.fromList $ (out,neg one) : zip xs (repeat one)
+
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
   EVar x ->
@@ -165,7 +170,11 @@ cs_of_exp out e = case e of
                ; encode_binop op (l1,l2,res_out)
                }
     in do { labels <- g es
-          ; h labels
+          ; case op of
+              -- Encode x1 + x2 + ... + xn directly as a linear constraint.
+              Add -> encode_linear out labels
+              -- Otherwise, do the pairwise encoding.
+              _ -> h labels
           }
        
   EIf b e1 e2 ->
