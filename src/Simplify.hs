@@ -84,12 +84,17 @@ constraint_vars cs = my_nub $ concatMap get_vars cs
         get_vars (CMult (_,x) (_,y) (_,Nothing)) = [x,y]
         get_vars (CMult (_,x) (_,y) (_,Just z))  = [x,y,z]        
 
+-- | Normalize constraint 'constr', by substituting roots/constants
+-- for the variables that appear in the constraint. Note that, when
+-- normalizing a multiplicative constraint, it may be necessary to
+-- convert it into an additive constraint.        
 subst_constr :: Field a
              => Constraint a
              -> State (SEnv a) (Constraint a)
 subst_constr constr = case constr of
   CAdd a m -> 
-    do { consts' <- mapM (\(x,a0) ->
+    do { -- Variables resolvable to constants
+         consts' <- mapM (\(x,a0) ->
                            do { var_or_a <- bind_of_var x
                               ; case var_or_a of
                                   Left _ -> return []
@@ -98,12 +103,18 @@ subst_constr constr = case constr of
                     $ Map.toList m
        ; let consts     = concat consts'
        ; let const_keys = map fst consts
-       ; let const_vals = map snd consts 
+       ; let const_vals = map snd consts
+         -- The new constant folding in all constant constraint variables    
        ; let new_const  = foldl add a const_vals
+         -- The linear combination minus
+         -- (1) Terms whose variables resolve to constants, and
+         -- (2) Terms with coeff 0.    
        ; let less_consts
                = Map.toList
                  $ Map.filterWithKey (\k _ -> not $ elem k const_keys)
                  $ Map.filter (/= zero) m
+         -- The new linear combination: 'less_consts' with all variables
+         -- replaced by their roots.    
        ; new_map <- mapM (\(x,a0) ->
                            do { rx <- root_of_var x
                               ; return $ (rx,a0)

@@ -13,6 +13,12 @@ import R1CS
 --            Intermediate Constraint Language                --
 ----------------------------------------------------------------
 
+-- | Constraints are either
+--   * 'CAdd a m': A linear combination of the constant 'a' with
+--     variable-coeff. terms in map 'm : Map.Map Var a'.
+--   * 'CMult (c,x) (d,y) (e,mz)': A multiplicative constraint with
+--     interpretation cx * dy = e (when mz = Nothing), or
+--                    cx * dy = ez (when mz = Just z). 
 data Constraint a =
     CAdd a (Assgn a)
   | CMult (a,Var) (a,Var) (a, Maybe Var)
