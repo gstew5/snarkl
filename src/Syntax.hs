@@ -20,6 +20,9 @@ import qualified Prelude as P
 import System.IO
   ( hFlush
   , stdout
+  , hPutStrLn
+  , withFile
+  , IOMode( WriteMode )
   )
 
 import qualified Data.Map.Strict as Map
@@ -29,6 +32,7 @@ import Field
 import R1CS
 import Lang
 import Compile
+import Serialize
 
 ifThenElse :: Exp a -> Exp a -> Exp a -> Exp a
 ifThenElse b e1 e2 = EIf b e1 e2
@@ -259,7 +263,8 @@ data Result =
   Result { sat :: Bool
          , vars :: Int
          , constraints :: Int
-         , result :: Rational }
+         , result :: Rational 
+         , the_r1cs :: String }
   deriving Show  
 
 check :: Comp -> [Rational] -> Result
@@ -268,6 +273,7 @@ check mf inputs
         nv       = next_var s
         in_vars  = reverse $ input_vars s
         r1cs     = compile_exp nv in_vars e
+        r1cs_string = serialize_r1cs r1cs
         nw        = num_vars r1cs
         f         = gen_witness r1cs . Map.fromList
         [out_var] = r1cs_out_vars r1cs
@@ -281,7 +287,7 @@ check mf inputs
                 Nothing -> error $ "output variable " ++ show out_var
                                    ++ "not mapped, in " ++ show wit
                 Just out_val -> out_val
-    in Result (sat_r1cs wit r1cs) nw ng out
+    in Result (sat_r1cs wit r1cs) nw ng out r1cs_string
 
 
 -- | (1) Compile to R1CS.
@@ -289,13 +295,15 @@ check mf inputs
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
 --   (4) Check that results match.
 run_test (prog,inputs,res) =
-  let print_ln s = (P.>>) (putStrLn s) (hFlush stdout)
+  let print_ln = print_ln_to_file stdout
+      print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
+      print_to_file s = withFile "test_cs_in.ppzksnark" WriteMode (flip print_ln_to_file s)
   in case check prog inputs of
-    r@(Result True _ _ res') ->
+    r@(Result True _ _ res' r1cs_string) ->
       case res == res' of
-        True  ->  print_ln $ show r
+        True  ->  (P.>>) (print_to_file r1cs_string) (print_ln $ show r)
         False ->  print_ln $ show $ "error: results don't match: "
                   ++ "expected " ++ show res ++ " but got " ++ show res'
-    Result False _ _ _ ->
+    Result False _ _ _ _ ->
       print_ln $ "error: witness failed to satisfy constraints"
 
