@@ -130,8 +130,22 @@ prog12
 
 -- | 13. multiplicative identity
 prog13
-  = do { a <- input; ret $ 1.0 * a
+  = do { a <- input
+       ; ret $ 1.0 * a
        }
+
+-- | 14. opt: 0x * 3y = out ~~> out=0
+prog14
+  = do { x <- input
+       ; y <- input
+       ; ret $ (0.0*x) * (3.0*y)
+       }
+
+-- | 15. exp_binop smart constructor: 3 - (2 - 1) = 2
+prog15
+  = do { ret $ 3.0 - (2.0 - 1.0)
+       }
+
 
 tests :: [(Comp,[Rational],Rational)]
 tests
@@ -180,7 +194,11 @@ tests
     , (prog12, map fromIntegral [1::Int,0], 0)
     , (prog12, map fromIntegral [1::Int,1], 1)
 
-    , (prog13, map fromIntegral [1::Int], 1)      
+    , (prog13, map fromIntegral [1::Int], 1)
+
+    , (prog14, map fromIntegral [3::Int,4], 0)
+
+    , (prog15, [], 2)                  
     ]
 
 main = mapM_ run_test tests

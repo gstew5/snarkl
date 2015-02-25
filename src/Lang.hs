@@ -4,6 +4,7 @@ module Lang
   ( Op(..)
   , is_boolean
   , Exp(..)
+  , exp_binop
   , exp_seq
   , is_pure
   , var_of_exp
@@ -18,6 +19,7 @@ import Field
 
 data Op = Add | Sub | Mult | Div
         | And | Or | XOr | Eq
+  deriving Eq                           
 
 instance Show Op where
   show Add  = "+"
@@ -30,7 +32,7 @@ instance Show Op where
   show Eq   = "=="  
 
 is_boolean :: Op -> Bool
-is_boolean b = case b of
+is_boolean op = case op of
   Add -> False
   Sub -> False
   Mult -> False
@@ -43,11 +45,42 @@ is_boolean b = case b of
 data Exp a where
   EVar    :: Var -> Exp a
   EVal    :: Field a => a -> Exp a
-  EBinop  :: Op -> Exp a -> Exp a -> Exp a
+  EBinop  :: Op -> [Exp a] -> Exp a
   EIf     :: Exp a -> Exp a -> Exp a -> Exp a
   EAssign :: Exp a -> Exp a -> Exp a
   ESeq    :: [Exp a] -> Exp a
   EUnit   :: Exp a
+
+is_assoc :: Op -> Bool
+is_assoc op = case op of
+  Add -> True
+  Sub -> False
+  Mult -> True
+  Div -> False
+  And -> True
+  Or -> True  
+  XOr -> True
+  Eq -> True  
+
+
+-- |Smart constructor for EBinop, ensuring all expressions (involving
+-- associative operations) are flattened to top level.
+exp_binop :: Op -> Exp a -> Exp a -> Exp a
+exp_binop op e1 e2
+  = case (e1,e2) of
+      (EBinop op1 l1,EBinop op2 l2)
+        | op1==op2 && op2==op && is_assoc op
+        -> EBinop op (l1++l2)
+           
+      (EBinop op1 l1,_)
+        | op1==op && is_assoc op
+        -> EBinop op (l1++[e2])
+           
+      (_,EBinop op2 l2)
+        | op2==op && is_assoc op
+        -> EBinop op (e1 : l2)
+
+      (_,_) -> EBinop op [e1,e2]
 
 -- |Smart constructor for sequence, ensuring all expressions are
 -- flattened to top level.
@@ -64,7 +97,7 @@ is_pure e
   = case e of
       EVar _ -> True
       EVal _ -> True
-      EBinop _ e1 e2 -> is_pure e1 && is_pure e2
+      EBinop _ es -> all is_pure es
       EIf b e1 e2 -> is_pure b && is_pure e1 && is_pure e2
       EAssign _ _ -> False
       ESeq le -> all is_pure le
@@ -73,13 +106,15 @@ is_pure e
 instance Show a => Show (Exp a) where
   show (EVar x) = "var " ++ show x
   show (EVal c) = show c
-  show (EBinop op e1 e2) = show e1 ++ show op ++ show e2
+  show (EBinop op es) = go es
+    where go [] = ""
+          go (e1 : es') = show e1 ++ show op ++ go es'
   show (EIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
   show (EAssign e1 e2) = show e1 ++ " := " ++ show e2
-  show (ESeq le) = g le
-    where g [] = ""
-          g (e1 : le') = show e1 ++ "; " ++ g le'
+  show (ESeq es) = go es
+    where go [] = ""
+          go (e1 : es') = show e1 ++ "; " ++ go es'
   show EUnit = "()"
 
 var_of_exp :: Exp a -> Var

@@ -186,34 +186,34 @@ ret :: a -> State s a
 ret = return
 
 (+) :: Exp Rational -> Exp Rational -> Exp Rational
-(+) e1 e2 = EBinop Add e1 e2
+(+) e1 e2 = exp_binop Add e1 e2
 
 (-) :: Exp Rational -> Exp Rational -> Exp Rational
-(-) e1 e2 = EBinop Sub e1 e2
+(-) e1 e2 = exp_binop Sub e1 e2
 
 (*) :: Exp Rational -> Exp Rational -> Exp Rational
-(*) e1 e2 = EBinop Mult e1 e2
+(*) e1 e2 = exp_binop Mult e1 e2
 
 (/) :: Exp Rational -> Exp Rational -> Exp Rational
-(/) e1 e2 = EBinop Div e1 e2
+(/) e1 e2 = exp_binop Div e1 e2
 
 (&&) :: Exp Rational -> Exp Rational -> Exp Rational
-(&&) e1 e2 = EBinop And e1 e2
+(&&) e1 e2 = exp_binop And e1 e2
 
 not :: Exp Rational -> Exp Rational
 not e = if e then 0.0 else 1.0
 
 xor :: Exp Rational -> Exp Rational -> Exp Rational
-xor e1 e2 = EBinop XOr e1 e2
+xor e1 e2 = exp_binop XOr e1 e2
 
 eq :: Exp Rational -> Exp Rational -> Exp Rational
-eq e1 e2 = EBinop Eq e1 e2
+eq e1 e2 = exp_binop Eq e1 e2
 
 fromRational :: Rational -> Exp Rational
 fromRational r = EVal (r :: Rational)
 
 negate :: Exp Rational -> Exp Rational
-negate e = EBinop Sub e (EVal zero) 
+negate e = exp_binop Sub e (EVal zero) 
 
 exp_of_int :: Int -> Exp Rational
 exp_of_int i = EVal (P.fromIntegral i)

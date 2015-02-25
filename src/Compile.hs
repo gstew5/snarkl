@@ -144,16 +144,30 @@ cs_of_exp out e = case e of
     do { ensure_equal (out,x) }
   EVal c ->
     do { ensure_const (out,c) }
-  EBinop op e1 e2 ->
-    do { e1_out <- fresh_var
-       ; e2_out <- fresh_var
-       ; if is_boolean op
-         then do { ensure_boolean e1_out
-                 ; ensure_boolean e2_out }
-         else return ()
-       ; cs_of_exp e1_out e1
-       ; cs_of_exp e2_out e2
-       ; encode_binop op (e1_out,e2_out,out) }
+
+  EBinop op es ->
+    let g [] = return []
+        g (e1 : es')
+          = do { e1_out <- fresh_var
+               ; if is_boolean op then do { ensure_boolean e1_out }
+                 else return ()
+               ; cs_of_exp e1_out e1
+               ; labels <- g es'
+               ; return $ e1_out : labels
+               }
+
+        h []       = return ()
+        h (_ : []) = error $ "wrong arity in " ++ show e
+        h (l1 : l2 : []) = encode_binop op (l1,l2,out)
+        h (l1 : l2 : labels')
+          = do { res_out <- fresh_var
+               ; h (res_out : labels')
+               ; encode_binop op (l1,l2,res_out)
+               }
+    in do { labels <- g es
+          ; h labels
+          }
+       
   EIf b e1 e2 ->
     do { b_out  <- fresh_var -- b
        ; bn_out <- fresh_var -- (1-b)
@@ -163,7 +177,7 @@ cs_of_exp out e = case e of
        ; bn_e2  <- fresh_var -- (1-b)*e2
          
        ; cs_of_exp b_out b
-       ; cs_of_exp bn_out (EBinop Sub (EVal one) b)
+       ; cs_of_exp bn_out (EBinop Sub [EVal one,b])
        ; cs_of_exp e1_out e1
        ; cs_of_exp e2_out e2
 
