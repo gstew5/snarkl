@@ -265,7 +265,13 @@ data Result =
          , constraints :: Int
          , result :: Rational 
          , the_r1cs :: String }
-  deriving Show  
+
+instance Show Result where
+  show (Result the_sat the_vars the_constraints the_result _)
+    = "sat = " ++ show the_sat
+      ++ ", vars = " ++ show the_vars
+      ++ ", constraints = " ++ show the_constraints
+      ++ ", result = " ++ show the_result
 
 check :: Comp -> [Rational] -> Result
 check mf inputs
