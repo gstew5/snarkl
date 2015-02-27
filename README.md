@@ -34,7 +34,7 @@ snårkl is a preliminary research prototype undergoing active development. Altho
 
 * [R1CS.hs](https://github.com/gstew5/snarkl/blob/master/src/R1CS.hs): Rank-1 constraint systems
 
-* [Simplify.hs](https://github.com/gstew5/snarkl/blob/master/src/Simplify.hs): Minimizer/solver for the language in [Constraints]
+* [Simplify.hs](https://github.com/gstew5/snarkl/blob/master/src/Simplify.hs): Minimizer/solver for the language in `Constraints`
 
 * [Syntax.hs](https://github.com/gstew5/snarkl/blob/master/src/Syntax.hs): Combinators and (rebound) syntax useful for (meta-)programming in the `Source` language
 
