@@ -17,7 +17,7 @@ import Prelude hiding
 import qualified Prelude as P
 
 import Syntax
-import Lang
+import Source
 
 -- | 1. A standalone "program" in the expression language
 prog1 
@@ -104,13 +104,13 @@ prog8
        ; ret $ x + y }
 
 -- | 9. 'and' test
-prog9 
+bool_prog9 
   = do { e1 <- input
        ; e2 <- input
        ; ret (e1 && e2) }
 
 -- | 10. 'xor' test
-prog10 
+bool_prog10 
   = do { e1 <- input
        ; e2 <- input
        ; ret (e1 `xor` e2) }
@@ -122,7 +122,7 @@ prog11
        ; ret b }
 
 -- | 12. does boolean 'a' equal boolean 'b'?
-prog12
+bool_prog12
   = do { a <- input
        ; b <- input
        ; ret (a `eq` b)
@@ -149,11 +149,12 @@ prog15
 
 -- tests :: [(Comp ty,[Rational],Rational)]
 tests
-  = [ (prog1, map fromIntegral [(1::Int),0,1], 0) ]
-{-    , (prog2 4, [fromIntegral (0::Int)], 10)
+  = [ (prog1, map fromIntegral [(1::Int),0,1], 0)
+
+    , (prog2 4, [fromIntegral (0::Int)], 10)
     , (prog2 4, [fromIntegral (1::Int)], 15)
     , (prog2 4, [fromIntegral (2::Int)], 20)      
-    , (prog2 10, [fromIntegral (10::Int)], 165)            
+    , (prog2 10, [fromIntegral (10::Int)], 165)
 
     , (prog3, [fromIntegral (8::Int)], 512)
     , (prog3, [fromIntegral (16::Int)], 4096)
@@ -176,22 +177,7 @@ tests
 
     , (prog8, [], 29)
 
-    , (prog9, map fromIntegral [0::Int,0], 0)
-    , (prog9, map fromIntegral [0::Int,1], 0)
-    , (prog9, map fromIntegral [1::Int,0], 0)
-    , (prog9, map fromIntegral [1::Int,1], 1)
-
-    , (prog10, map fromIntegral [0::Int,0], 0)
-    , (prog10, map fromIntegral [0::Int,1], 1)
-    , (prog10, map fromIntegral [1::Int,0], 1)
-    , (prog10, map fromIntegral [1::Int,1], 0)
-
     , (prog11, map fromIntegral [1::Int,1], 1)
-
-    , (prog12, map fromIntegral [0::Int,0], 1)
-    , (prog12, map fromIntegral [0::Int,1], 0)
-    , (prog12, map fromIntegral [1::Int,0], 0)
-    , (prog12, map fromIntegral [1::Int,1], 1)
 
     , (prog13, map fromIntegral [1::Int], 1)
 
@@ -199,6 +185,24 @@ tests
 
     , (prog15, [], 2)                  
     ]
--}
-main = mapM_ run_test tests
+
+bool_tests 
+  = [ (bool_prog9, map fromIntegral [0::Int,0], 0)
+    , (bool_prog9, map fromIntegral [0::Int,1], 0)
+    , (bool_prog9, map fromIntegral [1::Int,0], 0)
+    , (bool_prog9, map fromIntegral [1::Int,1], 1) 
+
+    , (bool_prog10, map fromIntegral [0::Int,0], 0)
+    , (bool_prog10, map fromIntegral [0::Int,1], 1)
+    , (bool_prog10, map fromIntegral [1::Int,0], 1)
+    , (bool_prog10, map fromIntegral [1::Int,1], 0)
+
+    , (bool_prog12, map fromIntegral [0::Int,0], 1)
+    , (bool_prog12, map fromIntegral [0::Int,1], 0)
+    , (bool_prog12, map fromIntegral [1::Int,0], 0)
+    , (bool_prog12, map fromIntegral [1::Int,1], 1)
+    ]
+
+main = (P.>>) (mapM_ run_test tests)
+              (mapM_ run_test bool_tests)
 

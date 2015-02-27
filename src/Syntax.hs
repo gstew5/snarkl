@@ -31,7 +31,7 @@ import qualified Data.Map.Strict as Map
 
 import Common
 import R1CS
-import Lang
+import Source
 import Compile
 import Serialize
 
@@ -119,7 +119,7 @@ declare_inputs n =
      ; _ <- g (dec n)
      ; ret x
      }
-  where g 0 = ret EUnit
+  where g 0 = ret $ TEVal VUnit
         g m = input >> g (dec m)
 
 add_width_bindings :: [(Var,Int)] -> Comp TUnit
@@ -164,7 +164,7 @@ arr2 sz width
   = do { let len = ((P.*) sz width)
        ; a <- declare_vars len
        ; _ <- add_arr_mapping a sz width
-       ; ret a
+       ; ret $ last_seq a
        }
 
 arr :: Int -> Comp (TRef ty)
@@ -177,7 +177,7 @@ input_arr2 sz width
   = do { let len = ((P.*) sz width)
        ; a <- declare_inputs len
        ; _ <- add_arr_mapping a sz width
-       ; ret a
+       ; ret $ last_seq a
        }
 
 input_arr :: Int -> Comp (TRef ty)
@@ -190,16 +190,18 @@ get_arr_width x m_width
       Just w -> w
 
 -- | Calculate the effective address of a[i]
-eff_addr :: (TExp (TRef ty) Rational, Int) -> State Env Int
+eff_addr :: (TExp (TRef ty) Rational, Int) -> Comp TField
 eff_addr (a,i)
   = let x = var_of_texp a
     in State (\s -> case s of
                  env@(Env _ _ _ m_width) ->
                    let width = get_arr_width x m_width
-                   in ((P.*) width i, env)
+                   in ( TEVal $ VField (fromIntegral $ (P.*) width i)
+                      , env
+                      )
              )
 
-get_addr :: (TExp (TRef ty) Rational,Int) -> State Env (TVar ty)
+get_addr :: (TExp (TRef ty) Rational,Int) -> Comp ty
 get_addr (a',i')
   = let x = var_of_texp a'
     in State (\s -> case s of
@@ -207,7 +209,8 @@ get_addr (a',i')
                    case Map.lookup (x,i') m of
                      Nothing -> error $ "unbound var " ++ show (x,i')
                                         ++ " in map " ++ show m
-                     Just y  -> (unsafeCoerce $ TVar y, env)
+                     Just y  -> (unsafeCoerce
+                                 $ TEVar (TVar y), env)
              )
 
 get2 :: ( TExp (TRef ty) Rational -- select from array a
@@ -216,8 +219,9 @@ get2 :: ( TExp (TRef ty) Rational -- select from array a
      -> Comp ty
 get2 (a,i,j)
   = do { addr <- eff_addr (a,i)
-       ; x <- get_addr (a,(P.+) addr j)
-       ; ret $ TEVar x
+       ; let TEVal (VField addr') = addr
+       ; e <- get_addr (a,(P.+) (truncate addr') j)
+       ; ret e
        }
 
 get :: ( TExp (TRef ty) Rational -- select from array a
@@ -235,7 +239,8 @@ set2 (a,i,j) e
     in do { le <- var
           ; let y = var_of_texp le
           ; addr <- eff_addr (a,i)
-          ; _ <- add_arr_bindings [((x,(P.+) addr j),y)]
+          ; let TEVal (VField addr') = addr
+          ; _ <- add_arr_bindings [((x,(P.+) (truncate addr') j),y)]
           ; ret $ TEAssign le e
           }
        
@@ -245,17 +250,17 @@ set :: (TExp (TRef ty) Rational, Int)
     -> Comp TUnit
 set (a,i) = set2 (a,i,0)
 
-(>>=) :: State s a
-      -> (a -> State s b)
-      -> State s b
+(>>=) :: State s (TExp ty1 a)
+      -> (TExp ty1 a -> State s (TExp ty2 a))
+      -> State s (TExp ty2 a)
 (>>=) mf g = State (\s ->
   let (e,s') = runState mf s
       (e',s'') = runState (g e) s'
-  in (e',s''))
+  in (TESeq e e',s''))
 
-(>>) :: State s a
-     -> State s b
-     -> State s b
+(>>) :: State s (TExp ty1 a)
+     -> State s (TExp ty2 a)
+     -> State s (TExp ty2 a)
 (>>) mf g = do { _ <- mf; g }    
 
 return :: a -> State s a
@@ -355,10 +360,9 @@ instance Show Result where
 check :: Comp ty -> [Rational] -> Result
 check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty)
-        comp_exp = exp_of_texp e
         nv       = next_var s
         in_vars  = reverse $ input_vars s
-        r1cs     = compile_exp nv in_vars comp_exp
+        r1cs     = compile_exp nv in_vars e
         r1cs_string = serialize_r1cs r1cs
         nw        = num_vars r1cs
         f         = gen_witness r1cs . Map.fromList

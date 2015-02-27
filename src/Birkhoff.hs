@@ -8,7 +8,7 @@ import qualified Data.Map.Strict as Map
 
 import Common
 import Field
-import Lang
+import Expr
 import Simplify
 import Compile
 
@@ -157,7 +157,7 @@ compile_prop bound p
                   }
         ((vtree,cs),_) = runState comp (CEnv Set.empty $ out_var + 1)
         pinned_vars = [out_var]
-        (_,cs') = do_simplify pinned_vars Map.empty cs
+        (_,cs') = (cs,cs) -- do_simplify pinned_vars Map.empty cs
         f = solve_constraints pinned_vars cs'
     in (f,vtree,cs')
 

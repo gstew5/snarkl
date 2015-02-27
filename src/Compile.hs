@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+
 module Compile 
   ( CEnv(CEnv)
   , fresh_var
@@ -13,9 +15,38 @@ import Control.Monad.State
 import Common
 import Field
 import R1CS
-import Constraints
 import Simplify
-import Lang
+import Source
+import Expr
+import Constraints
+
+----------------------------------------------------------------
+--                      Source -> Expr                        --
+----------------------------------------------------------------
+
+exp_of_val :: Field a => Val ty a -> Exp a
+exp_of_val v = case v of
+  VField c -> EVal c
+  VTrue -> EVal one
+  VFalse -> EVal zero
+  VUnit -> EUnit
+
+exp_of_texp :: Field a => TExp ty a -> Exp a
+exp_of_texp te = case te of
+  TEVar (TVar x) -> EVar x
+  TEVal v -> exp_of_val v
+  TEBinop (TOp op) te1 te2 ->
+    exp_binop op (exp_of_texp te1) (exp_of_texp te2)
+  TEIf te1 te2 te3 ->
+    EIf (exp_of_texp te1) (exp_of_texp te2) (exp_of_texp te3)
+  TEAssign te1 te2 ->
+    EAssign (exp_of_texp te1) (exp_of_texp te2)
+  TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
+
+
+----------------------------------------------------------------
+--                      Expr -> Constraints                   --
+----------------------------------------------------------------
 
 data CEnv a =
   CEnv { cur_cs   :: Set.Set (Constraint a)
@@ -128,7 +159,7 @@ encode_binop op (x,y,z)
   = let g Add = add_constraint
                 $ CAdd zero $ Map.fromList [(x,one),(y,one),(z,neg one)]
         g Sub = add_constraint
-                $ CAdd zero $ Map.fromList [(x,one),(y,neg one),(z,neg one)]    
+                $ CAdd zero $ Map.fromList [(x,one),(y,neg one),(z,neg one)] 
         g Mult = add_constraint
                  $ CMult (one,x) (one,y) (one,Just z)
         g Div = error "division not yet implemented"
@@ -252,12 +283,12 @@ r1cs_of_exp out in_vars e
 compile_exp :: Field a =>
                Int   -- ^ Number of variables (determined by frontend)
             -> [Var] -- ^ Input variables (determined by frontend)
-            -> Exp a -- ^ Expression to be compiled
+            -> TExp ty a -- ^ Expression to be compiled
             -- | Returns the resulting rank-1 constraint system.
             -> R1CS a
 compile_exp nv in_vars e
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init = CEnv Set.empty (out+1)
-    in fst $ runState (r1cs_of_exp out in_vars e) cenv_init
+    in fst $ runState (r1cs_of_exp out in_vars $ exp_of_texp e) cenv_init
 
