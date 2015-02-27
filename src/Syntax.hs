@@ -47,11 +47,21 @@ data State s a = State (s -> (a,s))
 --    (a) getting i <- arr_map(a,i)
 --    (b) inserting the constraint (x = i)
 
-type ArrMap = Map.Map (Var,Int) Var
+type ArrMap
+  = Map.Map ( Var -- array a
+            , Int -- at index i
+            )
+            Var -- maps to variable x
+
+type WidthMap
+  = Map.Map Var -- array a
+            Int -- has elements of width w
 
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
-               , arr_map  :: ArrMap }
+               , arr_map  :: ArrMap
+               , width_map :: WidthMap
+               }
            deriving Show
 
 type Comp = State Env (Exp Rational)
@@ -73,6 +83,7 @@ var = State (\s -> ( EVar (next_var s)
                    , Env (inc (next_var s))
                          (input_vars s)
                          (arr_map s)
+                         (width_map s)
                    )
             )
 
@@ -82,6 +93,7 @@ input = State (\s -> ( EVar (next_var s)
                      , Env (inc (next_var s))
                            (next_var s : input_vars s)
                            (arr_map s)
+                           (width_map s)                       
                      )
               )
 
@@ -91,7 +103,8 @@ declare_vars 0 = error "must declare >= 1 vars"
 declare_vars n =
   do { x <- var
      ; _ <- g (dec n)
-     ; ret x }
+     ; ret x
+     }
   where g 0 = ret EUnit
         g m = var >> g (dec m)
 
@@ -101,60 +114,131 @@ declare_inputs 0 = error "must declare >= 1 vars"
 declare_inputs n =
   do { x <- input
      ; _ <- g (dec n)
-     ; ret x }
+     ; ret x
+     }
   where g 0 = ret EUnit
         g m = input >> g (dec m)
 
-add_arr_bindings :: [((Var,Int),Var)] -> Comp
-add_arr_bindings bindings
+add_width_bindings :: [(Var,Int)] -> Comp
+add_width_bindings width_bindings
   = State (\s -> case s of
-              Env nv ivs m -> ( EUnit
-                              , Env nv ivs (Map.fromList bindings `Map.union` m)
-                              )
+              Env nv ivs m m_width ->
+                ( EUnit
+                , Env nv ivs m
+                  (Map.fromList width_bindings `Map.union` m_width)                  
+                )
           )
 
-add_arr_mapping :: Exp Rational -> Int -> Comp
-add_arr_mapping a sz
+add_arr_bindings :: [((Var,Int),Var)]
+                 -> Comp
+add_arr_bindings bindings
+  = State (\s -> case s of
+              Env nv ivs m m_width ->
+                ( EUnit
+                , Env nv ivs
+                  (Map.fromList bindings `Map.union` m)
+                  m_width
+                )
+          )
+
+add_arr_mapping :: Exp Rational -> Int -> Int -> Comp
+add_arr_mapping a sz width
   = do { let x = var_of_exp a
-       ; let indices  = take sz [(0::Int)..]
+       ; let len = ((P.*) sz width)
+       ; let indices  = take len $ [(0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
-       ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars }
+       ; add_width_bindings [(x,width)]
+       ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars
+       }
+
+-- | 2-d arrays. 'width' is the size, in "bits" (#field elements), of
+-- each array element.
+arr2 :: Int -> Int -> Comp
+arr2 0 _ = error "array must have size > 0"
+arr2 sz width
+  = do { let len = ((P.*) sz width)
+       ; a <- declare_vars len
+       ; _ <- add_arr_mapping a sz width
+       ; ret a
+       }
 
 arr :: Int -> Comp
-arr 0  = error "array must have size > 0"
-arr sz = do { a <- declare_vars sz
-            ; _ <- add_arr_mapping a sz
-            ; ret a }
+arr sz = arr2 sz 1
 
 -- Like arr, except array variables are marked as "inputs"
+input_arr2 :: Int -> Int -> Comp
+input_arr2 0 _ = error "array must have size > 0"
+input_arr2 sz width
+  = do { let len = ((P.*) sz width)
+       ; a <- declare_inputs len
+       ; _ <- add_arr_mapping a sz width
+       ; ret a
+       }
+
 input_arr :: Int -> Comp
-input_arr 0  = error "array must have size > 0"
-input_arr sz = do { a <- declare_inputs sz
-            ; _ <- add_arr_mapping a sz
-            ; ret a }
+input_arr sz = input_arr2 sz 1
+
+get_arr_width :: Var -> WidthMap -> Int
+get_arr_width x m_width
+  = case Map.lookup x m_width of
+      Nothing -> error $ "unbound var " ++ show x
+      Just w -> w
+
+-- | Calculate the effective address of a[i]
+eff_addr :: (Exp Rational, Int) -> Comp
+eff_addr (a,i)
+  = let x = var_of_exp a
+    in State (\s -> case s of
+                 env@(Env _ _ _ m_width) ->
+                   let width = get_arr_width x m_width
+                   in (EVal (fromIntegral $ (P.*) width i), env)
+             )
+
+get_addr :: (Exp Rational,Int) -> Comp
+get_addr (a',i')
+  = let x = var_of_exp a'
+    in State (\s -> case s of
+                 env@(Env _ _ m _) ->
+                   case Map.lookup (x,i') m of
+                     Nothing -> error $ "unbound var " ++ show (x,i')
+                                        ++ " in map " ++ show m
+                     Just y  -> (EVar y, env)
+             )
+
+get2 :: ( Exp Rational -- select from array a
+        , Int          -- at index i  
+        , Int )        -- at index j
+     -> Comp
+get2 (a,i,j)
+  = do { addr <- eff_addr (a,i)
+       ; let EVal addr' = addr
+       ; get_addr (a,(P.+) (truncate addr') j)
+       }
 
 get :: ( Exp Rational -- select from array a
        , Int )        -- at index i
     -> Comp -- result e
-get (a,i)
-  = let x = var_of_exp a
-    in State (\s -> case s of
-                 env@(Env _ _ m) ->
-                   case Map.lookup (x,i) m of
-                     Just y  -> (EVar y, env)
-                     Nothing -> error $ "unbound var " ++ show (x,i)
-             )
+get (a,i) = get2 (a,i,0)
 
--- | Update array 'a' at position 'j' to expression 'e'.
-set :: (Exp Rational, Int)        
-    -> Exp Rational   
-    -> Comp
-set (a,j) e
+-- | Update array 'a' at position 'i,j' to expression 'e'.
+set2 :: (Exp Rational, Int, Int)        
+     -> Exp Rational   
+     -> Comp
+set2 (a,i,j) e
   = let x = var_of_exp a
     in do { le <- var
           ; let y = var_of_exp le
-          ; _ <- add_arr_bindings [((x,j),y)]
-          ; ret $ EAssign le e }
+          ; addr <- eff_addr (a,i)
+          ; let EVal addr' = addr
+          ; _ <- add_arr_bindings [((x,(P.+) (truncate addr') j),y)]
+          ; ret $ EAssign le e
+          }
+       
+-- | Update array 'a' at position 'i' to expression 'e'.
+set :: (Exp Rational, Int)        
+    -> Exp Rational   
+    -> Comp
+set (a,i) = set2 (a,i,0)
 
 (>>=) :: State s (Exp Rational)
       -> (Exp Rational -> State s (Exp Rational))
@@ -275,7 +359,7 @@ instance Show Result where
 
 check :: Comp -> [Rational] -> Result
 check mf inputs
-  = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty)
+  = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty)
         nv       = next_var s
         in_vars  = reverse $ input_vars s
         r1cs     = compile_exp nv in_vars e
@@ -312,4 +396,5 @@ run_test (prog,inputs,res) =
                   ++ "expected " ++ show res ++ " but got " ++ show res'
     Result False _ _ _ _ ->
       print_ln $ "error: witness failed to satisfy constraints"
+
 
