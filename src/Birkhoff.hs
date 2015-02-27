@@ -157,9 +157,9 @@ compile_prop bound p
                   }
         ((vtree,cs),_) = runState comp (CEnv Set.empty $ out_var + 1)
         pinned_vars = [out_var]
---       (_,cs') = do_simplify pinned_vars Map.empty cs
-        f = solve_constraints pinned_vars cs
-    in (f,vtree,cs)
+        (_,cs') = do_simplify pinned_vars Map.empty cs
+        f = solve_constraints pinned_vars cs'
+    in (f,vtree,cs')
 
 prop1 :: Prop Rational 
 prop1 = PropEq (TmConst 0.0) (TmConst 0.0)
