@@ -18,7 +18,7 @@ snårkl builds with GHC version >= 7.8.3. It may compile with earlier versions a
 > make keccak
 ```
 
-from the `src` directory, contains a basic implementation of the Keccak (SHA3) round function, for lane width 1.
+from the `src` directory, contains a basic implementation of the Keccak (SHA3) round function.
 
 ## Limitations
 
