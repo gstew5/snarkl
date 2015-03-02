@@ -5,7 +5,7 @@ module Simplify
   ) where
 
 import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 import Control.Monad.State
 
 import Field

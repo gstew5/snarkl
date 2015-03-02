@@ -1,6 +1,6 @@
 module Serialize where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 import Data.Ratio
 
 import Poly

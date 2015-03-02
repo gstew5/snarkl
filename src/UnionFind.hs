@@ -6,15 +6,15 @@ module UnionFind
   , UnionFind(..)
   ) where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 import Data.Maybe
 
 import Common
 
 data UnionFind a =
-  UnionFind { ids :: Map.Map Var Var
-            , sizes :: Map.Map Var Int
-            , extras :: Map.Map Var a }
+  UnionFind { ids :: Map.IntMap Var
+            , sizes :: Map.IntMap Int
+            , extras :: Map.IntMap a }
   deriving Show
 
 new_uf :: UnionFind a

@@ -2,13 +2,13 @@
 
 module Poly where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 
 import Common
 import Field
 
 data Poly a where
-  Poly :: Field a => Map.Map Var a -> Poly a
+  Poly :: Field a => Assgn a -> Poly a
 
 instance Show a => Show (Poly a) where
   show (Poly m) = show m

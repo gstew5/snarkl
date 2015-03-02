@@ -8,7 +8,7 @@ module Compile
   , compile_exp
   ) where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 import qualified Data.Set as Set
 import Control.Monad.State
 

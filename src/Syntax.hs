@@ -28,6 +28,7 @@ import System.IO
 import Unsafe.Coerce 
 
 import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as IntMap
 
 import Common
 import R1CS
@@ -55,8 +56,8 @@ type ArrMap
             Var -- maps to variable x
 
 type WidthMap
-  = Map.Map Var -- array a
-            Int -- has elements of width w
+  = IntMap.IntMap -- array a
+              Int -- has elements of width w
 
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
@@ -128,7 +129,7 @@ add_width_bindings width_bindings
               Env nv ivs m m_width ->
                 ( unit
                 , Env nv ivs m
-                  (Map.fromList width_bindings `Map.union` m_width)      
+                  (IntMap.fromList width_bindings `IntMap.union` m_width)   
                 )
           )
 
@@ -185,7 +186,7 @@ input_arr sz = input_arr2 sz 1
 
 get_arr_width :: Var -> WidthMap -> Int
 get_arr_width x m_width
-  = case Map.lookup x m_width of
+  = case IntMap.lookup x m_width of
       Nothing -> error $ "unbound var " ++ show x
       Just w -> w
 
@@ -359,13 +360,13 @@ instance Show Result where
 
 check :: Comp ty -> [Rational] -> Result
 check mf inputs
-  = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty)
+  = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty IntMap.empty)
         nv       = next_var s
         in_vars  = reverse $ input_vars s
         r1cs     = compile_exp nv in_vars e
         r1cs_string = serialize_r1cs r1cs
         nw        = num_vars r1cs
-        f         = gen_witness r1cs . Map.fromList
+        f         = gen_witness r1cs . IntMap.fromList
         [out_var] = r1cs_out_vars r1cs
         ng  = num_constraints r1cs
         wit = case length in_vars /= length inputs of
@@ -373,7 +374,7 @@ check mf inputs
                   error $ "expected " ++ show (length in_vars) ++ " input(s)"
                   ++ " but got " ++ show (length inputs) ++ " input(s)"
                 False -> f (zip in_vars inputs)
-        out = case Map.lookup out_var wit of
+        out = case IntMap.lookup out_var wit of
                 Nothing -> error $ "output variable " ++ show out_var
                                    ++ "not mapped, in " ++ show wit
                 Just out_val -> out_val

@@ -1,10 +1,10 @@
 module Common where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 
 type Var = Int
 
-type Assgn a = Map.Map Var a
+type Assgn a = Map.IntMap a
 
 data Op = Add | Sub | Mult | Div
         | And | Or | XOr | Eq
