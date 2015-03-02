@@ -20,8 +20,8 @@ import R1CS
 --     interpretation cx * dy = e (when mz = Nothing), or
 --                    cx * dy = ez (when mz = Just z). 
 data Constraint a =
-    CAdd !a (Assgn a)
-  | CMult !(a,Var) !(a,Var) !(a, Maybe Var)
+    CAdd a (Assgn a)
+  | CMult (a,Var) (a,Var) (a, Maybe Var)
   deriving (Eq,Ord)
 
 instance Show a => Show (Constraint a) where
