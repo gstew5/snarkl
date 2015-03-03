@@ -22,7 +22,29 @@ import R1CS
 data Constraint a =
     CAdd a (Assgn a)
   | CMult (a,Var) (a,Var) (a, Maybe Var)
-  deriving (Eq,Ord)
+
+instance Eq a => Eq (Constraint a) where
+  CAdd c m == CAdd c' m'
+    = c == c' && m == m'
+  CMult cx dy emz == CMult cx' dy' emz'
+    = emz == emz'
+      && (cx == cx' && dy == dy' || cx == dy' && dy == cx')
+  CAdd _ _ == CMult _ _ _ = False
+  CMult _ _ _ == CAdd _ _ = False
+
+instance Ord a => Ord (Constraint a) where
+  compare (CAdd _ _) (CMult _ _ _) = LT
+  compare (CMult _ _ _) (CAdd _ _) = GT
+  compare (CAdd c m) (CAdd c' m')
+    = case compare c c' of
+        EQ -> compare m m'
+        LT -> LT
+        GT -> GT
+  compare (CMult cx dy emz) (CMult cx' dy' emz')
+    = case compare cx cx' of
+        EQ -> compare (dy,emz) (dy',emz')
+        LT -> LT
+        GT -> GT
 
 instance Show a => Show (Constraint a) where
   show (CAdd a m) = show a ++ " + " ++ go (Map.toList m)
