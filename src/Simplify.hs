@@ -161,23 +161,6 @@ learn constr
           | otherwise
           = return ()
 
-        go constr'@(CMult (c,_) (d,_) (e,Nothing))
-          | c==zero || d==zero
-          = if e==zero then return ()
-            else error $ "expected " ++ show e ++ " to equal 0 "
-                 ++ " in equation: " ++ show constr'
-        go (CMult (c,_) (d,_) (e,Just z))
-          | (c==zero || d==zero) && e/= zero
-          = bind_var (z,zero)
-
-        go (CMult (c,x) (d,y) (e,Just z))
-          | (c,x)==(e,z) && (c,x)/=(d,y) && c/=zero && d/=zero
-          = bind_var (z,one `mult` inv d)            
-
-        go (CMult (c,x) (d,y) (e,Just z))
-          | (d,y)==(e,z) && (c,x)/=(d,y) && c/=zero && d/=zero
-          = bind_var (z,one `mult` inv c)
-
         go _ | otherwise = return ()
 
 
