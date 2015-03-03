@@ -85,7 +85,8 @@ r1cs_of_cs cs = R1CS $ go $ Set.toList cs
 -- | Return the list of variables occurring in constraints 'cs'.
 constraint_vars :: ConstraintSet a -> [Var]
 constraint_vars cs
-  = Set.toList $ Set.foldl' (\s0 c -> Set.union (get_vars c) s0) Set.empty cs
+  = Set.toList
+    $ Set.foldl' (\s0 c -> Set.union (get_vars c) s0) Set.empty cs
   where get_vars (CAdd _ m) = Set.fromList $ Map.keys m
         get_vars (CMult (_,x) (_,y) (_,Nothing)) = Set.fromList [x,y]
         get_vars (CMult (_,x) (_,y) (_,Just z))  = Set.fromList [x,y,z]
@@ -103,7 +104,8 @@ renumber_constraints :: Field a
 renumber_constraints in_vars cs
   = (num_constraint_vars,renum_f,cs')
   where cs' = Set.map renum_constr cs
-        not_input = filter (not . flip elem in_vars)
+        in_vars_set = Set.fromList in_vars
+        not_input = filter (not . flip Set.member in_vars_set)
         env = Map.fromList
               $ zip (in_vars ++ not_input (constraint_vars cs)) [0..]
         num_constraint_vars = Map.size env

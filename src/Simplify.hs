@@ -211,7 +211,8 @@ simplify pinned_vars sigma
                        = map (\(x,var_or_a) ->
                                case var_or_a of
                                  Left rx ->
-                                   CAdd zero $ Map.fromList [(x,one),(rx,neg one)]
+                                   CAdd zero
+                                   $ Map.fromList [(x,one),(rx,neg one)]
                                  Right c ->
                                    CAdd (neg c) $ Map.fromList [(x,one)])
                          $ filter (\(x,rx) -> Left x /= rx) pinned_terms
@@ -226,8 +227,8 @@ simplify_rec sigma
   = do { sigma' <- simplify_once sigma
        ; if Set.size sigma' < Set.size sigma then
            simplify_rec sigma'
-         else if Set.difference sigma sigma' `Set.isSubsetOf` Set.empty then
-                return sigma'
+         else if Set.difference sigma sigma'
+                 `Set.isSubsetOf` Set.empty then return sigma'
               else simplify_rec sigma'
        }
   where simplify_once :: Field a
