@@ -1,9 +1,9 @@
 module Simplify
   ( do_simplify
-  , renumber_constraints
   , solve_constraints
   ) where
 
+import Data.List (foldl')
 import qualified Data.Set as Set
 import qualified Data.IntMap.Lazy as Map
 import Control.Monad.State
@@ -14,19 +14,10 @@ import Constraints
 import UnionFind
 import SimplMonad
 
-type ConstraintSet a = Set.Set (Constraint a)
-
 ----------------------------------------------------------------
 --                         Substitution                       --
 ----------------------------------------------------------------
-
--- | Return the set of variables occurring in constraints 'cs'.
-constraint_vars cs = my_nub $ concatMap get_vars cs
-  where my_nub = Set.toList . Set.fromList
-        get_vars (CAdd _ m) = Map.keys m
-        get_vars (CMult (_,x) (_,y) (_,Nothing)) = [x,y]
-        get_vars (CMult (_,x) (_,y) (_,Just z))  = [x,y,z]        
-
+        
 -- | Normalize constraint 'constr', by substituting roots/constants
 -- for the variables that appear in the constraint. Note that, when
 -- normalizing a multiplicative constraint, it may be necessary to
@@ -47,8 +38,8 @@ subst_constr constr = case constr of
        ; let consts     = concat consts'
        ; let const_keys = map fst consts
        ; let const_vals = map snd consts
-         -- The new constant folding in all constant constraint variables    
-       ; let new_const  = foldl add a const_vals
+         -- The new constant folding in all constant constraint variables 
+       ; let new_const  = foldl' add a const_vals
          -- The linear combination minus
          -- (1) Terms whose variables resolve to constants, and
          -- (2) Terms with coeff 0.    
@@ -120,10 +111,9 @@ subst_constr constr = case constr of
                  }
           
         
-            
 
 ----------------------------------------------------------------
---                  Constraint Minimization                   --
+--                 Constraint Set Minimization                --
 ----------------------------------------------------------------
 
 -- | Is 'constr' a tautology?
@@ -195,42 +185,30 @@ do_simplify :: Field a
             => [Var] -- ^ Pinned variables (e.g., outputs).
                      -- These should not be optimized away.
             -> Assgn a -- ^ Initial variable assignment
-            -> [Constraint a] -- ^ Constraint set to be simplified 
-            -> (Assgn a,[Constraint a])
+            -> ConstraintSet a -- ^ Constraint set to be simplified 
+            -> (Assgn a,ConstraintSet a)
                 -- ^ Resulting assignment, simplified constraint set
 do_simplify pinned_vars env cs
   = fst $ runState g (SEnv (new_uf { extras = env }))
-  where g = do { sigma' <- simplify_until_fixpoint pinned_vars $ Set.fromList cs
+  where g = do { sigma' <- simplify pinned_vars cs
                  -- NOTE: In the next line, it's OK that 'pinned_vars' may
                  -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may
                  -- just do a bit of duplicate work (to look up the same
                  -- key more than once).          
-               ; assgn <- assgn_of_vars (pinned_vars ++ constraint_vars cs)
-               ; return (assgn,Set.toList sigma')
+               ; assgn <- assgn_of_vars $ pinned_vars ++ constraint_vars cs
+               ; return (assgn,sigma')
                }
 
-
-simplify_until_fixpoint :: Field a
-                        => [Var]
-                        -> ConstraintSet a
-                        -> State (SEnv a) (ConstraintSet a)
-simplify_until_fixpoint pinned_vars sigma
-  = do { sigma' <- simplify pinned_vars sigma
-       ; if Set.difference sigma sigma' `Set.isSubsetOf` Set.empty then
-           return sigma'
-         else simplify_until_fixpoint pinned_vars sigma'
-       }
-            
 
 simplify :: Field a
          => [Var] 
          -> ConstraintSet a
          -> State (SEnv a) (ConstraintSet a)
 simplify pinned_vars sigma  
-  = do { sigma2 <- simplify_rec sigma
-       ; sigma3 <- mapM subst_constr $ Set.toList sigma2
-       ; sigma4 <- remove_tauts sigma3
-       ; sigma_pinned <- add_pin_eqns sigma4
+  = do { sigma' <- simplify_rec sigma
+       ; sigma_subst <- mapM subst_constr $ Set.toList sigma'
+       ; sigma_no_tauts <- remove_tauts sigma_subst
+       ; sigma_pinned <- add_pin_eqns sigma_no_tauts
        ; return $ Set.fromList sigma_pinned
        }
 
@@ -265,28 +243,32 @@ simplify_rec sigma
   = do { sigma' <- simplify_once sigma
        ; if Set.size sigma' < Set.size sigma then
            simplify_rec sigma'
-         else return sigma'
+         else if Set.difference sigma sigma' `Set.isSubsetOf` Set.empty then
+                return sigma'
+              else simplify_rec sigma'
        }
   where simplify_once :: Field a
-                     => ConstraintSet a -- ^ Initial constraint set
-                     -> State (SEnv a) (ConstraintSet a)
-                     -- ^ Resulting simplified constraint set
+                      => ConstraintSet a -- ^ Initial constraint set
+                      -> State (SEnv a) (ConstraintSet a)
+                      -- ^ Resulting simplified constraint set
         simplify_once sigma0
-          = do { sigma2 <- g Set.empty sigma0
+          = do { sigma2 <- go Set.empty sigma0
                ; sigma' <- remove_tauts (Set.toList sigma2)
                ; return $ Set.fromList sigma'
                }
-        g ws us
-          | Set.size us == 0 = return ws
-        g ws us
+
+        go ws us
+          | Set.size us == 0
+          = return ws
+        go ws us
           | otherwise
           = let (given,us') = choose us
             in do { given_taut <- is_taut given
-                  ; if given_taut then g ws us'
+                  ; if given_taut then go ws us'
                     else do
                       learn given
                       let ws' = Set.insert given ws
-                      g ws' us'
+                      go ws' us'
                   }
 
         -- NOTE: Assumes input set is nonempty
@@ -300,7 +282,7 @@ simplify_rec sigma
 -- case should NOT occur).
 solve_constraints :: Field a
                   => [Var] -- ^ Pinned variables
-                  -> [Constraint a] -- ^ Constraints to be solved
+                  -> ConstraintSet a -- ^ Constraints to be solved
                   -> Assgn a -- ^ Initial assignment
                   -> Assgn a -- ^ Resulting assignment
 solve_constraints pinned_vars cs env = 
@@ -319,30 +301,4 @@ solve_constraints pinned_vars cs env =
               Just _ -> True
 
 
--- | Sequentially renumber term variables '0..max_var'.
---   Return renumbered constraints, together with the total number of
---   variables in the (renumberd) constraint set and the
---   (possibly renumbered) out variable (input vars. are always mapped
---   by the identity function).
-renumber_constraints :: Field a
-                      => [Var] -- ^ Input variables
-                      -> [Constraint a]
-                      -> (Int,Var -> Var,[Constraint a])
-renumber_constraints in_vars cs = (num_vars,renum_f,cs')
-  where cs' = map renum_constr cs
-        not_input = filter (not . flip elem in_vars)
-        env = Map.fromList
-              $ zip (in_vars ++ not_input (constraint_vars cs)) [0..]
-        num_vars = Map.size env
-        renum_f x
-          = case Map.lookup x env of
-              Nothing ->
-                error $ "can't find a binding for variable " ++ show x
-              Just x' -> x'
-
-        renum_constr c0 
-          = case c0 of
-              CAdd a m -> CAdd a $ Map.mapKeys renum_f m
-              CMult (c,x) (d,y) (e,mz) ->
-                CMult (c,renum_f x) (d,renum_f y) (e,fmap renum_f mz)
 

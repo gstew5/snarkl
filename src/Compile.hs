@@ -249,7 +249,7 @@ r1cs_of_constraints :: Field a
                     => Var -- ^ Designated output "wire"
                     -> [Var] -- ^ Remaining output variables (observables)
                     -> [Var] -- ^ Input variables
-                    -> [Constraint a] -- ^ Constraints
+                    -> ConstraintSet a -- ^ Constraints
                     -> R1CS a
 r1cs_of_constraints out out_vars in_vars cs
   = let pinned_vars = out : out_vars ++ in_vars
@@ -277,7 +277,7 @@ r1cs_of_exp out in_vars e
   = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
          cs_of_exp out e
        ; cs <- get_constraints
-       ; return $ r1cs_of_constraints out [] in_vars cs
+       ; return $ r1cs_of_constraints out [] in_vars $ Set.fromList cs
        } 
 
 compile_exp :: Field a =>

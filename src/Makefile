@@ -18,7 +18,7 @@ all:
 	$(GHC) $(GHC_OPTIONS) Main.hs
 
 test:   all keccak
-	./Main && app/keccak/Main
+	./Main && time app/keccak/Main
 
 keccak:
 	$(GHC) $(GHC_OPTIONS) app/keccak/Main.hs
