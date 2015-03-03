@@ -146,6 +146,14 @@ prog15
   = do { ret $ 3.0 - (2.0 - 1.0)
        }
 
+-- | 16. const_prop 
+prog16
+  = do { a <- arr 20
+       ; set (a,3) true
+       ; b <- get (a,3)
+       ; ret $ if b then 5.0 else 0.0
+       }
+
 
 -- tests :: [(Comp ty,[Rational],Rational)]
 tests
@@ -183,7 +191,9 @@ tests
 
     , (prog14, map fromIntegral [3::Int,4], 0)
 
-    , (prog15, [], 2)                  
+    , (prog15, [], 2)
+
+    , (prog16, [], 5)                        
     ]
 
 bool_tests 

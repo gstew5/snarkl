@@ -286,9 +286,12 @@ compile_exp :: Field a =>
             -> TExp ty a -- ^ Expression to be compiled
             -- | Returns the resulting rank-1 constraint system.
             -> R1CS a
-compile_exp nv in_vars e
+compile_exp nv in_vars te
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init = CEnv Set.empty (out+1)
-    in fst $ runState (r1cs_of_exp out in_vars $ exp_of_texp e) cenv_init
+        -- Simplify before compiling to R1CS
+        e  = exp_of_texp te
+        e' = simpl_exp e
+    in fst $ runState (r1cs_of_exp out in_vars e') cenv_init
 

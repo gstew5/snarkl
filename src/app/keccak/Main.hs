@@ -29,7 +29,7 @@ num_lanes :: Int
 num_lanes = (P.*) 5 5
 
 ln_width :: Int
-ln_width = 64
+ln_width = 1
 
 round1 :: (Int -> TExp TBool Rational) -- | 'i'th bit of round constant
        -> TExp (TRef TBool) Rational   -- | Array 'a'
