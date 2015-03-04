@@ -26,6 +26,14 @@ data Constraint a =
 
 type ConstraintSet a = Set.Set (Constraint a)
 
+data ConstraintSystem a =
+  ConstraintSystem { cs_constraints :: ConstraintSet a
+                   , cs_num_vars :: Int
+                   , cs_in_vars :: [Var]                     
+                   , cs_out_vars :: [Var]                     
+                   }
+  deriving (Show)
+
 instance Eq a => Eq (Constraint a) where
   CAdd c m == CAdd c' m'
     = c == c' && m == m'
@@ -64,13 +72,14 @@ instance Show a => Show (Constraint a) where
               Just z  -> show_term e z
 
 r1cs_of_cs :: Field a 
-           => ConstraintSet a -- ^ Constraints
-           -> Int -- ^ Total number of variables
-           -> [Var] -- ^ Input variables
-           -> [Var] -- ^ Output variables
+           => ConstraintSystem a -- ^ Constraints
            -> (Assgn a -> Assgn a) -- ^ Witness generator
            -> R1CS a
-r1cs_of_cs cs = R1CS $ go $ Set.toList cs
+r1cs_of_cs cs
+  = R1CS (go $ Set.toList $ cs_constraints cs)
+         (cs_num_vars cs)
+         (cs_in_vars cs)    
+         (cs_out_vars cs)    
   where go [] = []
         go (CAdd a m : cs')
           = R1C (const_poly one,Poly $ Map.insert (-1) a m,const_poly zero) : go cs'
@@ -98,19 +107,25 @@ constraint_vars cs
 --   (possibly renumbered) out variable (input vars. are always mapped
 --   by the identity function).
 renumber_constraints :: Field a
-                      => [Var] -- ^ Input variables
-                      -> ConstraintSet a
-                      -> (Int,Var -> Var,ConstraintSet a)
-renumber_constraints in_vars cs
-  = (num_constraint_vars,renum_f,cs')
-  where cs' = Set.map renum_constr cs
-        in_vars_set = Set.fromList in_vars
-        not_input = filter (not . flip Set.member in_vars_set)
-        env = Map.fromList
-              $ zip (in_vars ++ not_input (constraint_vars cs)) [0..]
-        num_constraint_vars = Map.size env
+                      => ConstraintSystem a
+                      -> ( Var -> Var -- ^ The function used to renumber variables
+                         , ConstraintSystem a 
+                         )
+renumber_constraints cs
+  = (renum_f,ConstraintSystem new_cs (Map.size var_map) new_in_vars new_out_vars)
+  where new_cs       = Set.map renum_constr $ cs_constraints cs
+        new_in_vars  = map renum_f $ cs_in_vars cs        
+        new_out_vars = map renum_f $ cs_out_vars cs
+
+        var_map
+          = Map.fromList
+            $ zip (cs_in_vars cs ++ filter is_input all_vars) [0..]
+          where is_input = not . flip Set.member in_vars_set
+                in_vars_set = Set.fromList $ cs_in_vars cs
+                all_vars = constraint_vars $ cs_constraints cs
+
         renum_f x
-          = case Map.lookup x env of
+          = case Map.lookup x var_map of
               Nothing ->
                 error $ "can't find a binding for variable " ++ show x
               Just x' -> x'

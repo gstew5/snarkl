@@ -365,8 +365,8 @@ check mf inputs
         in_vars  = reverse $ input_vars s
         r1cs     = compile_exp nv in_vars e
         r1cs_string = serialize_r1cs r1cs
-        nw        = num_vars r1cs
-        f         = gen_witness r1cs . IntMap.fromList
+        nw        = r1cs_num_vars r1cs
+        f         = r1cs_gen_witness r1cs . IntMap.fromList
         [out_var] = r1cs_out_vars r1cs
         ng  = num_constraints r1cs
         wit = case length in_vars /= length inputs of

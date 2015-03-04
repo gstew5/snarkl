@@ -1,6 +1,6 @@
 module Simplify
   ( do_simplify
-  , solve_constraints
+  , solve
   ) where
 
 import Data.List (foldl')
@@ -168,18 +168,20 @@ do_simplify :: Field a
             => [Var] -- ^ Pinned variables (e.g., outputs).
                      -- These should not be optimized away.
             -> Assgn a -- ^ Initial variable assignment
-            -> ConstraintSet a -- ^ Constraint set to be simplified 
-            -> (Assgn a,ConstraintSet a)
+            -> ConstraintSystem a -- ^ Constraint set to be simplified 
+            -> (Assgn a,ConstraintSystem a)
                 -- ^ Resulting assignment, simplified constraint set
 do_simplify pinned_vars env cs
   = fst $ runState g (SEnv (new_uf { extras = env }))
-  where g = do { sigma' <- simplify pinned_vars cs
+  where g = do { sigma' <- simplify pinned_vars $ cs_constraints cs
                  -- NOTE: In the next line, it's OK that 'pinned_vars' may
                  -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may
                  -- just do a bit of duplicate work (to look up the same
                  -- key more than once).          
-               ; assgn <- assgn_of_vars $ pinned_vars ++ constraint_vars cs
-               ; return (assgn,sigma')
+               ; assgn <- assgn_of_vars
+                          $ pinned_vars
+                            ++ constraint_vars (cs_constraints cs)
+               ; return (assgn,cs { cs_constraints = sigma' })
                }
 
 
@@ -264,12 +266,12 @@ simplify_rec sigma
 -- If the constraints are unsolvable from [env], report the first
 -- constraint that is violated (under normal operation, this error
 -- case should NOT occur).
-solve_constraints :: Field a
-                  => [Var] -- ^ Pinned variables
-                  -> ConstraintSet a -- ^ Constraints to be solved
-                  -> Assgn a -- ^ Initial assignment
-                  -> Assgn a -- ^ Resulting assignment
-solve_constraints pinned_vars cs env = 
+solve :: Field a
+      => [Var] -- ^ Pinned variables
+      -> ConstraintSystem a -- ^ Constraints to be solved
+      -> Assgn a -- ^ Initial assignment
+      -> Assgn a -- ^ Resulting assignment
+solve pinned_vars cs env = 
   let (assgn,cs') = do_simplify pinned_vars env cs
   in if all_assigned pinned_vars assgn then assgn
      else error $ "some variables are unassigned, "

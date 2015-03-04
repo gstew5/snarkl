@@ -246,24 +246,20 @@ cs_of_exp out e = case e of
 -- system.  Takes as input the constraints, the input variables, and
 -- the output variables, and return the corresponding R1CS.
 r1cs_of_constraints :: Field a
-                    => Var -- ^ Designated output "wire"
-                    -> [Var] -- ^ Remaining output variables (observables)
-                    -> [Var] -- ^ Input variables
-                    -> ConstraintSet a -- ^ Constraints
+                    => ConstraintSystem a 
                     -> R1CS a
-r1cs_of_constraints out out_vars in_vars cs
-  = let pinned_vars = out : out_vars ++ in_vars
+r1cs_of_constraints cs
+  = let pinned_vars = cs_out_vars cs ++ cs_in_vars cs
          -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
         (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
-         -- Renumber constraint variables sequentially, from 0 to 'max_var'.
-         -- * 'nv'' is the new total number of variables in the renumbered system
-         -- * 'renumber_f' is a function mapping variables to their
-         --   renumbered counterparts.    
-        (nv',renumber_f,cs') = renumber_constraints in_vars cs_simpl
-        renumber_inputs = Map.mapKeys renumber_f
+         -- Renumber constraint variables sequentially, from 0 to
+         -- 'max_var'. 'renumber_f' is a function mapping variables to
+         -- their renumbered counterparts.
+        (renumber_f,cs') = renumber_constraints cs_simpl
+        renumber_inputs  = Map.mapKeys renumber_f
          -- 'f' is a function mapping input bindings to witnesses.                 
-        f = solve_constraints (map renumber_f pinned_vars) cs' . renumber_inputs 
-    in r1cs_of_cs cs' nv' (map renumber_f in_vars) (map renumber_f $ out : out_vars) f
+        f = solve (map renumber_f pinned_vars) cs' . renumber_inputs 
+    in r1cs_of_cs cs' f
 
 -- | Compile an expression to a rank-1 constraint system.  Takes as
 -- input the expression, the expression's input variables, and the
@@ -277,7 +273,11 @@ r1cs_of_exp out in_vars e
   = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
          cs_of_exp out e
        ; cs <- get_constraints
-       ; return $ r1cs_of_constraints out [] in_vars $ Set.fromList cs
+       ; let constraint_set      = Set.fromList cs
+       ; let num_constraint_vars = length $ constraint_vars constraint_set
+       ; return
+         $ r1cs_of_constraints
+         $ ConstraintSystem constraint_set num_constraint_vars in_vars [out]
        } 
 
 compile_exp :: Field a =>

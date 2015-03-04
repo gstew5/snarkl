@@ -28,18 +28,18 @@ instance Show a => Show (R1C a) where
   show (R1C (aV,bV,cV)) = show aV ++ "*" ++ show bV ++ "==" ++ show cV
 
 data R1CS a =
-  R1CS { clauses :: [R1C a]
-       , num_vars :: Int         
+  R1CS { r1cs_clauses :: [R1C a]
+       , r1cs_num_vars :: Int         
        , r1cs_in_vars :: [Var]
        , r1cs_out_vars :: [Var]
-       , gen_witness :: Assgn a -> Assgn a
+       , r1cs_gen_witness :: Assgn a -> Assgn a
        }
          
 instance Show a => Show (R1CS a) where
   show (R1CS cs nvs ivs ovs _) = show (cs,nvs,ivs,ovs)
 
 num_constraints :: R1CS a -> Int
-num_constraints = length . clauses
+num_constraints = length . r1cs_clauses
 
 -- sat_r1c: Does witness 'w' satisfy constraint 'c'?
 sat_r1c :: Field a => Assgn a -> R1C a -> Bool
@@ -56,7 +56,7 @@ sat_r1c w c
 
 -- sat_r1cs: Does witness 'w' satisfy constraint set 'cs'?
 sat_r1cs :: Field a => Assgn a -> R1CS a -> Bool
-sat_r1cs w cs = all id $ is_sat (clauses cs)
+sat_r1cs w cs = all id $ is_sat (r1cs_clauses cs)
   where is_sat cs0 = map g cs0 `using` parListChunk (chunk_sz cs0) rseq
         num_chunks = 32
         chunk_sz cs0
