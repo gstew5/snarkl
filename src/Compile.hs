@@ -16,6 +16,7 @@ import Common
 import Field
 import R1CS
 import Simplify
+import Dataflow
 import Source
 import Expr
 import Constraints
@@ -252,10 +253,11 @@ r1cs_of_constraints cs
   = let pinned_vars = cs_out_vars cs ++ cs_in_vars cs
          -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
         (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
+        cs_dataflow  = remove_unreachable cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts.
-        (renumber_f,cs') = renumber_constraints cs_simpl
+        (renumber_f,cs') = renumber_constraints cs_dataflow
         renumber_inputs  = Map.mapKeys renumber_f
          -- 'f' is a function mapping input bindings to witnesses.                 
         f = solve (map renumber_f pinned_vars) cs' . renumber_inputs 

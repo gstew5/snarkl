@@ -128,6 +128,7 @@ renumber_constraints cs
           = case Map.lookup x var_map of
               Nothing ->
                 error $ "can't find a binding for variable " ++ show x
+                        ++ " in map " ++ show var_map
               Just x' -> x'
 
         renum_constr c0 
