@@ -5,7 +5,7 @@ GHC_OPTIONS=-Werror -Wall \
   -fno-warn-unused-do-bind \
   -rtsopts \
   -threaded \
-  -O2 \
+  -O \
   -optc-O3
 
 GHC_PROF_OPTIONS=-prof -fprof-auto

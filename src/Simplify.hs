@@ -274,7 +274,7 @@ solve :: Field a
 solve pinned_vars cs env = 
   let (assgn,cs') = do_simplify pinned_vars env cs
   in if all_assigned pinned_vars assgn then assgn
-     else error $ "some variables are unassigned, "
+     else error $ "some pinned variables are unassigned, "
           ++ "in assignment context " ++ show assgn ++ ", "
           ++ "in pinned-variable context " ++ show pinned_vars ++ ", "
           ++ "in optimized-constraint context " ++ show cs' ++ ", "

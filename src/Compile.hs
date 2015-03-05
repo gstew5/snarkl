@@ -99,10 +99,7 @@ ensure_const (x,c)
 -- | Add constraint 'b^2 = b'.
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
 ensure_boolean b  
-  = do { b_sq <- fresh_var
-       ; encode_binop Mult (b,b,b_sq)
-       ; ensure_equal (b_sq,b)
-       }
+  = encode_binop Mult (b,b,b)
 
 -- | Constraint 'x \/ y = z'.
 -- The encoding is: x+y - z = x*y; assumes x and y are boolean.
@@ -136,41 +133,36 @@ encode_boolean_eq (x,y,z)
        ; neg_y    <- fresh_var
        ; neg_x_mult_neg_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
-       ; add_constraint (CAdd one $ Map.fromList [(x,neg one),(neg_x,neg one)])
-       ; add_constraint (CAdd one $ Map.fromList [(y,neg one),(neg_y,neg one)])  
+       ; add_constraint
+           (CAdd one $ Map.fromList [(x,neg one),(neg_x,neg one)])
+       ; add_constraint
+           (CAdd one $ Map.fromList [(y,neg one),(neg_y,neg one)])  
        ; encode_binop Mult (neg_x,neg_y,neg_x_mult_neg_y)
        ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
        }
 
-
--- | Encode the boolean constraint 'x op y = z'.
--- Assumes the caller enforces that x and y are boolean.
+-- | Encode the constraint 'x op y = z'.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
-encode_binop op (x,y,z)
-  | is_boolean op
-  = let g And = encode_binop Mult (x,y,z)
+encode_binop op (x,y,z) = g op
+  where g And = encode_binop Mult (x,y,z)
         g Or  = encode_or (x,y,z)
         g XOr = encode_xor (x,y,z)
         g Eq  = encode_boolean_eq (x,y,z)        
-        g Add = error "internal error"
-        g Sub = error "internal error"
-        g Mult = error "internal error"
-        g Div = error "internal error"        
-    in g op
 
-  | otherwise
-  = let g Add = add_constraint
-                $ CAdd zero $ Map.fromList [(x,one),(y,one),(z,neg one)]
-        g Sub = add_constraint
-                $ CAdd zero $ Map.fromList [(x,one),(y,neg one),(z,neg one)] 
-        g Mult = add_constraint
-                 $ CMult (one,x) (one,y) (one,Just z)
-        g Div = error "division not yet implemented"
-        g And = error "internal error"
-        g Or  = error "internal error"
-        g XOr = error "internal error"
-        g Eq = error "internal error"                
-    in g op
+        g Add
+          = add_constraint
+            $ CAdd zero $ Map.fromList [(x,one),(y,one),(z,neg one)]
+
+        g Sub
+          = add_constraint
+            $ CAdd zero $ Map.fromList [(x,one),(y,neg one),(z,neg one)]
+            
+        g Mult
+          = add_constraint
+            $ CMult (one,x) (one,y) (one,Just z)
+
+        g Div
+          = error "div not yet implemented"
 
 encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
 encode_linear out xs
@@ -180,9 +172,12 @@ encode_linear out xs
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
   EVar x ->
-    do { ensure_equal (out,x) }
+    do { ensure_equal (out,x)
+       }
+    
   EVal c ->
-    do { ensure_const (out,c) }
+    do { ensure_const (out,c)
+       }
 
   EBinop op es ->
     let g [] = return []
@@ -201,6 +196,7 @@ cs_of_exp out e = case e of
                ; h (res_out : labels')
                ; encode_binop op (l1,l2,res_out)
                }
+            
     in do { labels <- g es
           ; case op of
               -- Encode x1 + x2 + ... + xn directly as a linear constraint.
@@ -224,21 +220,26 @@ cs_of_exp out e = case e of
 
        ; encode_binop Mult (b_out,e1_out,b_e1)
        ; encode_binop Mult (bn_out,e2_out,bn_e2)
-       ; encode_binop Or (b_e1,bn_e2,out) }
+       ; encode_binop Or (b_e1,bn_e2,out)
+       }
+    
   -- NOTE: when compiling assignments, the naive thing to do is
   -- to introduce a new var, e2_out, bound to result of e2 and
   -- then ensure that e2_out == x. We optimize by passing x to
   -- compilation of e2 directly.
   EAssign e1 e2 ->
     do { let x = var_of_exp e1
-       ; cs_of_exp x e2 }
+       ; cs_of_exp x e2
+       }
+
   ESeq le -> g le 
     where g []   = error "internal error: empty ESeq"
           g [e1] = cs_of_exp out e1
           g (e1 : le')  
             = do { e1_out <- fresh_var
                  ; cs_of_exp e1_out e1
-                 ; g le' }
+                 ; g le'
+                 }
   EUnit ->
     do { return () }
 
@@ -250,7 +251,7 @@ r1cs_of_constraints :: Field a
                     -> R1CS a
 r1cs_of_constraints cs
   = let pinned_vars = cs_out_vars cs ++ cs_in_vars cs
-         -- Simplify resulting constraint set, with pinned vars 'pinned_vars'.
+         -- Simplify resulting constraints, with pinned vars 'pinned_vars'.
         (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
         cs_dataflow  = remove_unreachable cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
@@ -272,7 +273,7 @@ r1cs_of_exp :: Field a
             -> Exp a -- ^ Expression
             -> State (CEnv a) (R1CS a)
 r1cs_of_exp out in_vars boolean_in_vars e
-  = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
+  = do { -- Compile 'e' to constraints 'cs', with output wire 'out'.
          cs_of_exp out e
        ; mapM ensure_boolean boolean_in_vars
        ; cs <- get_constraints
