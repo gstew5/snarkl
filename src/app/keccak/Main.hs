@@ -154,7 +154,7 @@ keccak1 num_rounds
 tests = [ ( keccak1 1
           , map fromIntegral
             $ take ((P.*) num_lanes ln_width)
-            $ repeat (0::Int), 1
+            $ repeat (0::Int), 0
           )
         ]
   

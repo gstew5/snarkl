@@ -387,7 +387,7 @@ check mf inputs
                 False -> f (zip in_vars inputs)
         out = case IntMap.lookup out_var wit of
                 Nothing -> error $ "output variable " ++ show out_var
-                                   ++ "not mapped, in " ++ show wit
+                                   ++ " not mapped, in " ++ show wit
                 Just out_val -> out_val
     in Result (sat_r1cs wit r1cs) nw ng out r1cs_string
 

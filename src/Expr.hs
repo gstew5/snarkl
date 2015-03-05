@@ -67,7 +67,6 @@ is_pure e
       ESeq es -> all is_pure es
       EUnit -> True
 
-
 instance Show a => Show (Exp a) where
   show (EVar x) = "var " ++ show x
   show (EVal c) = show c

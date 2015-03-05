@@ -70,7 +70,7 @@ prog5
   = do { e <- input
        ; a <- arr 1000
        ; set (a,3) e
-       ; set (a,4) (pow 100 e)         
+       ; set (a,4) (pow 1 e)         
        ; x <- get (a,3)
        ; y <- get (a,4)
        ; ret (x*y) }
@@ -157,9 +157,9 @@ bool_prog16
 
 -- tests :: [(Comp ty,[Rational],Rational)]
 tests
-  = [ (prog1, map fromIntegral [(1::Int),0,1], 0)
+  = [ {-(prog1, map fromIntegral [(1::Int),0,1], 0)
 
-    , (prog2 4, [fromIntegral (0::Int)], 10)
+    , -}(prog2 4, [fromIntegral (0::Int)], 10)
     , (prog2 4, [fromIntegral (1::Int)], 15)
     , (prog2 4, [fromIntegral (2::Int)], 20)      
     , (prog2 10, [fromIntegral (10::Int)], 165)
@@ -210,9 +210,11 @@ bool_tests
     , (bool_prog12, map fromIntegral [1::Int,0], 0)
     , (bool_prog12, map fromIntegral [1::Int,1], 1)
 
-    , (bool_prog16, take 100 $ repeat (fromIntegral (1::Int)), 0)
+--    , (bool_prog16, take 100 $ repeat (fromIntegral (1::Int)), 0)
     ]
 
-main = (P.>>) (mapM_ run_test tests)
-              (mapM_ run_test bool_tests)
+main = (P.>>)
+         (mapM_ run_test tests)       
+         (mapM_ run_test bool_tests)
+
 

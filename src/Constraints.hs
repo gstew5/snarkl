@@ -126,9 +126,10 @@ renumber_constraints cs
 
         renum_f x
           = case Map.lookup x var_map of
-              Nothing ->
-                error $ "can't find a binding for variable " ++ show x
-                        ++ " in map " ++ show var_map
+              -- NOTE: variables unmapped by new variable table are
+              -- mapped to their negation minus one (guaranteed fresh;
+              -- var. index -1 is reserved for constants).
+              Nothing -> -(x + 1)
               Just x' -> x'
 
         renum_constr c0 

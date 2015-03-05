@@ -62,9 +62,10 @@ sat_r1cs w cs = all id $ is_sat (r1cs_clauses cs)
         chunk_sz cs0
           = truncate $ (fromIntegral (length cs0) :: Rational) / num_chunks
         g c = if sat_r1c w c then True
-              else error $ "sat_r1cs: witness failed to satisfy constraint: "
-                           ++ show w ++ " ~~> " ++ show c
-                           ++ " in R1CS " ++ show cs
+              else error $ "\nwitness failed to satisfy constraint:"
+                           ++ "\nwitness: " ++ show w
+                           ++ "\nconstraint: " ++ show c
+                           ++ "\nin R1CS " ++ show cs
 
 
   
