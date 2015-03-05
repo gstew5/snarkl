@@ -8,6 +8,8 @@ module Compile
   , compile_exp
   ) where
 
+import Data.List
+import Data.Typeable
 import qualified Data.IntMap.Lazy as Map
 import qualified Data.Set as Set
 import Control.Monad.State
@@ -135,7 +137,7 @@ encode_boolean_eq (x,y,z)
        ; neg_x_mult_neg_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
        ; add_constraint (CAdd one $ Map.fromList [(x,neg one),(neg_x,neg one)])
-       ; add_constraint (CAdd one $ Map.fromList [(y,neg one),(neg_y,neg one)])   
+       ; add_constraint (CAdd one $ Map.fromList [(y,neg one),(neg_y,neg one)])  
        ; encode_binop Mult (neg_x,neg_y,neg_x_mult_neg_y)
        ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
        }
@@ -186,8 +188,6 @@ cs_of_exp out e = case e of
     let g [] = return []
         g (e1 : es')
           = do { e1_out <- fresh_var
-               ; if is_boolean op then do { ensure_boolean e1_out }
-                 else return ()
                ; cs_of_exp e1_out e1
                ; labels <- g es'
                ; return $ e1_out : labels
@@ -222,7 +222,6 @@ cs_of_exp out e = case e of
        ; cs_of_exp e1_out e1
        ; cs_of_exp e2_out e2
 
-       ; ensure_boolean b_out
        ; encode_binop Mult (b_out,e1_out,b_e1)
        ; encode_binop Mult (bn_out,e2_out,bn_e2)
        ; encode_binop Or (b_e1,bn_e2,out) }
@@ -259,7 +258,7 @@ r1cs_of_constraints cs
          -- their renumbered counterparts.
         (renumber_f,cs') = renumber_constraints cs_dataflow
         renumber_inputs  = Map.mapKeys renumber_f
-         -- 'f' is a function mapping input bindings to witnesses.                 
+         -- 'f' is a function mapping input bindings to witnesses.    
         f = solve (map renumber_f pinned_vars) cs' . renumber_inputs 
     in r1cs_of_cs cs' f
 
@@ -269,11 +268,13 @@ r1cs_of_constraints cs
 r1cs_of_exp :: Field a
             => Var -- ^ Output variable
             -> [Var] -- ^ Input variables
+            -> [Var] -- ^ Boolean input variables            
             -> Exp a -- ^ Expression
             -> State (CEnv a) (R1CS a)
-r1cs_of_exp out in_vars e
+r1cs_of_exp out in_vars boolean_in_vars e
   = do { -- Compile 'e' to a list of constraints 'cs', with output wire 'out'.
          cs_of_exp out e
+       ; mapM ensure_boolean boolean_in_vars
        ; cs <- get_constraints
        ; let constraint_set      = Set.fromList cs
        ; let num_constraint_vars = length $ constraint_vars constraint_set
@@ -282,15 +283,19 @@ r1cs_of_exp out in_vars e
          $ ConstraintSystem constraint_set num_constraint_vars in_vars [out]
        } 
 
-compile_exp :: Field a =>
+compile_exp :: ( Field a
+               , Typeable ty
+               ) =>
                Int   -- ^ Number of variables (determined by frontend)
             -> [Var] -- ^ Input variables (determined by frontend)
             -> TExp ty a -- ^ Expression to be compiled
             -- | Returns the resulting rank-1 constraint system.
             -> R1CS a
-compile_exp nv in_vars e
+compile_exp nv in_vars te
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init = CEnv Set.empty (out+1)
-    in fst $ runState (r1cs_of_exp out in_vars $ exp_of_texp e) cenv_init
+        boolean_in_vars = in_vars `intersect` boolean_vars_of_texp te        
+        e = exp_of_texp te
+    in fst $ runState (r1cs_of_exp out in_vars boolean_in_vars e) cenv_init
 

@@ -117,7 +117,7 @@ bool_prog10
 
 -- | 11. are unused input variables treated properly?
 prog11
-  = do { _ <- input
+  = do { _ <- input :: Comp ('TRef 'TField)
        ; b <- input
        ; ret b }
 
@@ -146,6 +146,14 @@ prog15
   = do { ret $ 3.0 - (2.0 - 1.0)
        }
 
+-- | 16. bool inputs test
+bool_prog16
+  = do { a <- input_arr 100
+       ; forall [0..99] (\i ->
+           do b <- get (a,i)
+              set (a,i) (b && true))
+       ; ret false
+       }
 
 -- tests :: [(Comp ty,[Rational],Rational)]
 tests
@@ -201,6 +209,8 @@ bool_tests
     , (bool_prog12, map fromIntegral [0::Int,1], 0)
     , (bool_prog12, map fromIntegral [1::Int,0], 0)
     , (bool_prog12, map fromIntegral [1::Int,1], 1)
+
+    , (bool_prog16, take 100 $ repeat (fromIntegral (1::Int)), 0)
     ]
 
 main = (P.>>) (mapM_ run_test tests)

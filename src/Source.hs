@@ -1,4 +1,6 @@
-{-# LANGUAGE GADTs,FlexibleInstances,DataKinds,KindSignatures,RankNTypes #-}
+{-# LANGUAGE GADTs
+           , FlexibleInstances,DataKinds,KindSignatures,RankNTypes
+           , DeriveDataTypeable,AutoDeriveTypeable #-}
 
 module Source
   ( Val(..)    
@@ -6,9 +8,12 @@ module Source
   , Ty(..)
   , TOp(..)
   , TVar(..)
+  , boolean_vars_of_texp
   , var_of_texp
   , last_seq
   ) where
+
+import Data.Typeable
 
 import Common
 import Field
@@ -22,9 +27,13 @@ data Ty =
   | TBool
   | TRef Ty  
   | TUnit
+  deriving Typeable
 
-data TVar :: Ty -> * where
-  TVar :: forall ty. Var -> TVar ty
+newtype TVar (ty :: Ty) = TVar Var
+  
+var_is_boolean :: Typeable ty => TVar ty -> Bool
+var_is_boolean x
+  = typeOf x == typeOf (undefined :: TVar 'TBool)
 
 instance Eq (TVar ty) where
   TVar x==TVar y = x==y
@@ -37,18 +46,31 @@ data TOp :: Ty -> * where
   deriving Eq  
 
 data Val :: Ty -> * -> * where
-    VField :: Field a => a -> Val TField a
-    VTrue  :: Val TBool a
-    VFalse :: Val TBool a
-    VUnit  :: Val TUnit a
+  VField :: Field a => a -> Val TField a
+  VTrue  :: Val TBool a
+  VFalse :: Val TBool a
+  VUnit  :: Val TUnit a
 
 data TExp :: Ty -> * -> * where
   TEVar    :: TVar ty -> TExp ty a
   TEVal    :: Val ty a -> TExp ty a
   TEBinop  :: TOp ty -> TExp ty a -> TExp ty a -> TExp ty a
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-  TEAssign :: TExp (TRef ty) a -> TExp ty a -> TExp TUnit a
-  TESeq    :: TExp ty1 a -> TExp ty2 a -> TExp ty2 a
+  TEAssign :: Typeable ty => TExp (TRef ty) a -> TExp ty a -> TExp TUnit a
+  TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
+
+boolean_vars_of_texp :: Typeable ty => TExp ty a -> [Var]
+boolean_vars_of_texp = go []
+  where go :: Typeable ty => [Var] -> TExp ty a -> [Var]
+        go vars (TEVar t@(TVar x)) =
+          if var_is_boolean t then x : vars
+          else vars
+        go vars (TEVal _) = vars
+        go vars (TEBinop _ e1 e2) = go (go vars e1) e2
+        go vars (TEIf e1 e2 e3)
+          = go (go (go vars e1) e2) e3
+        go vars (TEAssign e1 e2) = go (go vars e1) e2
+        go vars (TESeq e1 e2) = go (go vars e1) e2
 
 var_of_texp :: Show a => TExp ty a -> Var
 var_of_texp te = case last_seq te of

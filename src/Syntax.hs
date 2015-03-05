@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs,RebindableSyntax,DataKinds,RankNTypes #-}
+{-# LANGUAGE GADTs,RebindableSyntax,DataKinds,RankNTypes,KindSignatures #-}
 
 module Syntax where
 
@@ -25,6 +25,7 @@ import System.IO
   , IOMode( WriteMode )
   )
 
+import Data.Typeable
 import Unsafe.Coerce 
 
 import qualified Data.Map.Strict as Map
@@ -99,29 +100,26 @@ input = State (\s -> ( TEVar (TVar (next_var s))
                      )
               )
 
-
--- | Arrays: uninitialized
-declare_vars :: Int -> Comp ty
-declare_vars 0 = error "must declare >= 1 vars"
-declare_vars n =
-  do { x <- var
+iter_comp :: Typeable ty
+          => Comp ty
+          -> Int
+          -> Comp ty
+iter_comp _ 0 = error "must declare >= 1 vars"
+iter_comp f n =
+  do { x <- f
      ; _ <- g (dec n)
      ; ret x
      }
   where g 0 = ret (TEVal VUnit)
-        g m = var >> g (dec m)
+        g m = f >> g (dec m)
 
+-- | Arrays: uninitialized field elements
+declare_vars :: Typeable ty => Int -> Comp ty
+declare_vars = iter_comp (var :: Comp ty)
 
 -- Like declare_vars, except vars. are marked explicitly as inputs
-declare_inputs :: Int -> Comp ty
-declare_inputs 0 = error "must declare >= 1 vars"
-declare_inputs n =
-  do { x <- input
-     ; _ <- g (dec n)
-     ; ret x
-     }
-  where g 0 = ret $ TEVal VUnit
-        g m = input >> g (dec m)
+declare_inputs :: Typeable ty => Int -> Comp ty
+declare_inputs = iter_comp (input :: Comp ty)
 
 add_width_bindings :: [(Var,Int)] -> Comp TUnit
 add_width_bindings width_bindings
@@ -147,7 +145,8 @@ add_arr_bindings bindings
           )
 
 
-add_arr_mapping :: TExp (TRef ty) Rational -> Int -> Int -> Comp TUnit
+add_arr_mapping :: forall (ty :: Ty).
+                   TExp (TRef ty) Rational -> Int -> Int -> Comp TUnit
 add_arr_mapping a sz width
   = do { let x = var_of_texp a
        ; let len = ((P.*) sz width)
@@ -159,7 +158,7 @@ add_arr_mapping a sz width
 
 -- | 2-d arrays. 'width' is the size, in "bits" (#field elements), of
 -- each array element.
-arr2 :: Int -> Int -> Comp (TRef ty)
+arr2 :: Typeable ty => Int -> Int -> Comp (TRef ty)
 arr2 0 _ = error "array must have size > 0"
 arr2 sz width
   = do { let len = ((P.*) sz width)
@@ -168,11 +167,11 @@ arr2 sz width
        ; ret $ last_seq a
        }
 
-arr :: Int -> Comp (TRef ty)
+arr :: Typeable ty => Int -> Comp (TRef ty)
 arr sz = arr2 sz 1
 
 -- Like arr, except array variables are marked as "inputs"
-input_arr2 :: Int -> Int -> Comp (TRef ty)
+input_arr2 ::Typeable ty => Int -> Int -> Comp (TRef ty)
 input_arr2 0 _ = error "array must have size > 0"
 input_arr2 sz width
   = do { let len = ((P.*) sz width)
@@ -181,7 +180,7 @@ input_arr2 sz width
        ; ret $ last_seq a
        }
 
-input_arr :: Int -> Comp (TRef ty)
+input_arr :: Typeable ty => Int -> Comp (TRef ty)
 input_arr sz = input_arr2 sz 1
 
 get_arr_width :: Var -> WidthMap -> Int
@@ -191,7 +190,7 @@ get_arr_width x m_width
       Just w -> w
 
 -- | Calculate the effective address of a[i]
-eff_addr :: (TExp (TRef ty) Rational, Int) -> Comp TField
+eff_addr :: Typeable ty => (TExp (TRef ty) Rational, Int) -> Comp TField
 eff_addr (a,i)
   = let x = var_of_texp a
     in State (\s -> case s of
@@ -202,7 +201,7 @@ eff_addr (a,i)
                       )
              )
 
-get_addr :: (TExp (TRef ty) Rational,Int) -> Comp ty
+get_addr :: Typeable ty => (TExp (TRef ty) Rational,Int) -> Comp ty
 get_addr (a',i')
   = let x = var_of_texp a'
     in State (\s -> case s of
@@ -214,7 +213,8 @@ get_addr (a',i')
                                  $ TEVar (TVar y), env)
              )
 
-get2 :: ( TExp (TRef ty) Rational -- select from array a
+get2 :: Typeable ty 
+     => ( TExp (TRef ty) Rational -- select from array a
         , Int   -- at index i  
         , Int ) -- at index j
      -> Comp ty
@@ -225,14 +225,16 @@ get2 (a,i,j)
        ; ret e
        }
 
-get :: ( TExp (TRef ty) Rational -- select from array a
+get :: Typeable ty
+    => ( TExp (TRef ty) Rational -- select from array a
        , Int )        -- at index i
     -> Comp ty -- result e
 get (a,i) = get2 (a,i,0)
 
 
 -- | Update array 'a' at position 'i,j' to expression 'e'.
-set2 :: (TExp (TRef ty) Rational, Int, Int)        
+set2 :: Typeable ty
+     => (TExp (TRef ty) Rational, Int, Int)        
      -> TExp ty Rational   
      -> Comp TUnit
 set2 (a,i,j) e
@@ -246,12 +248,15 @@ set2 (a,i,j) e
           }
        
 -- | Update array 'a' at position 'i' to expression 'e'.
-set :: (TExp (TRef ty) Rational, Int)        
+set :: Typeable ty
+    => (TExp (TRef ty) Rational, Int)        
     -> TExp ty Rational   
     -> Comp TUnit
 set (a,i) = set2 (a,i,0)
 
-(>>=) :: State s (TExp ty1 a)
+(>>=) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
+         Typeable ty1
+      => State s (TExp ty1 a)
       -> (TExp ty1 a -> State s (TExp ty2 a))
       -> State s (TExp ty2 a)
 (>>=) mf g = State (\s ->
@@ -259,7 +264,9 @@ set (a,i) = set2 (a,i,0)
       (e',s'') = runState (g e) s'
   in (TESeq e e',s''))
 
-(>>) :: State s (TExp ty1 a)
+(>>) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
+        Typeable ty1
+     => State s (TExp ty1 a)
      -> State s (TExp ty2 a)
      -> State s (TExp ty2 a)
 (>>) mf g = do { _ <- mf; g }    
@@ -306,7 +313,8 @@ fromRational r = TEVal (VField (r :: Rational))
 exp_of_int :: Int -> TExp TField Rational
 exp_of_int i = TEVal (VField $ P.fromIntegral i)
 
-iter :: Int
+iter :: Typeable ty
+     => Int
      -> (Int -> TExp ty Rational -> TExp ty Rational)
      -> TExp ty Rational
      -> TExp ty Rational
@@ -323,14 +331,16 @@ bigsum :: Int
        -> TExp TField Rational
 bigsum n f = iter n (\n' e -> f n' + e) 0.0
 
-times :: Int
+times :: Typeable ty
+      => Int
       -> Comp ty
       -> Comp TUnit
 times n mf = g n mf 
   where g 0 _   = ret unit
         g m mf' = do { _ <- mf'; g (dec m) mf' }
 
-forall :: [a]
+forall :: Typeable ty
+       => [a]
        -> (a -> Comp ty)
        -> Comp TUnit
 forall as mf = g as mf
@@ -338,7 +348,8 @@ forall as mf = g as mf
         g (a : as') mf'
           = do { _ <- mf' a; g as' mf' }
 
-forall_pairs :: ([a],[a])
+forall_pairs :: Typeable ty
+             => ([a],[a])
              -> (a -> a -> Comp ty)
              -> Comp TUnit
 forall_pairs (as1,as2) mf
@@ -358,7 +369,7 @@ instance Show Result where
       ++ ", constraints = " ++ show the_constraints
       ++ ", result = " ++ show the_result
 
-check :: Comp ty -> [Rational] -> Result
+check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty IntMap.empty)
         nv       = next_var s

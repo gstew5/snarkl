@@ -28,6 +28,9 @@ doc:
 debug:
 	$(GHC) Main.hs
 
+keccak-debug:
+	$(GHC) app/keccak/Main.hs
+
 prof:
 	$(GHC) $(GHC_OPTIONS) $(GHC_PROF_OPTIONS) Main.hs
 
