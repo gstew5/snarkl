@@ -3,6 +3,7 @@ module Serialize where
 import qualified Data.IntMap.Lazy as Map
 import Data.Ratio
 
+import Errors
 import Poly
 import R1CS
 
@@ -34,7 +35,8 @@ flatten_rat r
   = let a = numerator r
         b = denominator r
     in case mod_inv b field_p of
-         Nothing -> error $ "expected " ++ show b ++ " to be invertible"
+         Nothing ->
+           fail_with $ ErrMsg ("expected " ++ show b ++ " to be invertible")
          Just b_inv -> (a * b_inv) `mod` field_p
     
 serialize_poly :: Poly Rational -> String

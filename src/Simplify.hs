@@ -8,8 +8,9 @@ import qualified Data.Set as Set
 import qualified Data.IntMap.Lazy as Map
 import Control.Monad.State
 
-import Field
 import Common
+import Errors
+import Field
 import Constraints
 import UnionFind
 import SimplMonad
@@ -274,11 +275,12 @@ solve :: Field a
 solve pinned_vars cs env = 
   let (assgn,cs') = do_simplify pinned_vars env cs
   in if all_assigned pinned_vars assgn then assgn
-     else error $ "some pinned variables are unassigned, "
-          ++ "in assignment context " ++ show assgn ++ ", "
-          ++ "in pinned-variable context " ++ show pinned_vars ++ ", "
-          ++ "in optimized-constraint context " ++ show cs' ++ ", "
-          ++ "in constraint context " ++ show cs          
+     else fail_with
+          $ ErrMsg ("some pinned variables are unassigned,\n"
+             ++ "in assignment context\n  " ++ show assgn ++ ",\n"
+             ++ "in pinned-variable context\n  " ++ show pinned_vars ++ ",\n"
+             ++ "in optimized-constraint context\n  " ++ show cs' ++ ",\n"
+             ++ "in constraint context\n  " ++ show cs)
 
   where all_assigned vars0 assgn = all id $ map (is_mapped assgn) vars0
         is_mapped assgn x

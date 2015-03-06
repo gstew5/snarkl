@@ -9,6 +9,7 @@ module Expr
   ) where
 
 import Common
+import Errors
 import Field
 
 data Exp :: * -> * where
@@ -23,7 +24,7 @@ data Exp :: * -> * where
 var_of_exp :: Show a => Exp a -> Var
 var_of_exp e = case e of
   EVar x -> x
-  _ -> error $ "var_of_exp: expected variable: " ++ show e
+  _ -> fail_with $ ErrMsg ("var_of_exp: expected variable: " ++ show e)
 
 -- |Smart constructor for EBinop, ensuring all expressions (involving
 -- associative operations) are flattened to top level.

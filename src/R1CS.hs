@@ -14,6 +14,7 @@ import qualified Data.IntMap.Lazy as Map
 import Control.Parallel.Strategies
 
 import Common
+import Errors
 import Field
 import Poly
 
@@ -62,9 +63,10 @@ sat_r1cs w cs = all id $ is_sat (r1cs_clauses cs)
         chunk_sz cs0
           = truncate $ (fromIntegral (length cs0) :: Rational) / num_chunks
         g c = if sat_r1c w c then True
-              else error $ "sat_r1cs: witness failed to satisfy constraint: "
-                           ++ show w ++ " ~~> " ++ show c
-                           ++ " in R1CS " ++ show cs
+              else fail_with
+                   $ ErrMsg ("witness\n  " ++ show w
+                              ++ "\nfailed to satisfy constraint\n  " ++ show c
+                              ++ "\nin R1CS\n  " ++ show cs)
 
 
   

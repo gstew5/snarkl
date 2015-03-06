@@ -15,6 +15,7 @@ import qualified Data.Set as Set
 import Control.Monad.State
 
 import Common
+import Errors
 import Field
 import R1CS
 import Simplify
@@ -162,7 +163,7 @@ encode_binop op (x,y,z) = g op
             $ CMult (one,x) (one,y) (one,Just z)
 
         g Div
-          = error "div not yet implemented"
+          = fail_with $ ErrMsg "div not yet implemented"
 
 encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
 encode_linear out xs
@@ -189,7 +190,7 @@ cs_of_exp out e = case e of
                }
 
         h []       = return ()
-        h (_ : []) = error $ "wrong arity in " ++ show e
+        h (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
         h (l1 : l2 : []) = encode_binop op (l1,l2,out)
         h (l1 : l2 : labels')
           = do { res_out <- fresh_var
@@ -233,7 +234,7 @@ cs_of_exp out e = case e of
        }
 
   ESeq le -> g le 
-    where g []   = error "internal error: empty ESeq"
+    where g []   = fail_with $ ErrMsg "internal error: empty ESeq"
           g [e1] = cs_of_exp out e1
           g (e1 : le')  
             = do { e1_out <- fresh_var

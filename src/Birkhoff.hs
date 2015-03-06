@@ -4,11 +4,14 @@ module Birkhoff where
 
 import Control.Monad.State
 import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
+import Data.IntMap.Lazy (IntMap)
+import qualified Data.IntMap.Lazy as Map
 
 import Common
+import Errors
 import Field
 import Expr
+import Constraints
 import Simplify
 import Compile
 
@@ -28,7 +31,8 @@ nat_of_var x
   = S (nat_of_var $ x-1)
 
   | otherwise
-  = error $ "in nat_of_var, variable " ++ show x ++ " is negative"
+  = fail_with
+    $ ErrMsg ("in nat_of_var, variable " ++ show x ++ " is negative")
 
 data Tm a where
   TmConst :: a -> Tm a
@@ -57,10 +61,10 @@ data VarTree =
   | VarNode (Var,Var,Var,Var) VarTree VarTree VarTree
     deriving Show
 
-wit_of_proof :: Field b => VarTree -> Pf b a -> Map.Map Var b
+wit_of_proof :: Field b => VarTree -> Pf b a -> IntMap b
 wit_of_proof t pf
   = case t of
-      VarLeaf -> error "branch-variable tree bottomed out"
+      VarLeaf -> fail_with $ ErrMsg "branch-variable tree bottomed out"
       VarNode (choose_refl_var,choose_sym_var,choose_trans_var,trans_u_var)
               sym_vars trans_vars_left trans_vars_right ->
         case pf of
@@ -153,12 +157,19 @@ compile_prop bound p
   = let out_var = 0
         comp = do { vtree <- compile_spec bound out_var p
                   ; cs <- get_constraints
-                  ; return (vtree,cs)
+                  ; let constraint_set = Set.fromList cs
+                  ; let num_constraint_vars
+                          = length $ constraint_vars constraint_set
+                  ; let constraint_system
+                          = ConstraintSystem constraint_set
+                                             num_constraint_vars
+                                             [] [out_var]
+                  ; return (vtree,constraint_system)
                   }
         ((vtree,cs),_) = runState comp (CEnv Set.empty $ out_var + 1)
         pinned_vars = [out_var]
         (_,cs') = (cs,cs) -- do_simplify pinned_vars Map.empty cs
-        f = solve_constraints pinned_vars cs'
+        f = solve pinned_vars cs'
     in (f,vtree,cs')
 
 prop1 :: Prop Rational 

@@ -10,6 +10,7 @@ import qualified Data.IntMap.Lazy as Map
 import Data.Maybe
 
 import Common
+import Errors
 
 data UnionFind a =
   UnionFind { ids :: Map.IntMap Var
@@ -45,8 +46,9 @@ merge_extras uf x y
       (Just c,Nothing) -> uf { extras = Map.insert y c (extras uf) }
       (Just c,Just d) ->
         if c == d then uf
-        else error $ "in UnionFind, extra data doesn't match: "
-             ++ show (x,c) ++ " != " ++ show (y,d)
+        else fail_with
+             $ ErrMsg ("in UnionFind, extra data doesn't match:\n  "
+                       ++ show (x,c) ++ " != " ++ show (y,d))
 
 -- | Unify x with y.
 -- Left-based: if size x == size y, prefer x as root.

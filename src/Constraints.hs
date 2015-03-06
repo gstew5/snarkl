@@ -6,6 +6,7 @@ import qualified Data.Set as Set
 import qualified Data.IntMap.Lazy as Map
 
 import Common
+import Errors
 import Field
 import Poly
 import R1CS
@@ -127,8 +128,9 @@ renumber_constraints cs
         renum_f x
           = case Map.lookup x var_map of
               Nothing ->
-                error $ "can't find a binding for variable " ++ show x
-                        ++ " in map " ++ show var_map
+                fail_with
+                $ ErrMsg ("can't find a binding for variable " ++ show x
+                          ++ " in map " ++ show var_map)
               Just x' -> x'
 
         renum_constr c0 

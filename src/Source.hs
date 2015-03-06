@@ -16,6 +16,7 @@ module Source
 import Data.Typeable
 
 import Common
+import Errors
 import Field
 
 ----------------------------------------------------------------
@@ -75,7 +76,7 @@ boolean_vars_of_texp = go []
 var_of_texp :: Show a => TExp ty a -> Var
 var_of_texp te = case last_seq te of
   TEVar (TVar x) -> x
-  _ -> error $ "var_of_texp: expected variable: " ++ show te
+  _ -> fail_with $ ErrMsg ("var_of_texp: expected variable: " ++ show te)
 
 last_seq :: TExp ty a -> TExp ty a
 last_seq te = case te of

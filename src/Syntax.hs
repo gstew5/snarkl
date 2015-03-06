@@ -32,6 +32,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
 
 import Common
+import Errors
 import R1CS
 import Source
 import Compile
@@ -104,7 +105,7 @@ iter_comp :: Typeable ty
           => Comp ty
           -> Int
           -> Comp ty
-iter_comp _ 0 = error "must declare >= 1 vars"
+iter_comp _ 0 = fail_with $ ErrMsg "must declare >= 1 vars"
 iter_comp f n =
   do { x <- f
      ; _ <- g (dec n)
@@ -159,7 +160,7 @@ add_arr_mapping a sz width
 -- | 2-d arrays. 'width' is the size, in "bits" (#field elements), of
 -- each array element.
 arr2 :: Typeable ty => Int -> Int -> Comp (TRef ty)
-arr2 0 _ = error "array must have size > 0"
+arr2 0 _ = fail_with $ ErrMsg "array must have size > 0"
 arr2 sz width
   = do { let len = ((P.*) sz width)
        ; a <- declare_vars len
@@ -172,7 +173,7 @@ arr sz = arr2 sz 1
 
 -- Like arr, except array variables are marked as "inputs"
 input_arr2 ::Typeable ty => Int -> Int -> Comp (TRef ty)
-input_arr2 0 _ = error "array must have size > 0"
+input_arr2 0 _ = fail_with $ ErrMsg "array must have size > 0"
 input_arr2 sz width
   = do { let len = ((P.*) sz width)
        ; a <- declare_inputs len
@@ -186,7 +187,7 @@ input_arr sz = input_arr2 sz 1
 get_arr_width :: Var -> WidthMap -> Int
 get_arr_width x m_width
   = case IntMap.lookup x m_width of
-      Nothing -> error $ "unbound var " ++ show x
+      Nothing -> fail_with $ ErrMsg ("unbound var " ++ show x)
       Just w -> w
 
 -- | Calculate the effective address of a[i]
@@ -207,10 +208,15 @@ get_addr (a',i')
     in State (\s -> case s of
                  env@(Env _ _ m _) ->
                    case Map.lookup (x,i') m of
-                     Nothing -> error $ "unbound var " ++ show (x,i')
-                                        ++ " in map " ++ show m
-                     Just y  -> (unsafeCoerce
-                                 $ TEVar (TVar y), env)
+                     Nothing ->
+                       fail_with
+                       $ ErrMsg ("unbound var " ++ show (x,i')
+                                 ++ " in map " ++ show m)
+                     Just y  ->
+                       -- NOTE: unsafeCoerce: used strictly to cast
+                       -- a GADT type-index. There's probably a better
+                       -- way to do this.
+                       (unsafeCoerce $ TEVar (TVar y), env)
              )
 
 get2 :: Typeable ty 
@@ -382,12 +388,16 @@ check mf inputs
         ng  = num_constraints r1cs
         wit = case length in_vars /= length inputs of
                 True ->
-                  error $ "expected " ++ show (length in_vars) ++ " input(s)"
-                  ++ " but got " ++ show (length inputs) ++ " input(s)"
-                False -> f (zip in_vars inputs)
+                  fail_with
+                  $ ErrMsg ("expected " ++ show (length in_vars) ++ " input(s)"
+                            ++ " but got " ++ show (length inputs) ++ " input(s)")
+                False ->
+                  f (zip in_vars inputs)
         out = case IntMap.lookup out_var wit of
-                Nothing -> error $ "output variable " ++ show out_var
-                                   ++ "not mapped, in " ++ show wit
+                Nothing ->
+                  fail_with
+                  $ ErrMsg ("output variable " ++ show out_var
+                            ++ "not mapped, in\n  " ++ show wit)
                 Just out_val -> out_val
     in Result (sat_r1cs wit r1cs) nw ng out r1cs_string
 
@@ -396,9 +406,8 @@ check mf inputs
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
 --   (4) Check that results match.
 run_test (prog,inputs,res) =
-  let print_ln = print_ln_to_file stdout
-      print_ln_to_file h s
-        = (P.>>) (hPutStrLn h s) (hFlush h)
+  let print_ln             = print_ln_to_file stdout
+      print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
       print_to_file s
         = withFile "test_cs_in.ppzksnark" WriteMode (flip print_ln_to_file s)
   in case check prog inputs of
