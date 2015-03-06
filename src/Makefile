@@ -3,6 +3,7 @@ GHC=ghc
 GHC_OPTIONS=-Werror -Wall \
   -fno-warn-missing-signatures \
   -fno-warn-unused-do-bind \
+  -funbox-strict-fields \
   -rtsopts \
   -threaded \
   -O \

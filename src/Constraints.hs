@@ -23,7 +23,7 @@ import R1CS
 --                    cx * dy = ez (when mz = Just z). 
 data Constraint a =
     CAdd a (Assgn a)
-  | CMult (a,Var) (a,Var) (a, Maybe Var)
+  | CMult !(a,Var) !(a,Var) !(a, Maybe Var)
 
 type ConstraintSet a = Set.Set (Constraint a)
 
@@ -52,9 +52,21 @@ instance Ord a => Ord (Constraint a) where
         EQ -> compare m m'
         LT -> LT
         GT -> GT
-  compare (CMult cx dy emz) (CMult cx' dy' emz')
-    = case compare cx cx' of
-        EQ -> compare (dy,emz) (dy',emz')
+  compare (CMult (c,x) (d,y) (e,mz)) (CMult (c',x') (d',y') (e',mz'))
+    = case compare x x' of
+        EQ -> case compare y y' of
+                EQ -> case compare mz mz' of
+                        EQ -> case compare c c' of
+                                EQ -> case compare d d' of
+                                        EQ -> compare e e'
+                                        LT -> LT
+                                        GT -> GT 
+                                LT -> LT
+                                GT -> GT 
+                        LT -> LT
+                        GT -> GT 
+                LT -> LT
+                GT -> GT
         LT -> LT
         GT -> GT
 
