@@ -1,4 +1,9 @@
-{-# LANGUAGE GADTs,RebindableSyntax,DataKinds,RankNTypes,KindSignatures #-}
+{-# LANGUAGE GADTs
+            , RebindableSyntax
+            , DataKinds
+            , RankNTypes
+            , KindSignatures
+  #-}
 
 module Syntax where
 
@@ -405,6 +410,7 @@ check mf inputs
 --   (2) Generate a satisfying assignment, w.
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
 --   (4) Check that results match.
+run_test :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
 run_test (prog,inputs,res) =
   let print_ln             = print_ln_to_file stdout
       print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)

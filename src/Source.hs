@@ -1,6 +1,10 @@
 {-# LANGUAGE GADTs
-           , FlexibleInstances,DataKinds,KindSignatures,RankNTypes
-           , DeriveDataTypeable,AutoDeriveTypeable #-}
+           , DataKinds
+           , KindSignatures
+           , RankNTypes
+           , DeriveDataTypeable
+           , AutoDeriveTypeable
+  #-}
 
 module Source
   ( Val(..)    
