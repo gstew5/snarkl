@@ -19,6 +19,7 @@ import Errors
 import Field
 import R1CS
 import Simplify
+import Solve
 import Dataflow
 import Source
 import Expr
