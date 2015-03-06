@@ -8,7 +8,6 @@ module Compile
   , compile_exp
   ) where
 
-import Data.List
 import Data.Typeable
 import qualified Data.IntMap.Lazy as Map
 import qualified Data.Set as Set
@@ -298,7 +297,10 @@ compile_exp nv in_vars te
   = let out = nv 
         -- NOTE: Variables are zero-indexed by the frontend.
         cenv_init = CEnv Set.empty (out+1)
-        boolean_in_vars = in_vars `intersect` boolean_vars_of_texp te        
+        boolean_in_vars
+          = Set.toList
+            $ Set.fromList in_vars
+              `Set.intersection` Set.fromList (boolean_vars_of_texp te)
         e = exp_of_texp te
     in fst $ runState (r1cs_of_exp out in_vars boolean_in_vars e) cenv_init
 
