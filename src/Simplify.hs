@@ -164,15 +164,15 @@ learn constr
 
 
 do_simplify :: Field a
-            => [Var] -- ^ Pinned variables (e.g., outputs).
-                     -- These should not be optimized away.
-            -> Assgn a -- ^ Initial variable assignment
+            => Assgn a -- ^ Initial variable assignment
             -> ConstraintSystem a -- ^ Constraint set to be simplified 
             -> (Assgn a,ConstraintSystem a)
                 -- ^ Resulting assignment, simplified constraint set
-do_simplify pinned_vars env cs
-  = fst $ runState g (SEnv (new_uf { extras = env }))
-  where g = do { sigma' <- simplify pinned_vars $ cs_constraints cs
+do_simplify env cs
+  = let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
+    in fst $ runState (g pinned_vars) (SEnv (new_uf { extras = env }))
+  where g pinned_vars
+          = do { sigma' <- simplify pinned_vars $ cs_constraints cs
                  -- NOTE: In the next line, it's OK that 'pinned_vars' may
                  -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may
                  -- just do a bit of duplicate work (to look up the same

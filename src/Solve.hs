@@ -16,12 +16,12 @@ import Simplify
 -- constraint that is violated (under normal operation, this error
 -- case should NOT occur).
 solve :: Field a
-      => [Var] -- ^ Pinned variables
-      -> ConstraintSystem a -- ^ Constraints to be solved
+      => ConstraintSystem a -- ^ Constraints to be solved
       -> Assgn a -- ^ Initial assignment
       -> Assgn a -- ^ Resulting assignment
-solve pinned_vars cs env = 
-  let (assgn,cs') = do_simplify pinned_vars env cs
+solve cs env = 
+  let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
+      (assgn,cs') = do_simplify env cs
   in if all_assigned pinned_vars assgn then assgn
      else fail_with
           $ ErrMsg ("some pinned variables are unassigned,\n"

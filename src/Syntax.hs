@@ -1,8 +1,8 @@
 {-# LANGUAGE GADTs
-            , RebindableSyntax
-            , DataKinds
-            , RankNTypes
-            , KindSignatures
+           , RebindableSyntax
+           , DataKinds
+           , RankNTypes
+           , KindSignatures
   #-}
 
 module Syntax where
@@ -51,10 +51,13 @@ data State s a = State (s -> (a,s))
 -- | At "parse" time, we maintain an environment containing
 --    (i) next_var: the next free variable
 --    (ii) arr_map: a symbol table mapping (array_var,index) to
---    the constraint variable associated with that array index.
+--    the constraint variable associated with that array index
+--    (iii) width_map: a symbol table mapping 'array_var' to the
+--    bit width of each array element.
 --  Reading from array x := a[i] corresponds to:
---    (a) getting i <- arr_map(a,i)
---    (b) inserting the constraint (x = i)
+--    (a) calculating the effective address (a + width(a)*i) 
+--    (b) getting v <- arr_map(a,i)
+--    (c) inserting the constraint (x = x)
 
 type ArrMap
   = Map.Map ( Var -- array a
@@ -78,6 +81,32 @@ type Comp ty = State Env (TExp ty Rational)
 runState :: State s a -> s -> (a,s)
 runState mf s = case mf of
   State f -> f s
+
+-- | We have to define our own bind operator, unfortunately,
+-- because the "result" that's returned is the sequential composition
+-- of the results of 'mf', 'g' (not just whatever 'g' returns)
+(>>=) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
+         Typeable ty1
+      => State s (TExp ty1 a)
+      -> (TExp ty1 a -> State s (TExp ty2 a))
+      -> State s (TExp ty2 a)
+(>>=) mf g = State (\s ->
+  let (e,s') = runState mf s
+      (e',s'') = runState (g e) s'
+  in (TESeq e e',s''))
+
+(>>) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
+        Typeable ty1
+     => State s (TExp ty1 a)
+     -> State s (TExp ty2 a)
+     -> State s (TExp ty2 a)
+(>>) mf g = do { _ <- mf; g }    
+
+return :: a -> State s a
+return e = State (\s -> (e,s))
+
+ret :: a -> State s a
+ret = return
 
 inc :: Int -> Int
 inc n = (P.+) n 1
@@ -265,29 +294,6 @@ set :: Typeable ty
     -> Comp TUnit
 set (a,i) = set2 (a,i,0)
 
-(>>=) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
-         Typeable ty1
-      => State s (TExp ty1 a)
-      -> (TExp ty1 a -> State s (TExp ty2 a))
-      -> State s (TExp ty2 a)
-(>>=) mf g = State (\s ->
-  let (e,s') = runState mf s
-      (e',s'') = runState (g e) s'
-  in (TESeq e e',s''))
-
-(>>) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
-        Typeable ty1
-     => State s (TExp ty1 a)
-     -> State s (TExp ty2 a)
-     -> State s (TExp ty2 a)
-(>>) mf g = do { _ <- mf; g }    
-
-return :: a -> State s a
-return e = State (\s -> (e,s))
-
-ret :: a -> State s a
-ret = return
-
 true :: TExp TBool Rational
 true = TEVal VTrue
 
@@ -371,7 +377,8 @@ data Result =
          , vars :: Int
          , constraints :: Int
          , result :: Rational 
-         , the_r1cs :: String }
+         , the_r1cs :: String
+         }
 
 instance Show Result where
   show (Result the_sat the_vars the_constraints the_result _)
@@ -385,7 +392,7 @@ check mf inputs
   = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty IntMap.empty)
         nv       = next_var s
         in_vars  = reverse $ input_vars s
-        r1cs     = compile_exp nv in_vars e
+        r1cs     = r1cs_of_exp nv in_vars e
         r1cs_string = serialize_r1cs r1cs
         nw        = r1cs_num_vars r1cs
         f         = r1cs_gen_witness r1cs . IntMap.fromList
@@ -425,3 +432,6 @@ run_test (prog,inputs,res) =
     Result False _ _ _ _ ->
       print_ln $ "error: witness failed to satisfy constraints"
 
+test :: Typeable ty => (Comp ty,[Int],Integer) -> IO ()
+test (prog,args,res)
+  = run_test (prog,map fromIntegral args,fromIntegral res)

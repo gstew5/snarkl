@@ -5,7 +5,8 @@ module Compile
   , fresh_var
   , cs_of_exp
   , get_constraints
-  , compile_exp
+  , constraints_of_exp
+  , r1cs_of_exp
   ) where
 
 import Data.Typeable
@@ -251,56 +252,59 @@ r1cs_of_constraints :: Field a
                     => ConstraintSystem a 
                     -> R1CS a
 r1cs_of_constraints cs
-  = let pinned_vars = cs_out_vars cs ++ cs_in_vars cs
-         -- Simplify resulting constraints, with pinned vars 'pinned_vars'.
-        (_,cs_simpl) = do_simplify pinned_vars Map.empty cs
+  = let  -- Simplify resulting constraints.
+        (_,cs_simpl) = do_simplify Map.empty cs
         cs_dataflow  = remove_unreachable cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts.
         (renumber_f,cs') = renumber_constraints cs_dataflow
-        renumber_inputs  = Map.mapKeys renumber_f
          -- 'f' is a function mapping input bindings to witnesses.    
-        f = solve (map renumber_f pinned_vars) cs' . renumber_inputs 
+        f = solve cs' . Map.mapKeys renumber_f
     in r1cs_of_cs cs' f
 
--- | Compile an expression to a rank-1 constraint system.  Takes as
--- input the expression, the expression's input variables, and the
--- name of the output variable and returns the corresponding R1CS.
-r1cs_of_exp :: Field a
+-- | Compile an expression to a constraint system.  Takes as input the
+-- expression, the expression's input variables, and the name of the
+-- output variable.
+constraints_of_exp :: Field a
             => Var -- ^ Output variable
             -> [Var] -- ^ Input variables
             -> [Var] -- ^ Boolean input variables            
             -> Exp a -- ^ Expression
-            -> State (CEnv a) (R1CS a)
-r1cs_of_exp out in_vars boolean_in_vars e
-  = do { -- Compile 'e' to constraints 'cs', with output wire 'out'.
-         cs_of_exp out e
-       ; mapM ensure_boolean boolean_in_vars
-       ; cs <- get_constraints
-       ; let constraint_set      = Set.fromList cs
-       ; let num_constraint_vars = length $ constraint_vars constraint_set
-       ; return
-         $ r1cs_of_constraints
-         $ ConstraintSystem constraint_set num_constraint_vars in_vars [out]
-       } 
+            -> ConstraintSystem a
+constraints_of_exp out in_vars boolean_in_vars e
+  = let cenv_init = CEnv Set.empty (out+1)
+        (constrs,_) = runState go cenv_init
+    in constrs
+  where go = do { -- Compile 'e' to constraints 'cs', with output wire 'out'.
+                  cs_of_exp out e
+                  -- Add boolean constraints
+                ; mapM ensure_boolean boolean_in_vars
+                ; cs <- get_constraints
+                ; let constraint_set = Set.fromList cs
+                ; let num_constraint_vars
+                        = length $ constraint_vars constraint_set
+                ; return
+                  $ ConstraintSystem
+                    constraint_set num_constraint_vars in_vars [out]
+                } 
 
-compile_exp :: ( Field a
+-- | Compile an expression 'e' to R1CS.
+r1cs_of_exp :: ( Field a
                , Typeable ty
                ) =>
-               Int   -- ^ Number of variables (determined by frontend)
+               Var   -- ^ The next free variable (calculated by frontend)
             -> [Var] -- ^ Input variables (determined by frontend)
             -> TExp ty a -- ^ Expression to be compiled
-            -- | Returns the resulting rank-1 constraint system.
+            -- | The resulting rank-1 constraint system.
             -> R1CS a
-compile_exp nv in_vars te
-  = let out = nv 
-        -- NOTE: Variables are zero-indexed by the frontend.
-        cenv_init = CEnv Set.empty (out+1)
-        boolean_in_vars
+r1cs_of_exp out in_vars te
+  = let boolean_in_vars
           = Set.toList
             $ Set.fromList in_vars
               `Set.intersection` Set.fromList (boolean_vars_of_texp te)
         e = exp_of_texp te
-    in fst $ runState (r1cs_of_exp out in_vars boolean_in_vars e) cenv_init
+        constrs = constraints_of_exp out in_vars boolean_in_vars e
+        r1cs = r1cs_of_constraints constrs
+    in r1cs
 
