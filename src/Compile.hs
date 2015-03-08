@@ -88,15 +88,13 @@ fresh_var
 ensure_equal :: Field a => (Var,Var) -> State (CEnv a) ()
 ensure_equal (x,y)
   = add_constraint
-    $ CAdd zero
-    $ Map.fromList [(x,one),(y,neg one)]
+    $ cadd zero [(x,one),(y,neg one)]
 
 -- | Add constraint 'x = c'
 ensure_const :: Field a => (Var,a) -> State (CEnv a) ()
 ensure_const (x,c)
   = add_constraint
-    $ CAdd c
-    $ Map.fromList [(x,neg one)]
+    $ cadd c [(x,neg one)]
 
 -- | Add constraint 'b^2 = b'.
 ensure_boolean :: Field a => Var -> State (CEnv a) ()
@@ -110,8 +108,8 @@ encode_or (x,y,z)
   = do { x_mult_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
        ; add_constraint
-         $ CAdd zero
-         $ Map.fromList [(x,one),(y,one),(z,neg one),(x_mult_y,neg one)]
+         $ cadd zero [(x,one),(y,one),(z,neg one)
+                     ,(x_mult_y,neg one)]
        }
 
 -- | Constraint 'x xor y = z'.
@@ -121,9 +119,8 @@ encode_xor (x,y,z)
   = do { x_mult_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
        ; add_constraint
-         $ CAdd zero
-         $ Map.fromList [(x,one),(y,one),(z,neg one)
-                        ,(x_mult_y,neg (one `add`one))]
+         $ cadd zero [(x,one),(y,one),(z,neg one)
+                     ,(x_mult_y,neg (one `add`one))]
        }
 
 -- | Constraint 'x == y = z' ASSUMING x, y are boolean.
@@ -136,9 +133,9 @@ encode_boolean_eq (x,y,z)
        ; neg_x_mult_neg_y <- fresh_var
        ; encode_binop Mult (x,y,x_mult_y)
        ; add_constraint
-           (CAdd one $ Map.fromList [(x,neg one),(neg_x,neg one)])
+           (cadd one [(x,neg one),(neg_x,neg one)])
        ; add_constraint
-           (CAdd one $ Map.fromList [(y,neg one),(neg_y,neg one)])  
+           (cadd one [(y,neg one),(neg_y,neg one)])  
        ; encode_binop Mult (neg_x,neg_y,neg_x_mult_neg_y)
        ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
        }
@@ -153,11 +150,11 @@ encode_binop op (x,y,z) = g op
 
         g Add
           = add_constraint
-            $ CAdd zero $ Map.fromList [(x,one),(y,one),(z,neg one)]
+            $ cadd zero [(x,one),(y,one),(z,neg one)]
 
         g Sub
           = add_constraint
-            $ CAdd zero $ Map.fromList [(x,one),(y,neg one),(z,neg one)]
+            $ cadd zero [(x,one),(y,neg one),(z,neg one)]
             
         g Mult
           = add_constraint
@@ -169,7 +166,7 @@ encode_binop op (x,y,z) = g op
 encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
 encode_linear out xs
   = add_constraint
-    $ CAdd zero $ Map.fromList $ (out,neg one) : zip xs (repeat one)
+    $ cadd zero $ (out,neg one) : zip xs (repeat one)
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of

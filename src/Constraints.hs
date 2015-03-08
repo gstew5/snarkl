@@ -1,6 +1,20 @@
-{-# LANGUAGE GADTs,TypeSynonymInstances,FlexibleInstances #-}
+{-# LANGUAGE GADTs
+           , TypeSynonymInstances
+           , FlexibleInstances
+           , BangPatterns
+  #-}
 
-module Constraints where
+module Constraints
+  ( CoeffList(..)
+  , coeff_insert
+  , Constraint(..)
+  , cadd
+  , ConstraintSet
+  , ConstraintSystem(..)
+  , r1cs_of_cs
+  , renumber_constraints
+  , constraint_vars
+  ) where
 
 import qualified Data.Set as Set
 import qualified Data.IntMap.Lazy as Map
@@ -12,8 +26,27 @@ import Poly
 import R1CS
 
 ----------------------------------------------------------------
---            Intermediate Constraint Language                --
+--            Intermediate Constraint Language                
 ----------------------------------------------------------------
+
+newtype CoeffList k v = CoeffList { asList :: [(k,v)] }
+  deriving (Eq)
+-- INVARIANT: no key appears more than once.
+-- Upon duplicate insertion, insert field sum of the values.
+-- Smart constructor 'cadd' (below) enforces this invariant.
+
+coeff_insert :: (Eq k,Field a) => k -> a -> CoeffList k a -> CoeffList k a
+coeff_insert k a l = CoeffList $ go (asList l)
+  where go [] = [(k,a)]
+        go (scrut@(k',a') : l')
+          = if k == k' then (k,add a a') : l'
+            else scrut : go l'
+
+coeff_merge :: (Eq k,Field a) => CoeffList k a -> CoeffList k a
+coeff_merge l = go (CoeffList []) (asList l)
+  where go acc [] = acc
+        go acc ((k,a) : l')
+          = go (coeff_insert k a acc) l'
 
 -- | Constraints are either
 --   * 'CAdd a m': A linear combination of the constant 'a' with
@@ -22,8 +55,12 @@ import R1CS
 --     interpretation cx * dy = e (when mz = Nothing), or
 --                    cx * dy = ez (when mz = Just z). 
 data Constraint a =
-    CAdd a (Assgn a)
+    CAdd !a !(CoeffList Var a)
   | CMult !(a,Var) !(a,Var) !(a, Maybe Var)
+
+-- | Smart constructor enforcing CoeffList invariant
+cadd :: Field a => a -> [(Var,a)] -> Constraint a
+cadd !a !l = CAdd a (coeff_merge $ CoeffList l)
 
 type ConstraintSet a = Set.Set (Constraint a)
 
@@ -44,34 +81,48 @@ instance Eq a => Eq (Constraint a) where
   CAdd _ _ == CMult _ _ _ = False
   CMult _ _ _ == CAdd _ _ = False
 
+compare_add :: Ord a => Constraint a -> Constraint a -> Ordering
+{-# INLINE compare_add #-}
+compare_add !(CAdd c m) !(CAdd c' m')
+  = if c == c' then compare (asList m) (asList m')
+    else if c < c' then LT else GT
+compare_add !_ !_
+  = fail_with $ ErrMsg "internal error: compare_add"
+
+compare_mult :: Ord a => Constraint a -> Constraint a -> Ordering
+{-# INLINE compare_mult #-}
+compare_mult
+  !(CMult (c,x) (d,y) (e,mz))
+  !(CMult (c',x') (d',y') (e',mz'))
+  = if x == x' then 
+      if y == y' then
+        case compare mz mz' of
+               EQ -> case compare c c' of
+                       EQ -> case compare d d' of
+                               EQ -> compare e e'
+                               other -> other
+                       other -> other
+               other -> other
+      else if y < y' then LT else GT
+    else if x < x' then LT else GT
+compare_mult !_ !_
+  = fail_with $ ErrMsg "internal error: compare_mult"
+
+compare_constr :: Ord a => Constraint a -> Constraint a -> Ordering
+{-# INLINE compare_constr #-}
+compare_constr !(CAdd _ _) !(CMult _ _ _) = LT
+compare_constr !(CMult _ _ _) !(CAdd _ _) = GT
+compare_constr !constr@(CAdd _ _) !constr'@(CAdd _ _)
+  = compare_add constr constr'
+compare_constr !constr@(CMult {}) !constr'@(CMult {})
+  = compare_mult constr constr'
+
 instance Ord a => Ord (Constraint a) where
-  compare (CAdd _ _) (CMult _ _ _) = LT
-  compare (CMult _ _ _) (CAdd _ _) = GT
-  compare (CAdd c m) (CAdd c' m')
-    = case compare c c' of
-        EQ -> compare m m'
-        LT -> LT
-        GT -> GT
-  compare (CMult (c,x) (d,y) (e,mz)) (CMult (c',x') (d',y') (e',mz'))
-    = case compare x x' of
-        EQ -> case compare y y' of
-                EQ -> case compare mz mz' of
-                        EQ -> case compare c c' of
-                                EQ -> case compare d d' of
-                                        EQ -> compare e e'
-                                        LT -> LT
-                                        GT -> GT 
-                                LT -> LT
-                                GT -> GT 
-                        LT -> LT
-                        GT -> GT 
-                LT -> LT
-                GT -> GT
-        LT -> LT
-        GT -> GT
+  {-# SPECIALIZE instance Ord (Constraint Rational) #-}
+  compare = compare_constr 
 
 instance Show a => Show (Constraint a) where
-  show (CAdd a m) = show a ++ " + " ++ go (Map.toList m)
+  show (CAdd a m) = show a ++ " + " ++ go (asList m)
     where go [] = " == 0"
           go [(x,c)] = show c ++ "x" ++ show x ++ go []
           go ((x,c) : c_xs) = show c ++ "x" ++ show x ++ " + " ++ go c_xs
@@ -84,6 +135,10 @@ instance Show a => Show (Constraint a) where
               Nothing -> show e
               Just z  -> show_term e z
 
+----------------------------------------------------------------
+-- Compilation to R1CS
+----------------------------------------------------------------
+
 r1cs_of_cs :: Field a 
            => ConstraintSystem a -- ^ Constraints
            -> (Assgn a -> Assgn a) -- ^ Witness generator
@@ -95,7 +150,10 @@ r1cs_of_cs cs
          (cs_out_vars cs)    
   where go [] = []
         go (CAdd a m : cs')
-          = R1C (const_poly one,Poly $ Map.insert (-1) a m,const_poly zero) : go cs'
+          = R1C ( const_poly one
+                , Poly $ Map.insert (-1) a $ Map.fromList (asList m)
+                , const_poly zero
+                ) : go cs'
 
         go (CMult cx dy (e,Nothing) : cs')
           = R1C (var_poly cx,var_poly dy,const_poly e) : go cs'
@@ -109,7 +167,7 @@ constraint_vars :: ConstraintSet a -> [Var]
 constraint_vars cs
   = Set.toList
     $ Set.foldl' (\s0 c -> Set.union (get_vars c) s0) Set.empty cs
-  where get_vars (CAdd _ m) = Set.fromList $ Map.keys m
+  where get_vars (CAdd _ m) = Set.fromList $ map fst (asList m)
         get_vars (CMult (_,x) (_,y) (_,Nothing)) = Set.fromList [x,y]
         get_vars (CMult (_,x) (_,y) (_,Just z))  = Set.fromList [x,y,z]
 
@@ -147,7 +205,8 @@ renumber_constraints cs
 
         renum_constr c0 
           = case c0 of
-              CAdd a m -> CAdd a $ Map.mapKeys renum_f m
+              CAdd a m ->
+                cadd a $ map (\(k,v) -> (renum_f k,v)) (asList m)
               CMult (c,x) (d,y) (e,mz) ->
                 CMult (c,renum_f x) (d,renum_f y) (e,fmap renum_f mz)
             

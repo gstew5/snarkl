@@ -40,4 +40,6 @@ is_assoc op = case op of
   And -> True
   Or -> True  
   XOr -> True
-  Eq -> True  
+  Eq -> True
+
+      

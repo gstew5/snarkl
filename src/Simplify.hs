@@ -1,10 +1,12 @@
+{-# LANGUAGE BangPatterns
+  #-}
+
 module Simplify
   ( do_simplify
   ) where
 
 import Data.List (foldl')
 import qualified Data.Set as Set
-import qualified Data.IntMap.Lazy as Map
 import Control.Monad.State
 
 import Common
@@ -24,16 +26,16 @@ import SimplMonad
 subst_constr :: Field a
              => Constraint a
              -> State (SEnv a) (Constraint a)
-subst_constr constr = case constr of
+subst_constr !constr = case constr of
   CAdd a m -> 
     do { -- Variables resolvable to constants
          consts' <- mapM (\(x,a0) ->
                            do { var_or_a <- bind_of_var x
                               ; case var_or_a of
                                   Left _ -> return []
-                                  Right a' -> return $ [(x,a0 `mult` a')]
+                                  Right a' -> return $! [(x,a0 `mult` a')]
                               })
-                    $ Map.toList m
+                    $! asList m
        ; let consts     = concat consts'
        ; let const_keys = map fst consts
        ; let const_vals = map snd consts
@@ -43,70 +45,56 @@ subst_constr constr = case constr of
          -- (1) Terms whose variables resolve to constants, and
          -- (2) Terms with coeff 0.    
        ; let less_consts
-               = Map.toList
-                 $ Map.filterWithKey (\k _ -> not $ elem k const_keys)
-                 $ Map.filter (/= zero) m
+               = filter (\(k,v) -> not (elem k const_keys) && v/=zero)
+                 $! asList m
          -- The new linear combination: 'less_consts' with all variables
          -- replaced by their roots.    
        ; new_map <- mapM (\(x,a0) ->
                            do { rx <- root_of_var x
-                              ; return $ (rx,a0)
+                              ; return $! (rx,a0)
                               })
                     less_consts
-       ; return $ CAdd new_const (Map.fromListWith add new_map)
+       ; return $! cadd new_const new_map
        }
 
-  CMult (c,x) (d,y) ez ->
+  CMult !(c,x) !(d,y) !ez ->
     do { bx <- bind_of_var x
        ; by <- bind_of_var y
        ; bz <- bind_of_term ez
        ; case (bx,by,bz) of
            (Left rx,Left ry,Left (e,rz)) ->
              return
-             $ CMult (c,rx) (d,ry) (e,Just rz)
+             $! CMult (c,rx) (d,ry) (e,Just rz)
            (Left rx,Left ry,Right e) ->
              return
-             $ CMult (c,rx) (d,ry) (e,Nothing)
+             $! CMult (c,rx) (d,ry) (e,Nothing)
            (Left rx,Right d0,Left (e,rz)) ->
              return
-             $ CAdd zero
-             $ Map.insertWith add rx (c `mult` d `mult` d0)
-             $ Map.insert rz (neg e)
-             $ Map.empty
+             $! cadd zero [(rx,c `mult` d `mult` d0),(rz,neg e)]
            (Left rx,Right d0,Right e) ->
              return
-             $ CAdd (neg e)
-             $ Map.insert rx (c `mult` d `mult` d0)
-             $ Map.empty
+             $! cadd (neg e) [(rx,c `mult` d `mult` d0)]
            (Right c0,Left ry,Left (e,rz)) ->
              return
-             $ CAdd zero
-             $ Map.insertWith add ry (c0 `mult` c `mult` d)
-             $ Map.insert rz (neg e)
-             $ Map.empty
+             $! cadd zero [(ry,c0 `mult` c `mult` d),(rz,neg e)]
            (Right c0,Left ry,Right e) ->
              return
-             $ CAdd (neg e)
-             $ Map.insert ry (c0 `mult` c `mult` d)
-             $ Map.empty
+             $! cadd (neg e) [(ry,c0 `mult` c `mult` d)]
            (Right c0,Right d0,Left (e,rz)) ->
              return
-             $ CAdd (c `mult` c0 `mult` d `mult` d0)
-             $ Map.insert rz (neg e)
-             $ Map.empty
+             $! cadd (c `mult` c0 `mult` d `mult` d0) [(rz,neg e)]
            (Right c0,Right d0,Right e) ->
              return
-             $ CAdd (c `mult` c0 `mult` d `mult` d0 `add` (neg e))
-             $ Map.empty
+             $! cadd (c `mult` c0 `mult` d `mult` d0 `add` (neg e)) []
        }
 
     where bind_of_term (e,Nothing)
-            = return $ Right e
+            = return $! Right e
           bind_of_term (e,Just z)
             = do { var_or_a <- bind_of_var z
                  ; case var_or_a of
-                     Left rz -> return $ Left (e,rz)
-                     Right e0 -> return $ Right (e `mult` e0)
+                     Left rz -> return $! Left (e,rz)
+                     Right e0 -> return $! Right (e `mult` e0)
                  }
           
         
@@ -122,7 +110,8 @@ is_taut :: Field a
 is_taut constr  
   = do { constr' <- subst_constr constr
        ; case constr' of
-           CAdd _ m -> return $ Map.size m == 0
+           CAdd _ (CoeffList []) -> return True
+           CAdd _ (CoeffList (_ : _)) -> return False
            CMult _ _ _ -> return False
        }
 
@@ -144,17 +133,13 @@ learn constr
        ; go constr'
        }
 
-  where go (CAdd a m)
-          | Map.size m == 1
-          = let [(x,c)] = Map.toList m
-            in if c == zero then return ()
-               else bind_var (x,neg a `mult` inv c)
+  where go (CAdd a (CoeffList [(x,c)]))
+          = if c == zero then return ()
+            else bind_var (x,neg a `mult` inv c)
 
-        go (CAdd a m)
-          | Map.size m == 2 && a==zero
-          = let [(x,c),(y,d)] = Map.toList m
-            in if c == neg d then unite_vars x y
-               else return ()
+        go (CAdd a (CoeffList [(x,c),(y,d)]))
+          | a==zero
+          = if c == neg d then unite_vars x y else return ()
             
         go (CAdd _ _)
           | otherwise
@@ -212,10 +197,9 @@ simplify pinned_vars sigma
                        = map (\(x,var_or_a) ->
                                case var_or_a of
                                  Left rx ->
-                                   CAdd zero
-                                   $ Map.fromList [(x,one),(rx,neg one)]
+                                   cadd zero [(x,one),(rx,neg one)]
                                  Right c ->
-                                   CAdd (neg c) $ Map.fromList [(x,one)])
+                                   cadd (neg c) [(x,one)])
                          $ filter (\(x,rx) -> Left x /= rx) pinned_terms
                ; return $ pin_eqns ++ sigma0
                }
