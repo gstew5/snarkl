@@ -1,8 +1,12 @@
-{-# LANGUAGE GADTs,TypeSynonymInstances,FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric
+           , TypeSynonymInstances
+  #-}
 
 module Constraints where
 
-import qualified Data.Set as Set
+import Data.Hashable
+import HashSet (HashSet)
+import qualified HashSet as Set
 import qualified Data.IntMap.Lazy as Map
 
 import Common
@@ -22,10 +26,24 @@ import R1CS
 --     interpretation cx * dy = e (when mz = Nothing), or
 --                    cx * dy = ez (when mz = Just z). 
 data Constraint a =
-    CAdd a (Assgn a)
+    CAdd !a !(Assgn a)
   | CMult !(a,Var) !(a,Var) !(a, Maybe Var)
 
-type ConstraintSet a = Set.Set (Constraint a)
+instance Hashable a => Hashable (Constraint a) where
+  hashWithSalt s (CAdd c m)
+    = s `hashWithSalt`
+      (0::Int) `hashWithSalt`
+      c `hashWithSalt`
+      Map.toList m
+
+  hashWithSalt s (CMult cx dy emz)
+    = s `hashWithSalt`
+      (1::Int) `hashWithSalt`
+      cx `hashWithSalt`
+      dy `hashWithSalt`
+      emz
+
+type ConstraintSet a = HashSet (Constraint a)
 
 data ConstraintSystem a =
   ConstraintSystem { cs_constraints :: ConstraintSet a
@@ -44,31 +62,48 @@ instance Eq a => Eq (Constraint a) where
   CAdd _ _ == CMult _ _ _ = False
   CMult _ _ _ == CAdd _ _ = False
 
+compare_add :: Ord a => Constraint a -> Constraint a -> Ordering
+{-# INLINE compare_add #-}
+compare_add (CAdd c m) (CAdd c' m')
+  = if c == c' then compare m m'
+    else if c < c' then LT else GT
+compare_add _ _
+  = fail_with $ ErrMsg "internal error: compare_add"
+
+compare_mult :: Ord a => Constraint a -> Constraint a -> Ordering
+{-# INLINE compare_mult #-}
+compare_mult
+  (CMult (c,x) (d,y) (e,mz))
+  (CMult (c',x') (d',y') (e',mz'))
+  = if x == x' then 
+      if y == y' then
+        case compare mz mz' of
+               EQ -> case compare c c' of
+                       EQ -> case compare d d' of
+                               EQ -> compare e e'
+                               LT -> LT
+                               GT -> GT 
+                       LT -> LT
+                       GT -> GT 
+               LT -> LT
+               GT -> GT 
+      else if y < y' then LT else GT
+    else if x < x' then LT else GT
+compare_mult _ _
+  = fail_with $ ErrMsg "internal error: compare_mult"
+
+compare_constr :: Ord a => Constraint a -> Constraint a -> Ordering
+{-# INLINE compare_constr #-}
+compare_constr (CAdd _ _) (CMult _ _ _) = LT
+compare_constr (CMult _ _ _) (CAdd _ _) = GT
+compare_constr constr@(CAdd _ _) constr'@(CAdd _ _)
+  = compare_add constr constr'
+compare_constr constr@(CMult {}) constr'@(CMult {})
+  = compare_mult constr constr'
+
+
 instance Ord a => Ord (Constraint a) where
-  compare (CAdd _ _) (CMult _ _ _) = LT
-  compare (CMult _ _ _) (CAdd _ _) = GT
-  compare (CAdd c m) (CAdd c' m')
-    = case compare c c' of
-        EQ -> compare m m'
-        LT -> LT
-        GT -> GT
-  compare (CMult (c,x) (d,y) (e,mz)) (CMult (c',x') (d',y') (e',mz'))
-    = case compare x x' of
-        EQ -> case compare y y' of
-                EQ -> case compare mz mz' of
-                        EQ -> case compare c c' of
-                                EQ -> case compare d d' of
-                                        EQ -> compare e e'
-                                        LT -> LT
-                                        GT -> GT 
-                                LT -> LT
-                                GT -> GT 
-                        LT -> LT
-                        GT -> GT 
-                LT -> LT
-                GT -> GT
-        LT -> LT
-        GT -> GT
+  compare = compare_constr  
 
 instance Show a => Show (Constraint a) where
   show (CAdd a m) = show a ++ " + " ++ go (Map.toList m)
@@ -119,7 +154,9 @@ constraint_vars cs
 --   variables in the (renumberd) constraint set and the
 --   (possibly renumbered) out variable (input vars. are always mapped
 --   by the identity function).
-renumber_constraints :: Field a
+renumber_constraints :: ( Field a
+                        , Hashable a
+                        )  
                       => ConstraintSystem a
                       -> ( Var -> Var -- ^ The function used to renumber variables
                          , ConstraintSystem a 

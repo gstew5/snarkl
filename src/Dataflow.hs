@@ -2,7 +2,9 @@ module Dataflow
        ( remove_unreachable
        ) where
 
+import Data.Hashable
 import Data.List (foldl')
+import qualified HashSet as HashSet
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.IntMap.Lazy (IntMap)
@@ -14,19 +16,27 @@ import Constraints
 
 number_constraints :: ConstraintSystem a -> IntMap (Constraint a)
 number_constraints cs
-  = go 0 Map.empty (Set.toList $ cs_constraints cs)
-  where go :: Int -> IntMap (Constraint a) -> [Constraint a] -> IntMap (Constraint a)
+  = go 0 Map.empty (HashSet.toList $ cs_constraints cs)
+  where go :: Int
+           -> IntMap (Constraint a)
+           -> [Constraint a]
+           -> IntMap (Constraint a)
         go _ m [] = m
         go n m (c : cs')
           = go (n+1) (Map.insert n c m) cs'
 
--- |Map variables to the indices of the constraints in which the vars appear.
-gather_vars :: Ord a => IntMap (Constraint a) -> IntMap (Set Int)
+-- |Map variables to the indices of the constraints in which the vars
+-- appear.
+gather_vars :: ( Ord a
+               , Hashable a
+               )
+            => IntMap (Constraint a)
+            -> IntMap (Set Int)
 gather_vars constr_map
   = go Map.empty (Map.toList constr_map)
   where go m [] = m
         go m ((the_id,constr) : cs')
-          = let vars = constraint_vars (Set.singleton constr)
+          = let vars = constraint_vars (HashSet.singleton constr)
             in go (foldl' (\m0 x -> add_var x the_id m0) m vars) cs'
 
         add_var x the_id m0
@@ -40,7 +50,10 @@ data DEnv a =
 add_root :: Var -> State (DEnv a) ()
 add_root x = modify (\s -> s { df_roots = Set.insert x (df_roots s) })
 
-remove_unreachable :: (Show a,Ord a)
+remove_unreachable :: ( Show a
+                      , Ord a
+                      , Hashable a
+                      )
                    => ConstraintSystem a
                    -> ConstraintSystem a
 remove_unreachable cs
@@ -61,20 +74,22 @@ remove_unreachable cs
                         case Map.lookup x m_var0 of
                           Nothing -> s0
                           Just s_ids ->
-                            constrs_of_idset m_constr0 s_ids `Set.union` s0)
-            Set.empty
+                            constrs_of_idset m_constr0 s_ids
+                            `HashSet.union` s0)
+            HashSet.empty
             var_set0
 
         constrs_of_idset m_constr0 s_ids
           = Set.foldl (\s0 the_id ->
                         case Map.lookup the_id m_constr0 of
                           Nothing -> s0
-                          Just constr -> Set.insert constr s0)
-            Set.empty
+                          Just constr -> HashSet.insert constr s0)
+            HashSet.empty
             s_ids  
                             
 
-explore_vars :: IntMap (Constraint a) -- ^ ConstraintId->Constraint
+explore_vars :: Hashable a
+             => IntMap (Constraint a) -- ^ ConstraintId->Constraint
              -> IntMap (Set Int) -- ^ Var->Set ConstraintId
              -> [Var] -- ^ Roots to explore
              -> State (DEnv a) () 
@@ -101,5 +116,5 @@ explore_vars m_constr m_var roots = go roots
           = case Map.lookup the_id m_constr of
               Nothing -> get_vars ids'
               Just constr ->
-                constraint_vars (Set.singleton constr)
+                constraint_vars (HashSet.singleton constr)
                 ++ get_vars ids'

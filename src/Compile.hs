@@ -10,6 +10,8 @@ module Compile
   ) where
 
 import Data.Typeable
+import Data.Hashable
+import qualified HashSet as HashSet
 import qualified Data.IntMap.Lazy as Map
 import qualified Data.Set as Set
 import Control.Monad.State
@@ -248,7 +250,9 @@ cs_of_exp out e = case e of
 -- | Compile a list of arithmetic constraints to a rank-1 constraint
 -- system.  Takes as input the constraints, the input variables, and
 -- the output variables, and return the corresponding R1CS.
-r1cs_of_constraints :: Field a
+r1cs_of_constraints :: ( Field a
+                       , Hashable a
+                       )
                     => ConstraintSystem a 
                     -> R1CS a
 r1cs_of_constraints cs
@@ -266,12 +270,14 @@ r1cs_of_constraints cs
 -- | Compile an expression to a constraint system.  Takes as input the
 -- expression, the expression's input variables, and the name of the
 -- output variable.
-constraints_of_exp :: Field a
-            => Var -- ^ Output variable
-            -> [Var] -- ^ Input variables
-            -> [Var] -- ^ Boolean input variables            
-            -> Exp a -- ^ Expression
-            -> ConstraintSystem a
+constraints_of_exp :: ( Field a
+                      , Hashable a
+                      )
+                   => Var -- ^ Output variable
+                   -> [Var] -- ^ Input variables
+                   -> [Var] -- ^ Boolean input variables            
+                   -> Exp a -- ^ Expression
+                   -> ConstraintSystem a
 constraints_of_exp out in_vars boolean_in_vars e
   = let cenv_init = CEnv Set.empty (out+1)
         (constrs,_) = runState go cenv_init
@@ -281,7 +287,7 @@ constraints_of_exp out in_vars boolean_in_vars e
                   -- Add boolean constraints
                 ; mapM ensure_boolean boolean_in_vars
                 ; cs <- get_constraints
-                ; let constraint_set = Set.fromList cs
+                ; let constraint_set = HashSet.fromList cs
                 ; let num_constraint_vars
                         = length $ constraint_vars constraint_set
                 ; return
@@ -291,6 +297,7 @@ constraints_of_exp out in_vars boolean_in_vars e
 
 -- | Compile an expression 'e' to R1CS.
 r1cs_of_exp :: ( Field a
+               , Hashable a
                , Typeable ty
                ) =>
                Var   -- ^ The next free variable (calculated by frontend)

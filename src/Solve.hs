@@ -2,6 +2,7 @@ module Solve
   ( solve
   ) where
 
+import Data.Hashable
 import qualified Data.IntMap.Lazy as Map
 
 import Common
@@ -15,7 +16,9 @@ import Simplify
 -- If the constraints are unsolvable from [env], report the first
 -- constraint that is violated (under normal operation, this error
 -- case should NOT occur).
-solve :: Field a
+solve :: ( Field a
+         , Hashable a
+         )
       => ConstraintSystem a -- ^ Constraints to be solved
       -> Assgn a -- ^ Initial assignment
       -> Assgn a -- ^ Resulting assignment

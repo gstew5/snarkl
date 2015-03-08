@@ -2,8 +2,9 @@ module Simplify
   ( do_simplify
   ) where
 
+import Data.Hashable
 import Data.List (foldl')
-import qualified Data.Set as Set
+import qualified HashSet as HashSet
 import qualified Data.IntMap.Lazy as Map
 import Control.Monad.State
 
@@ -156,14 +157,12 @@ learn constr
             in if c == neg d then unite_vars x y
                else return ()
             
-        go (CAdd _ _)
-          | otherwise
-          = return ()
-
-        go _ | otherwise = return ()
+        go _ = return ()
 
 
-do_simplify :: Field a
+do_simplify :: ( Field a
+               , Hashable a
+               )
             => Assgn a -- ^ Initial variable assignment
             -> ConstraintSystem a -- ^ Constraint set to be simplified 
             -> (Assgn a,ConstraintSystem a)
@@ -184,16 +183,18 @@ do_simplify env cs
                }
 
 
-simplify :: Field a
+simplify :: ( Field a
+            , Hashable a
+            )
          => [Var] 
          -> ConstraintSet a
          -> State (SEnv a) (ConstraintSet a)
 simplify pinned_vars sigma  
   = do { sigma' <- simplify_rec sigma
-       ; sigma_subst <- mapM subst_constr $ Set.toList sigma'
+       ; sigma_subst <- mapM subst_constr $ HashSet.toList sigma'
        ; sigma_no_tauts <- remove_tauts sigma_subst
        ; sigma_pinned <- add_pin_eqns sigma_no_tauts
-       ; return $ Set.fromList sigma_pinned
+       ; return $ HashSet.fromList sigma_pinned
        }
 
   where -- NOTE: We handle pinned variables 'x' as follows:
@@ -220,30 +221,40 @@ simplify pinned_vars sigma
                ; return $ pin_eqns ++ sigma0
                }
 
-simplify_rec :: Field a
+simplify_rec :: ( Field a
+                , Hashable a
+                )
              => ConstraintSet a -- ^ Initial constraint set
              -> State (SEnv a) (ConstraintSet a)
                 -- ^ Resulting simplified constraint set
 simplify_rec sigma
   = do { sigma' <- simplify_once sigma
-       ; if Set.size sigma' < Set.size sigma then
+       ; if HashSet.size sigma' < HashSet.size sigma then
            simplify_rec sigma'
-         else if Set.difference sigma sigma'
-                 `Set.isSubsetOf` Set.empty then return sigma'
+         else if HashSet.size (sigma `HashSet.difference` sigma') == 0
+              then return sigma'
               else simplify_rec sigma'
        }
-  where simplify_once :: Field a
+  where simplify_once :: ( Field a
+                         , Hashable a
+                         )
                       => ConstraintSet a -- ^ Initial constraint set
                       -> State (SEnv a) (ConstraintSet a)
                       -- ^ Resulting simplified constraint set
         simplify_once sigma0
-          = do { sigma2 <- go Set.empty sigma0
-               ; sigma' <- remove_tauts (Set.toList sigma2)
-               ; return $ Set.fromList sigma'
+          = do { sigma2 <- go HashSet.empty sigma0
+               ; sigma' <- remove_tauts (HashSet.toList sigma2)
+               ; return $ HashSet.fromList sigma'
                }
 
+        go :: ( Field a
+              , Hashable a
+              )
+           => ConstraintSet a
+           -> ConstraintSet a
+           -> State (SEnv a) (ConstraintSet a)
         go ws us
-          | Set.size us == 0
+          | HashSet.size us == 0
           = return ws
         go ws us
           | otherwise
@@ -252,12 +263,17 @@ simplify_rec sigma
                   ; if given_taut then go ws us'
                     else do
                       learn given
-                      let ws' = Set.insert given ws
+                      let ws' = HashSet.insert given ws
                       go ws' us'
                   }
 
         -- NOTE: Assumes input set is nonempty
-        choose s = Set.deleteFindMin s 
+        choose :: ( Field a
+                  , Hashable a
+                  )
+                => ConstraintSet a
+                -> (Constraint a,ConstraintSet a)
+        choose s = HashSet.deleteFind s
 
 
 
