@@ -49,17 +49,15 @@ round1 rc a
               v <- get3 (a,x,2,i)
               w <- get3 (a,x,3,i)
               z <- get3 (a,x,4,i)
-              let e = q `xor` u `xor` v `xor` w `xor` z
-              set2 (c,x,i) e)
+              set2 (c,x,i) $ q `xor` u `xor` v `xor` w `xor` z)
        ; forall2 ([0..4],[0..dec ln_width]) (\x i ->
            do q <- get2 (c,dec x `mod` 5,i)
               u <- get2 (c,inc x `mod` 5,rot_index i 1)
-              let e = q `xor` u
-              set2 (d,x,i) e)
+              set2 (d,x,i) $ q `xor` u)
        ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
            do q <- get3 (a,x,y,i)
               u <- get2 (d,x,i)
-              set3 (a,x,y,i) (q `xor` u))
+              set3 (a,x,y,i) $ q `xor` u)
          -- \rho and \pi steps         
        ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
            do q <- get3 (a,x,y,rot_index i (rot_tbl x y))
@@ -69,14 +67,12 @@ round1 rc a
            do q <- get3 (b,x,y,i)
               u <- get3 (b,inc x `mod` 5,y,i)
               v <- get3 (b,(inc . inc) x `mod` 5,y,i)
-              let e = q `xor` (not u && v)
-              set3 (a,x,y,i) e)
+              set3 (a,x,y,i) $ q `xor` (not u && v))
          -- \iota step
        ; forall [0..dec ln_width] (\i ->
            do q <- get3 (a,0,0,i)
               set3 (a,0,0,i) (q `xor` rc i))
        }
-
 
 -- round constants
 round_consts :: [Integer]

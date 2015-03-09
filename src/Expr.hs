@@ -1,4 +1,6 @@
-{-# LANGUAGE GADTs,FlexibleInstances,DataKinds,KindSignatures #-}
+{-# LANGUAGE GADTs
+           , KindSignatures
+  #-}
 
 module Expr
   ( Exp(..)
