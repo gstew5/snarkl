@@ -175,10 +175,43 @@ bool_prog17
        ; get2 (a,0,0) 
        }
 
--- | 17. input array test
+-- | 18. input array test
 bool_prog18
   = do { a  <- input_arr3 2 2 2
        ; get3 (a,0,0,1) 
+       }
+
+-- | 19. products test
+bool_prog19
+  = do { x <- input
+       ; y <- input
+       ; p <- pair x y
+       ; c <- fst_pair p
+       ; d <- snd_pair p
+       ; ret $ c && d
+       }
+
+-- | 20. products test 2: snd (fst ((x,y),x)) && x == y && x 
+bool_prog20
+  = do { x <- input
+       ; y <- input
+       ; p <- pair x y
+       ; q <- pair p x
+       ; c <- fst_pair q
+       ; d <- snd_pair c
+       ; ret $ d && x
+       }
+
+-- | 21. products test 3: snd (fst ((x,y),(y,x))) && x == y && x 
+bool_prog21
+  = do { x <- input
+       ; y <- input
+       ; p <- pair x y
+       ; q <- pair y x              
+       ; u <- pair p q
+       ; c <- fst_pair u
+       ; d <- snd_pair c
+       ; ret $ d && x
        }
 
 tests :: [(Comp 'TField,[Int],Integer)]
@@ -242,6 +275,12 @@ bool_tests
     , (bool_prog17, [], 1)
 
     , (bool_prog18, [0,1,0,1,0,1,0,1], 1)
+
+    , (bool_prog19, [1,1], 1)
+
+    , (bool_prog20, [1,1], 1)
+
+    , (bool_prog21, [0,1], 0)      
     ]
 
 main

@@ -30,7 +30,8 @@ import Field
 data Ty =
     TField
   | TBool
-  | TArr Ty  
+  | TArr Ty
+  | TProd Ty Ty
   | TUnit
   deriving Typeable
 

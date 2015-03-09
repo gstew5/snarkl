@@ -280,24 +280,86 @@ set3 (a,i,j,k) e = do { a' <- get2 (a,i,j); set (a',k) e }
 set4 (a,i,j,k,l) e = do { a' <- get3 (a,i,j,k); set (a',l) e }
 
 
-get_addr :: Typeable ty => (TExp (TArr ty) Rational,Int) -> Comp ty
-get_addr (a,i)
-  = let x = var_of_texp a
-    in State (\s -> case s of
-                 env@(Env _ _ m _) ->
-                   case Map.lookup (x,i) m of
-                     Nothing ->
-                       fail_with
-                       $ ErrMsg ("unbound var " ++ show (x,i)
-                                 ++ " in map " ++ show m)
-                     Just y  ->
-                       (TEVar (TVar y), env)
-             )
+get_addr :: Typeable ty => (Var,Int) -> Comp ty
+get_addr (x,i)
+  = State (\s -> case s of
+              env@(Env _ _ m _) ->
+                case Map.lookup (x,i) m of
+                  Nothing ->
+                    fail_with
+                    $ ErrMsg ("unbound var " ++ show (x,i)
+                              ++ " in map " ++ show m)
+                  Just y  ->
+                    (TEVar (TVar y), env)
+          )
 
-get (a,i)        = get_addr (a,i)
+get :: Typeable ty => (TExp (TArr ty) Rational,Int) -> Comp ty
+get (a,i)        = get_addr (var_of_texp a,i)
 get2 (a,i,j)     = do { a' <- get (a,i); get (a',j) }
 get3 (a,i,j,k)   = do { a' <- get2 (a,i,j); get (a',k) }
 get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
+
+
+----------------------------------------------------
+--
+-- Products
+--        
+----------------------------------------------------        
+
+pair :: ( Typeable ty1
+        , Typeable ty2
+        )
+     => TExp ty1 Rational
+     -> TExp ty2 Rational
+     -> Comp (TProd ty1 ty2)
+pair te1 te2 = go (last_seq te1) (last_seq te2)
+  where go e1@(TEVar _) e2@(TEVar _)
+          = do { x <- var
+               ; let x1 = var_of_texp e1
+               ; let x2 = var_of_texp e2             
+               ; add_arr_bindings [((var_of_texp x,0),x1)
+                                  ,((var_of_texp x,1),x2)]
+               ; ret x
+               }
+        go e1@(TEVar _) e2@(_)
+          = do { x <- var
+               ; let x1 = var_of_texp e1
+               ; x2 <- var      
+               ; add_arr_bindings [((var_of_texp x,0),x1)
+                                  ,((var_of_texp x,1),var_of_texp x2)]
+               ; ret $ TESeq (TEUpdate x2 e2) x
+               }    
+        go e1@(_) e2@(TEVar _)
+          = do { x <- var
+               ; x1 <- var                    
+               ; let x2 = var_of_texp e2
+               ; add_arr_bindings [((var_of_texp x,0),var_of_texp x1)
+                                  ,((var_of_texp x,1),x2)]
+               ; ret $ TESeq (TEUpdate x1 e1) x
+               }    
+        go e1@(_) e2@(_)
+          = do { x1 <- var
+               ; x2 <- var
+               ; x <- var
+               ; add_arr_bindings [((var_of_texp x,0),var_of_texp x1)
+                                  ,((var_of_texp x,1),var_of_texp x2)]
+               ; ret $ TESeq (TESeq (TEUpdate x1 e1) (TEUpdate x2 e2)) x
+               }
+
+fst_pair :: ( Typeable ty1
+            , Typeable ty2
+            )
+         => TExp (TProd ty1 ty2) Rational
+         -> Comp ty1
+fst_pair e = get_addr (var_of_texp e,0)
+
+snd_pair :: ( Typeable ty1
+            , Typeable ty2
+            )
+         => TExp (TProd ty1 ty2) Rational
+         -> Comp ty2
+snd_pair e = get_addr (var_of_texp e,1)
+
 
 ----------------------------------------------------
 --
