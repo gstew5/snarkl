@@ -23,8 +23,6 @@ import qualified Prelude as P
 import Syntax
 import Source
 
-index_of i j = (P.+) (((P.*) 5 i) `mod` 5) (j `mod` 5)
-
 num_lanes :: Int
 num_lanes = (P.*) 5 5
 
@@ -32,53 +30,51 @@ ln_width :: Int
 ln_width = 64
 
 round1 :: (Int -> TExp TBool Rational) -- | 'i'th bit of round constant
-       -> TExp (TRef TBool) Rational   -- | Array 'a'
+       -> TExp (TArr (TArr (TArr TBool))) Rational   -- | Array 'a'
        -> Comp TUnit
 round1 rc a
   = do { -- Allocate local array variables [b], [c], [d].
-         b <- arr2 num_lanes ln_width
+         b <- arr3 5 21 ln_width
        ; c <- arr2 5 ln_width
        ; d <- arr2 5 ln_width
          -- Initialize arrays.
-       ; forall_pairs ([0..24],[0..dec ln_width]) (\i j -> set2 (b,i,j) false)
-       ; forall_pairs ([0..24],[0..dec ln_width]) (\i j -> set2 (c,i,j) false)
-       ; forall_pairs ([0..24],[0..dec ln_width]) (\i j -> set2 (d,i,j) false) 
+       ; forall3 ([0..4],[0..20],[0..dec ln_width])
+           (\i j k -> set3 (b,i,j,k) false)
+       ; forall2 ([0..4],[0..dec ln_width]) (\i j -> set2 (c,i,j) false)
+       ; forall2 ([0..4],[0..dec ln_width]) (\i j -> set2 (d,i,j) false) 
          -- \theta step         
-       ; forall_pairs ([0..4],[0..dec ln_width]) (\x i ->
-           do q <- get2 (a,index_of x 0,i)
-              u <- get2 (a,index_of x 1,i)
-              v <- get2 (a,index_of x 2,i)
-              w <- get2 (a,index_of x 3,i)
-              z <- get2 (a,index_of x 4,i)
+       ; forall2 ([0..4],[0..dec ln_width]) (\x i ->
+           do q <- get3 (a,x,0,i)
+              u <- get3 (a,x,1,i)
+              v <- get3 (a,x,2,i)
+              w <- get3 (a,x,3,i)
+              z <- get3 (a,x,4,i)
               let e = q `xor` u `xor` v `xor` w `xor` z
               set2 (c,x,i) e)
-       ; forall_pairs ([0..4],[0..dec ln_width]) (\x i ->
-           do q <- get2 (a,dec x `mod` 5,i)
-              u <- get2 (a,inc x `mod` 5,rot_index i 1)
+       ; forall2 ([0..4],[0..dec ln_width]) (\x i ->
+           do q <- get2 (c,dec x `mod` 5,i)
+              u <- get2 (c,inc x `mod` 5,rot_index i 1)
               let e = q `xor` u
               set2 (d,x,i) e)
-       ; forall_pairs ([0..4],[0..4]) (\x y ->
-           forall [0..dec ln_width] (\i ->
-             do q <- get2 (a,index_of x y,i)
-                u <- get2 (d,x,i)
-                set2 (a,index_of x y,i) (q `xor` u)))
+       ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
+           do q <- get3 (a,x,y,i)
+              u <- get2 (d,x,i)
+              set3 (a,x,y,i) (q `xor` u))
          -- \rho and \pi steps         
-       ; forall_pairs ([0..4],[0..4]) (\x y ->
-           forall [0..dec ln_width] (\i ->     
-             do q <- get2 (a,index_of x y,rot_index i (rot_tbl x y))
-                set2 (b,index_of y ((P.+) ((P.*) 2 x) ((P.*) 3 y)),i) q))
+       ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
+           do q <- get3 (a,x,y,rot_index i (rot_tbl x y))
+              set3 (b,y,(P.+) ((P.*) 2 x) ((P.*) 3 y),i) q)
          -- \chi step         
-       ; forall_pairs ([0..4],[0..4]) (\x y ->
-           forall [0..dec ln_width] (\i ->   
-             do q <- get2 (b,index_of x y,i)
-                u <- get2 (b,index_of (inc x) y,i)
-                v <- get2 (b,index_of ((inc . inc) x) y,i)
-                let e = q `xor` (not u && v)
-                set2 (a,index_of x y,i) e))
+       ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
+           do q <- get3 (b,x,y,i)
+              u <- get3 (b,inc x `mod` 5,y,i)
+              v <- get3 (b,(inc . inc) x `mod` 5,y,i)
+              let e = q `xor` (not u && v)
+              set3 (a,x,y,i) e)
          -- \iota step
        ; forall [0..dec ln_width] (\i ->
-           do q <- get2 (a,index_of 0 0,i)
-              set2 (a,index_of 0 0,i) (q `xor` rc i))
+           do q <- get3 (a,0,0,i)
+              set3 (a,0,0,i) (q `xor` rc i))
        }
 
 
@@ -146,16 +142,15 @@ keccak_f1 num_rounds a
       round1 (\bit_i -> get_round_bit round_i bit_i) a)
 
 keccak1 num_rounds
-  = do { a <- input_arr2 num_lanes ln_width
+  = do { a <- input_arr3 5 5 ln_width
        ; keccak_f1 num_rounds a
-       ; get (a,0)
+       ; get3 (a,0,0,0)
        }
 
 tests = [ ( keccak1 1
-          , map fromIntegral
-            $ take ((P.*) num_lanes ln_width)
+          , take ((P.*) num_lanes ln_width)
             $ repeat (0::Int), 1
           )
         ]
   
-main = mapM_ run_test tests
+main = mapM_ test tests

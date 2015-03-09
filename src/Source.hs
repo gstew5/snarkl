@@ -30,7 +30,7 @@ import Field
 data Ty =
     TField
   | TBool
-  | TRef Ty  
+  | TArr Ty  
   | TUnit
   deriving Typeable
 
@@ -61,7 +61,7 @@ data TExp :: Ty -> * -> * where
   TEVal    :: Val ty a -> TExp ty a
   TEBinop  :: TOp ty -> TExp ty a -> TExp ty a -> TExp ty a
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-  TEAssign :: Typeable ty => TExp (TRef ty) a -> TExp ty a -> TExp TUnit a
+  TEUpdate :: Typeable ty => TExp (TArr ty) a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
 
 boolean_vars_of_texp :: Typeable ty => TExp ty a -> [Var]
@@ -74,13 +74,14 @@ boolean_vars_of_texp = go []
         go vars (TEBinop _ e1 e2) = go (go vars e1) e2
         go vars (TEIf e1 e2 e3)
           = go (go (go vars e1) e2) e3
-        go vars (TEAssign e1 e2) = go (go vars e1) e2
+        go vars (TEUpdate e1 e2) = go (go vars e1) e2
         go vars (TESeq e1 e2) = go (go vars e1) e2
 
 var_of_texp :: Show a => TExp ty a -> Var
 var_of_texp te = case last_seq te of
   TEVar (TVar x) -> x
-  _ -> fail_with $ ErrMsg ("var_of_texp: expected variable: " ++ show te)
+  _ -> fail_with $ ErrMsg ("var_of_texp: expected array or var: "
+                           ++ show te)
 
 last_seq :: TExp ty a -> TExp ty a
 last_seq te = case te of
@@ -102,6 +103,6 @@ instance Show a => Show (TExp ty a) where
   show (TEBinop op e1 e2) = show e1 ++ show op ++ show e2
   show (TEIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
-  show (TEAssign e1 e2) = show e1 ++ " := " ++ show e2
+  show (TEUpdate e1 e2) = show e1 ++ " := " ++ show e2
   show (TESeq e1 e2) = show e1 ++ "; " ++ show e2
 

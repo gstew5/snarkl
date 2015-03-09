@@ -44,8 +44,8 @@ exp_of_texp te = case te of
     exp_binop op (exp_of_texp te1) (exp_of_texp te2)
   TEIf te1 te2 te3 ->
     EIf (exp_of_texp te1) (exp_of_texp te2) (exp_of_texp te3)
-  TEAssign te1 te2 ->
-    EAssign (exp_of_texp te1) (exp_of_texp te2)
+  TEUpdate te1 te2 ->
+    EUpdate (exp_of_texp te1) (exp_of_texp te2)
   TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
 
 
@@ -226,7 +226,7 @@ cs_of_exp out e = case e of
   -- to introduce a new var, e2_out, bound to result of e2 and
   -- then ensure that e2_out == x. We optimize by passing x to
   -- compilation of e2 directly.
-  EAssign e1 e2 ->
+  EUpdate e1 e2 ->
     do { let x = var_of_exp e1
        ; cs_of_exp x e2
        }

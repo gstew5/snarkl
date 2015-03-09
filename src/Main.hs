@@ -99,12 +99,12 @@ prog7
        ; ret $ x + y
        }
 
--- | 8. 'forall_pairs' test
+-- | 8. 'forall2' test
 prog8 
   = do { a <- arr 25
        ; forall [0..24] (\i -> set (a,i) 0.0)              
        ; let index i j = (P.+) ((P.*) 5 i) j
-       ; forall_pairs ([0..4],[0..4]) (\i j ->
+       ; forall2 ([0..4],[0..4]) (\i j ->
            set (a,index i j) (exp_of_int $ index i j))
        ; x <- get (a,5)  -- 5
        ; y <- get (a,24) -- 24
@@ -127,7 +127,7 @@ bool_prog10
 
 -- | 11. are unused input variables treated properly?
 prog11
-  = do { _ <- input :: Comp ('TRef 'TField)
+  = do { _ <- input :: Comp ('TArr 'TField)
        ; b <- input
        ; ret b
        }
@@ -166,6 +166,21 @@ bool_prog16
        ; ret false
        }
 
+-- | 17. array test
+bool_prog17
+  = do { a  <- arr 2
+       ; a' <- arr 2
+       ; set (a',0) true
+       ; set (a,0) a'
+       ; get2 (a,0,0) 
+       }
+
+-- | 17. input array test
+bool_prog18
+  = do { a  <- input_arr3 2 2 2
+       ; get3 (a,0,0,1) 
+       }
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -202,7 +217,7 @@ tests
 
     , (prog14, [3,4], 0)
 
-    , (prog15, [], 2)                  
+    , (prog15, [], 2)
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]
@@ -223,10 +238,14 @@ bool_tests
     , (bool_prog12, [1,1], 1)
 
     , (bool_prog16, take 100 $ repeat 1, 0)
+
+    , (bool_prog17, [], 1)
+
+    , (bool_prog18, [0,1,0,1,0,1,0,1], 1)
     ]
 
 main
   = (P.>>)
+      (mapM_ test bool_tests)    
       (mapM_ test tests)
-      (mapM_ test bool_tests)
 

@@ -3,6 +3,7 @@
            , DataKinds
            , RankNTypes
            , KindSignatures
+           , ScopedTypeVariables
   #-}
 
 module Syntax where
@@ -31,7 +32,6 @@ import System.IO
   )
 
 import Data.Typeable
-import Unsafe.Coerce 
 
 import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
@@ -124,7 +124,6 @@ var = State (\s -> ( TEVar (TVar (next_var s))
                    )
             )
 
-
 -- | Allocate a new input variable (instantiated by user)
 input :: Comp ty
 input = State (\s -> ( TEVar (TVar (next_var s))
@@ -148,11 +147,17 @@ iter_comp f n =
   where g 0 = ret (TEVal VUnit)
         g m = f >> g (dec m)
 
+----------------------------------------------------
+--
+-- Arrays
+--        
+----------------------------------------------------        
+
 -- | Arrays: uninitialized field elements
 declare_vars :: Typeable ty => Int -> Comp ty
 declare_vars = iter_comp (var :: Comp ty)
 
--- Like declare_vars, except vars. are marked explicitly as inputs
+-- | Like declare_vars, except vars. are marked explicitly as inputs
 declare_inputs :: Typeable ty => Int -> Comp ty
 declare_inputs = iter_comp (input :: Comp ty)
 
@@ -166,9 +171,7 @@ add_width_bindings width_bindings
                 )
           )
 
-
-add_arr_bindings :: [((Var,Int),Var)]
-                 -> Comp TUnit
+add_arr_bindings :: [((Var,Int),Var)] -> Comp TUnit
 add_arr_bindings bindings
   = State (\s -> case s of
               Env nv ivs m m_width ->
@@ -179,120 +182,131 @@ add_arr_bindings bindings
                 )
           )
 
-
-add_arr_mapping :: forall (ty :: Ty).
-                   TExp (TRef ty) Rational -> Int -> Int -> Comp TUnit
-add_arr_mapping a sz width
-  = do { let x = var_of_texp a
-       ; let len = ((P.*) sz width)
-       ; let indices  = take len $ [(0::Int)..]
+add_arr_mapping :: Var -> Int -> Comp TUnit
+add_arr_mapping x len
+  = do { let indices  = take len $ [(0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
-       ; add_width_bindings [(x,width)]
        ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars
        }
 
+-- | 1-d arrays. 
+arr :: Typeable ty => Int -> Comp (TArr ty)
+arr 0 = fail_with $ ErrMsg "array must have size > 0"
+arr len
+  = do { a <- declare_vars len
+       ; let x = var_of_texp a
+       ; _ <- add_arr_mapping x len
+       ; ret $ last_seq a
+       }
+
+
 -- | 2-d arrays. 'width' is the size, in "bits" (#field elements), of
 -- each array element.
-arr2 :: Typeable ty => Int -> Int -> Comp (TRef ty)
-arr2 0 _ = fail_with $ ErrMsg "array must have size > 0"
-arr2 sz width
-  = do { let len = ((P.*) sz width)
-       ; a <- declare_vars len
-       ; _ <- add_arr_mapping a sz width
+arr2 :: Typeable ty => Int -> Int -> Comp (TArr (TArr ty))
+arr2 len width
+  = do { a <- arr len
+       ; forall [0..dec len] (\i ->
+           do { ai <- arr width
+              ; set (a,i) ai
+              })
+       ; ret a
+       }
+
+-- | 3-d arrays.
+arr3 :: Typeable ty => Int -> Int -> Int -> Comp (TArr (TArr (TArr ty)))
+arr3 len width height
+  = do { a <- arr2 len width
+       ; forall2 ([0..dec len],[0..dec width]) (\i j ->
+           do { aij <- arr height
+              ; set2 (a,i,j) aij
+              })
+       ; ret a
+       }
+
+-- | Like 'arr', but declare array vars. as inputs.
+input_arr :: Typeable ty => Int -> Comp (TArr ty)
+input_arr len
+  = do { a <- declare_inputs len
+       ; let x = var_of_texp a
+       ; _ <- add_arr_mapping x len
        ; ret $ last_seq a
        }
 
-arr :: Typeable ty => Int -> Comp (TRef ty)
-arr sz = arr2 sz 1
-
--- Like arr, except array variables are marked as "inputs"
-input_arr2 ::Typeable ty => Int -> Int -> Comp (TRef ty)
+input_arr2 :: Typeable ty => Int -> Int -> Comp (TArr (TArr ty))
 input_arr2 0 _ = fail_with $ ErrMsg "array must have size > 0"
-input_arr2 sz width
-  = do { let len = ((P.*) sz width)
-       ; a <- declare_inputs len
-       ; _ <- add_arr_mapping a sz width
-       ; ret $ last_seq a
+input_arr2 len width
+  = do { a <- arr len
+       ; forall [0..dec len] (\i ->
+           do { ai <- input_arr width
+              ; set (a,i) ai
+              })
+       ; ret a
        }
 
-input_arr :: Typeable ty => Int -> Comp (TRef ty)
-input_arr sz = input_arr2 sz 1
+input_arr3 :: Typeable ty => Int -> Int -> Int -> Comp (TArr (TArr (TArr ty)))
+input_arr3 len width height
+  = do { a <- arr2 len width
+       ; forall2 ([0..dec len],[0..dec width]) (\i j ->
+           do { aij <- input_arr height
+              ; set2 (a,i,j) aij
+              })
+       ; ret a
+       }
 
-get_arr_width :: Var -> WidthMap -> Int
-get_arr_width x m_width
-  = case IntMap.lookup x m_width of
-      Nothing -> fail_with $ ErrMsg ("unbound var " ++ show x)
-      Just w -> w
-
--- | Calculate the effective address of a[i]
-eff_addr :: Typeable ty => (TExp (TRef ty) Rational, Int) -> Comp TField
-eff_addr (a,i)
+-- | Update array 'a' at position 'i' to expression 'e'.
+set_addr :: Typeable ty
+         => (TExp (TArr ty) Rational, Int)        
+         -> TExp ty Rational   
+         -> Comp TUnit
+set_addr (a,i) e
   = let x = var_of_texp a
-    in State (\s -> case s of
-                 env@(Env _ _ _ m_width) ->
-                   let width = get_arr_width x m_width
-                   in ( TEVal $ VField (fromIntegral $ (P.*) width i)
-                      , env
-                      )
-             )
+    in case last_seq e of
+         scrut@(TEVar _) -> 
+           do { let y = var_of_texp scrut
+              ; _ <- add_arr_bindings [((x,i),y)]
+              ; ret unit
+              }
+           
+         _ ->  
+           do { le <- var
+              ; let y = var_of_texp le
+              ; _ <- add_arr_bindings [((x,i),y)]
+              ; ret $ TEUpdate le e
+              }
 
-get_addr :: Typeable ty => (TExp (TRef ty) Rational,Int) -> Comp ty
-get_addr (a',i')
-  = let x = var_of_texp a'
+set (a,i) e      = set_addr (a,i) e
+set2 (a,i,j) e   = do { a' <- get (a,i); set (a',j) e }
+set3 (a,i,j,k) e = do { a' <- get2 (a,i,j); set (a',k) e }
+set4 (a,i,j,k,l) e = do { a' <- get3 (a,i,j,k); set (a',l) e }
+
+
+get_addr :: Typeable ty => (TExp (TArr ty) Rational,Int) -> Comp ty
+get_addr (a,i)
+  = let x = var_of_texp a
     in State (\s -> case s of
                  env@(Env _ _ m _) ->
-                   case Map.lookup (x,i') m of
+                   case Map.lookup (x,i) m of
                      Nothing ->
                        fail_with
-                       $ ErrMsg ("unbound var " ++ show (x,i')
+                       $ ErrMsg ("unbound var " ++ show (x,i)
                                  ++ " in map " ++ show m)
                      Just y  ->
-                       -- NOTE: unsafeCoerce: used strictly to cast
-                       -- a GADT type-index. There's probably a better
-                       -- way to do this.
-                       (unsafeCoerce $ TEVar (TVar y), env)
+                       (TEVar (TVar y), env)
              )
 
-get2 :: Typeable ty 
-     => ( TExp (TRef ty) Rational -- select from array a
-        , Int   -- at index i  
-        , Int ) -- at index j
-     -> Comp ty
-get2 (a,i,j)
-  = do { addr <- eff_addr (a,i)
-       ; let TEVal (VField addr') = addr
-       ; e <- get_addr (a,(P.+) (truncate addr') j)
-       ; ret e
-       }
+get (a,i)        = get_addr (a,i)
+get2 (a,i,j)     = do { a' <- get (a,i); get (a',j) }
+get3 (a,i,j,k)   = do { a' <- get2 (a,i,j); get (a',k) }
+get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
 
-get :: Typeable ty
-    => ( TExp (TRef ty) Rational -- select from array a
-       , Int )        -- at index i
-    -> Comp ty -- result e
-get (a,i) = get2 (a,i,0)
+----------------------------------------------------
+--
+-- Operators, Values
+--        
+----------------------------------------------------        
 
-
--- | Update array 'a' at position 'i,j' to expression 'e'.
-set2 :: Typeable ty
-     => (TExp (TRef ty) Rational, Int, Int)        
-     -> TExp ty Rational   
-     -> Comp TUnit
-set2 (a,i,j) e
-  = let x = var_of_texp a
-    in do { le <- var
-          ; let y = var_of_texp le
-          ; addr <- eff_addr (a,i)
-          ; let TEVal (VField addr') = addr
-          ; _ <- add_arr_bindings [((x,(P.+) (truncate addr') j),y)]
-          ; ret $ TEAssign le e
-          }
-       
--- | Update array 'a' at position 'i' to expression 'e'.
-set :: Typeable ty
-    => (TExp (TRef ty) Rational, Int)        
-    -> TExp ty Rational   
-    -> Comp TUnit
-set (a,i) = set2 (a,i,0)
+unit :: TExp TUnit Rational
+unit = TEVal VUnit 
 
 true :: TExp TBool Rational
 true = TEVal VTrue
@@ -330,6 +344,12 @@ fromRational r = TEVal (VField (r :: Rational))
 exp_of_int :: Int -> TExp TField Rational
 exp_of_int i = TEVal (VField $ P.fromIntegral i)
 
+----------------------------------------------------
+--
+-- Iteration
+--        
+----------------------------------------------------        
+
 iter :: Typeable ty
      => Int
      -> (Int -> TExp ty Rational -> TExp ty Rational)
@@ -338,10 +358,6 @@ iter :: Typeable ty
 iter n f e = g n f e
   where g 0 f' e' = f' 0 e'
         g m f' e' = f' m $ g (dec m) f' e'
-
-unit :: TExp TUnit Rational
-unit = TEVal VUnit 
-
 
 bigsum :: Int
        -> (Int -> TExp TField Rational)
@@ -365,12 +381,15 @@ forall as mf = g as mf
         g (a : as') mf'
           = do { _ <- mf' a; g as' mf' }
 
-forall_pairs :: Typeable ty
-             => ([a],[a])
-             -> (a -> a -> Comp ty)
-             -> Comp TUnit
-forall_pairs (as1,as2) mf
-  = forall as1 (\a1 -> forall as2 (\a2 -> mf a1 a2))
+forall2 (as1,as2) mf = forall as1 (\a1 -> forall as2 (\a2 -> mf a1 a2))
+forall3 (as1,as2,as3) mf
+  = forall2 (as1,as2) (\a1 a2 -> forall as3 (\a3 -> mf a1 a2 a3))
+
+----------------------------------------------------
+--
+-- Toplevel Stuff 
+--        
+----------------------------------------------------        
 
 data Result = 
   Result { sat :: Bool
@@ -417,8 +436,8 @@ check mf inputs
 --   (2) Generate a satisfying assignment, w.
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
 --   (4) Check that results match.
-run_test :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
-run_test (prog,inputs,res) =
+do_test :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
+do_test (prog,inputs,res) =
   let print_ln             = print_ln_to_file stdout
       print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
       print_to_file s
@@ -434,4 +453,4 @@ run_test (prog,inputs,res) =
 
 test :: Typeable ty => (Comp ty,[Int],Integer) -> IO ()
 test (prog,args,res)
-  = run_test (prog,map fromIntegral args,fromIntegral res)
+  = do_test (prog,map fromIntegral args,fromIntegral res)
