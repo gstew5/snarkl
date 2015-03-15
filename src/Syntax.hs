@@ -299,6 +299,100 @@ get2 (a,i,j)     = do { a' <- get (a,i); get (a',j) }
 get3 (a,i,j,k)   = do { a' <- get2 (a,i,j); get (a',k) }
 get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
 
+----------------------------------------------------
+--
+-- Sums
+--        
+----------------------------------------------------        
+
+class Derive ty where
+  derive :: Comp ty
+
+instance Derive TUnit where
+  derive = ret $ TEVal VUnit
+instance Derive TBool where
+  derive = ret $ TEVal VFalse
+instance Derive TField where
+  derive = ret $ TEVal (VField 0)
+instance (Typeable ty,Derive ty) => Derive (TArr ty) where
+  derive
+    = do { a <- arr 1
+         ; v <- derive
+         ; set (a,0) v
+         ; ret a
+         }
+instance ( Typeable ty1
+         , Derive ty1
+         , Typeable ty2
+         , Derive ty2
+         ) => Derive (TProd ty1 ty2) where
+  derive
+    = do { v1 <- derive
+         ; v2 <- derive
+         ; pair v1 v2
+         }
+
+instance ( Typeable ty1
+         , Derive ty1
+         , Typeable ty2
+         , Derive ty2
+         ) => Derive (TSum ty1 ty2) where
+  derive
+    = do { v1 <- derive
+         ; inl v1
+         }
+
+inl :: forall ty1 ty2.
+       ( Typeable ty1
+       , Typeable ty2
+       , Derive ty2
+       )
+    => TExp ty1 Rational
+    -> Comp (TSum ty1 ty2)
+inl te1
+  = do { x <- var
+       ; v2 <- (derive :: Comp ty2)
+       ; y <- pair te1 v2
+       ; z <- pair (TEVal VFalse) y
+       ; add_arr_bindings [((var_of_texp x,0),var_of_texp z)]
+       ; ret x
+       }
+
+inr :: forall ty1 ty2.
+       ( Typeable ty1
+       , Derive ty1         
+       , Typeable ty2
+       )
+    => TExp ty2 Rational
+    -> Comp (TSum ty1 ty2)
+inr te2
+  = do { x <- var
+       ; v1 <- (derive :: Comp ty1)
+       ; y <- pair v1 te2
+       ; z <- pair (TEVal VTrue) y
+       ; add_arr_bindings [((var_of_texp x,0),var_of_texp z)]
+       ; ret x
+       }
+
+case_sum :: forall ty1 ty2 ty.
+            ( Typeable ty1
+            , Typeable ty2
+            , Typeable ty
+            )
+         => (TExp ty1 Rational -> Comp ty)
+         -> (TExp ty2 Rational -> Comp ty)
+         -> TExp (TSum ty1 ty2) Rational
+         -> Comp ty
+case_sum f1 f2 e
+  = do { p <- get_addr (var_of_texp e,0)
+       ; b <- fst_pair p
+       ; p_rest <- snd_pair p
+       ; e1 <- fst_pair p_rest
+       ; e2 <- snd_pair p_rest
+       ; le <- f1 e1
+       ; re <- f2 e2
+       ; ret $ if b then re else le
+       }
 
 ----------------------------------------------------
 --

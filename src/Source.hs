@@ -32,6 +32,7 @@ data Ty =
   | TBool
   | TArr Ty
   | TProd Ty Ty
+  | TSum Ty Ty    
   | TUnit
   deriving Typeable
 
@@ -62,15 +63,15 @@ data TExp :: Ty -> * -> * where
   TEVal    :: Val ty a -> TExp ty a
   TEBinop  :: TOp ty -> TExp ty a -> TExp ty a -> TExp ty a
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-  TEUpdate :: Typeable ty => TExp (TArr ty) a -> TExp ty a -> TExp TUnit a
+  TEUpdate :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
 
 boolean_vars_of_texp :: Typeable ty => TExp ty a -> [Var]
 boolean_vars_of_texp = go []
   where go :: Typeable ty => [Var] -> TExp ty a -> [Var]
-        go vars (TEVar t@(TVar x)) =
-          if var_is_boolean t then x : vars
-          else vars
+        go vars (TEVar t@(TVar x))
+          = if var_is_boolean t then x : vars
+            else vars
         go vars (TEVal _) = vars
         go vars (TEBinop _ e1 e2) = go (go vars e1) e2
         go vars (TEIf e1 e2 e3)

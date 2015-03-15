@@ -214,6 +214,36 @@ bool_prog21
        ; ret $ d && x
        }
 
+-- | 22. sums test
+bool_prog22
+  = do { x1 <- input
+       ; x2 <- input
+       ; x <- pair x1 x2
+       ; y <- (inl x :: Comp (TSum (TProd TBool TBool) TBool))
+       ; case_sum
+           (\e1 -> snd_pair e1)
+           (\e2 -> ret e2)
+           y
+       }
+
+-- | 23. sums test 2
+bool_prog23
+  = do { x1 <- input
+       ; x2 <- input
+       ; x <- pair x1 x2
+       ; y <- (inr x :: Comp (TSum (TProd TBool TBool)
+                                   (TProd TBool TBool)))
+       ; z <- (inl y :: Comp (TSum (TSum (TProd TBool TBool)
+                                         (TProd TBool TBool))
+                                   (TProd TBool TBool))) 
+       ; case_sum
+           (case_sum
+              fst_pair
+              fst_pair)
+           fst_pair           
+           z
+       }
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -280,7 +310,11 @@ bool_tests
 
     , (bool_prog20, [1,1], 1)
 
-    , (bool_prog21, [0,1], 0)      
+    , (bool_prog21, [0,1], 0)
+
+    , (bool_prog22, [0,1], 1)
+
+    , (bool_prog23, [0,1], 0)            
     ]
 
 main
