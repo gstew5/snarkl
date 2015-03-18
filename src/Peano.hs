@@ -21,21 +21,23 @@ import Prelude hiding
 import Syntax
 import Source
 
-nat_zero :: Comp (TMu (TSum TUnit))
+type TNat = TMu (TSum TUnit)
+
+nat_zero :: Comp TNat
 nat_zero
   = do { x <- inl unit
        ; fold x
        }
 
-nat_succ :: TExp (TMu (TSum TUnit)) Rational -> Comp (TMu (TSum TUnit))
+nat_succ :: TExp TNat Rational -> Comp TNat
 nat_succ n
   = do { x <- inr n
        ; fold x
        }
 
 nat_eq :: Int
-       -> TExp (TMu (TSum TUnit)) Rational
-       -> TExp (TMu (TSum TUnit)) Rational
+       -> TExp TNat Rational
+       -> TExp TNat Rational
        -> Comp TBool
 nat_eq level n m
   | level > 0
@@ -53,7 +55,7 @@ nat_eq level n m
   | otherwise
   = return false
 
-nat_of_int :: Int -> Comp (TMu (TSum TUnit))
+nat_of_int :: Int -> Comp TNat
 nat_of_int 0 = nat_zero
 nat_of_int n 
   = do { x <- nat_of_int (dec n)
