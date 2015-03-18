@@ -4,6 +4,8 @@
            , RankNTypes
            , KindSignatures
            , ScopedTypeVariables
+           , FlexibleContexts
+           , UndecidableInstances
   #-}
 
 module Syntax where
@@ -33,6 +35,8 @@ import System.IO
 
 import Data.Typeable
 
+import Unsafe.Coerce
+
 import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
 
@@ -43,44 +47,47 @@ import Source
 import Compile
 import Serialize
 
-ifThenElse :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-ifThenElse b e1 e2 = TEIf b e1 e2
+----------------------------------------------------
+--
+-- State Monad
+--        
+----------------------------------------------------        
 
-data State s a = State (s -> (a,s))
+type CompResult s a = Either ErrMsg (a,s)
+
+data State s a = State (s -> CompResult s a)
 
 -- | At "parse" time, we maintain an environment containing
 --    (i) next_var: the next free variable
---    (ii) arr_map: a symbol table mapping (array_var,index) to
---    the constraint variable associated with that array index
---    (iii) width_map: a symbol table mapping 'array_var' to the
---    bit width of each array element.
---  Reading from array x := a[i] corresponds to:
---    (a) calculating the effective address (a + width(a)*i) 
---    (b) getting v <- arr_map(a,i)
---    (c) inserting the constraint (x = x)
+--    (ii) obj_map: a symbol table mapping (obj_var,integer index) to
+--    the constraint variable associated with that object, at
+--    that field index.
+--  Reading from object 'a' at index 'i' (x := a_i) corresponds to:
+--    (a) getting y <- obj_map(a,i)
+--    (b) inserting the constraint (x = y)
 
-type ArrMap
-  = Map.Map ( Var -- array a
+type ObjMap
+  = Map.Map ( Var -- object a
             , Int -- at index i
             )
             Var -- maps to variable x
 
-type WidthMap
-  = IntMap.IntMap -- array a
-              Int -- has elements of width w
-
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
-               , arr_map  :: ArrMap
-               , width_map :: WidthMap
+               , obj_map  :: ObjMap
+               , derive_level :: Int -- ^ Bounds size of (derived) recursive objects
+               , recur_level :: Int -- ^ Bounds recursion in general 
                }
            deriving Show
 
 type Comp ty = State Env (TExp ty Rational)
 
-runState :: State s a -> s -> (a,s)
+runState :: State s a -> s -> CompResult s a
 runState mf s = case mf of
   State f -> f s
+
+raise_err :: ErrMsg -> Comp ty
+raise_err msg = State (\_ -> Left msg)
 
 -- | We have to define our own bind operator, unfortunately,
 -- because the "result" that's returned is the sequential composition
@@ -91,9 +98,12 @@ runState mf s = case mf of
       -> (TExp ty1 a -> State s (TExp ty2 a))
       -> State s (TExp ty2 a)
 (>>=) mf g = State (\s ->
-  let (e,s') = runState mf s
-      (e',s'') = runState (g e) s'
-  in (TESeq e e',s''))
+  case runState mf s of
+    Left err -> Left err
+    Right (e,s') ->
+      case runState (g e) s' of
+        Left err -> Left err
+        Right (e',s'') -> Right (TESeq e e',s''))
 
 (>>) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
         Typeable ty1
@@ -103,7 +113,7 @@ runState mf s = case mf of
 (>>) mf g = do { _ <- mf; g }    
 
 return :: a -> State s a
-return e = State (\s -> (e,s))
+return e = State (\s -> Right (e,s))
 
 ret :: a -> State s a
 ret = return
@@ -116,29 +126,66 @@ dec n = (P.-) n 1
 
 -- | Allocate a new internal variable (not instantiated by user)
 var :: Comp ty
-var = State (\s -> ( TEVar (TVar (next_var s))
-                   , Env (inc (next_var s))
-                         (input_vars s)
-                         (arr_map s)
-                         (width_map s)
-                   )
+var = State (\s ->
+              Right ( TEVar (TVar (next_var s))
+                    , s { next_var = inc (next_var s)
+                        }
+                    )
             )
 
 -- | Allocate a new input variable (instantiated by user)
 input :: Comp ty
-input = State (\s -> ( TEVar (TVar (next_var s))
-                     , Env (inc (next_var s))
-                           (next_var s : input_vars s)
-                           (arr_map s)
-                           (width_map s)                       
-                     )
+input = State (\s ->
+                Right ( TEVar (TVar (next_var s))
+                      , s { next_var = inc (next_var s)
+                          , input_vars = next_var s : input_vars s
+                          }
+                      )
               )
+
+modify :: (Env -> Env) -> Comp TUnit
+modify f
+  = State (\s ->
+            Right ( unit
+                  , f s
+                  )
+          )
+
+-- | Decrement 'derive_level'. 
+derive_tick :: Comp TUnit
+derive_tick = modify (\s -> s { derive_level = dec $ derive_level s })
+
+-- | Guard a (recursive) value derivation, by returning 'unit' when
+-- the 'derive_level' is less than or equal 0. The 'unsafeCoerce' is
+-- safe here because of the following global [TICK INVARIANT]: no
+-- 'Comp' ever 'unfold's a value more than 'derive_level' times.
+derive_guard :: Comp ty -> Comp ty
+derive_guard f
+  = State (\s ->
+            case derive_level s <= 0 of
+              False -> runState f s
+              True -> Right ( unsafeCoerce unit
+                            , s { derive_level = fuel }
+                            )
+          )
+
+-- | Decrement 'recur_level'.
+tick :: Comp TUnit
+tick = modify (\s -> s { recur_level = dec $ recur_level s })
+
+guard :: Comp ty -> Comp ty
+guard f
+  = State (\s ->
+            case recur_level s <= 0 of
+              False -> runState f s
+              True -> Left $ ErrMsg "ran out of fuel"
+          )
 
 iter_comp :: Typeable ty
           => Comp ty
           -> Int
           -> Comp ty
-iter_comp _ 0 = fail_with $ ErrMsg "must declare >= 1 vars"
+iter_comp _ 0 = raise_err $ ErrMsg "must declare >= 1 vars"
 iter_comp f n =
   do { x <- f
      ; _ <- g (dec n)
@@ -161,37 +208,25 @@ declare_vars = iter_comp (var :: Comp ty)
 declare_inputs :: Typeable ty => Int -> Comp ty
 declare_inputs = iter_comp (input :: Comp ty)
 
-add_width_bindings :: [(Var,Int)] -> Comp TUnit
-add_width_bindings width_bindings
-  = State (\s -> case s of
-              Env nv ivs m m_width ->
-                ( unit
-                , Env nv ivs m
-                  (IntMap.fromList width_bindings `IntMap.union` m_width)   
-                )
-          )
-
-add_arr_bindings :: [((Var,Int),Var)] -> Comp TUnit
-add_arr_bindings bindings
-  = State (\s -> case s of
-              Env nv ivs m m_width ->
-                ( unit
-                , Env nv ivs
-                  (Map.fromList bindings `Map.union` m)
-                  m_width
-                )
+add_bindings :: [((Var,Int),Var)] -> Comp TUnit
+add_bindings bindings
+  = State (\s -> Right ( unit
+                       , s { obj_map = Map.fromList bindings
+                               `Map.union` (obj_map s)
+                           }
+                       )
           )
 
 add_arr_mapping :: Var -> Int -> Comp TUnit
 add_arr_mapping x len
   = do { let indices  = take len $ [(0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
-       ; add_arr_bindings $ zip (zip (repeat x) indices) arr_vars
+       ; add_bindings $ zip (zip (repeat x) indices) arr_vars
        }
 
 -- | 1-d arrays. 
 arr :: Typeable ty => Int -> Comp (TArr ty)
-arr 0 = fail_with $ ErrMsg "array must have size > 0"
+arr 0 = raise_err $ ErrMsg "array must have size > 0"
 arr len
   = do { a <- declare_vars len
        ; let x = var_of_texp a
@@ -233,7 +268,7 @@ input_arr len
        }
 
 input_arr2 :: Typeable ty => Int -> Int -> Comp (TArr (TArr ty))
-input_arr2 0 _ = fail_with $ ErrMsg "array must have size > 0"
+input_arr2 0 _ = raise_err $ ErrMsg "array must have size > 0"
 input_arr2 len width
   = do { a <- arr len
        ; forall [0..dec len] (\i ->
@@ -263,14 +298,14 @@ set_addr (a,i) e
     in case last_seq e of
          scrut@(TEVar _) -> 
            do { let y = var_of_texp scrut
-              ; _ <- add_arr_bindings [((x,i),y)]
+              ; _ <- add_bindings [((x,i),y)]
               ; ret unit
               }
            
          _ ->  
            do { le <- var
               ; let y = var_of_texp le
-              ; _ <- add_arr_bindings [((x,i),y)]
+              ; _ <- add_bindings [((x,i),y)]
               ; ret $ TEUpdate le e
               }
 
@@ -282,15 +317,13 @@ set4 (a,i,j,k,l) e = do { a' <- get3 (a,i,j,k); set (a',l) e }
 
 get_addr :: Typeable ty => (Var,Int) -> Comp ty
 get_addr (x,i)
-  = State (\s -> case s of
-              env@(Env _ _ m _) ->
-                case Map.lookup (x,i) m of
-                  Nothing ->
-                    fail_with
-                    $ ErrMsg ("unbound var " ++ show (x,i)
-                              ++ " in map " ++ show m)
-                  Just y  ->
-                    (TEVar (TVar y), env)
+  = State (\s -> case Map.lookup (x,i) (obj_map s) of
+                   Nothing ->
+                     Left
+                     $ ErrMsg ("unbound var " ++ show (x,i)
+                               ++ " in map " ++ show (obj_map s))
+                   Just y  ->
+                     Right (TEVar (TVar y), s)
           )
 
 get :: Typeable ty => (TExp (TArr ty) Rational,Int) -> Comp ty
@@ -336,10 +369,24 @@ instance ( Typeable ty1
          , Derive ty1
          , Typeable ty2
          , Derive ty2
-         ) => Derive (TSum ty1 ty2) where
+         )
+      => Derive (TSum ty1 ty2) where
   derive
     = do { v1 <- derive
          ; inl v1
+         }
+
+-- [NOTE:] Must be careful to 'derive_tick' here...otherwise we may
+-- end up with infinite derived values in some cases (e.g., 'inl'
+-- inside some recursive type).
+instance ( Typeable f
+         , Derive (f (TMu f))
+         )
+      => Derive (TMu f) where
+  derive
+    = do { derive_tick
+         ; v1 <- derive_guard derive
+         ; fold v1
          }
 
 inl :: forall ty1 ty2.
@@ -354,7 +401,7 @@ inl te1
        ; v2 <- (derive :: Comp ty2)
        ; y <- pair te1 v2
        ; z <- pair (TEVal VFalse) y
-       ; add_arr_bindings [((var_of_texp x,0),var_of_texp z)]
+       ; add_bindings [((var_of_texp x,0),var_of_texp z)]
        ; ret x
        }
 
@@ -370,7 +417,7 @@ inr te2
        ; v1 <- (derive :: Comp ty1)
        ; y <- pair v1 te2
        ; z <- pair (TEVal VTrue) y
-       ; add_arr_bindings [((var_of_texp x,0),var_of_texp z)]
+       ; add_bindings [((var_of_texp x,0),var_of_texp z)]
        ; ret x
        }
 
@@ -411,32 +458,32 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
           = do { x <- var
                ; let x1 = var_of_texp e1
                ; let x2 = var_of_texp e2             
-               ; add_arr_bindings [((var_of_texp x,0),x1)
-                                  ,((var_of_texp x,1),x2)]
+               ; add_bindings [((var_of_texp x,0),x1)
+                              ,((var_of_texp x,1),x2)]
                ; ret x
                }
         go e1@(TEVar _) e2@(_)
           = do { x <- var
                ; let x1 = var_of_texp e1
                ; x2 <- var      
-               ; add_arr_bindings [((var_of_texp x,0),x1)
-                                  ,((var_of_texp x,1),var_of_texp x2)]
+               ; add_bindings [((var_of_texp x,0),x1)
+                              ,((var_of_texp x,1),var_of_texp x2)]
                ; ret $ TESeq (TEUpdate x2 e2) x
                }    
         go e1@(_) e2@(TEVar _)
           = do { x <- var
                ; x1 <- var                    
                ; let x2 = var_of_texp e2
-               ; add_arr_bindings [((var_of_texp x,0),var_of_texp x1)
-                                  ,((var_of_texp x,1),x2)]
+               ; add_bindings [((var_of_texp x,0),var_of_texp x1)
+                              ,((var_of_texp x,1),x2)]
                ; ret $ TESeq (TEUpdate x1 e1) x
                }    
         go e1@(_) e2@(_)
           = do { x1 <- var
                ; x2 <- var
                ; x <- var
-               ; add_arr_bindings [((var_of_texp x,0),var_of_texp x1)
-                                  ,((var_of_texp x,1),var_of_texp x2)]
+               ; add_bindings [((var_of_texp x,0),var_of_texp x1)
+                              ,((var_of_texp x,1),var_of_texp x2)]
                ; ret $ TESeq (TESeq (TEUpdate x1 e1) (TEUpdate x2 e2)) x
                }
 
@@ -454,6 +501,41 @@ snd_pair :: ( Typeable ty1
          -> Comp ty2
 snd_pair e = get_addr (var_of_texp e,1)
 
+----------------------------------------------------
+--
+-- Recursive Types
+--        
+----------------------------------------------------        
+
+-- [TICK INVARIANT:] Must tick at every 'unfold' & give up if we run
+-- out of fuel.
+unfold :: ( Typeable f
+          )
+       => TExp (TMu f) Rational
+       -> Comp (f (TMu f))
+unfold te
+  = do { -- decrement 'recur_level' by one
+         tick 
+         -- give up here if no fuel
+       ; guard (get_addr (var_of_texp te,0)) 
+       }
+
+fold :: ( Typeable f
+        )
+     => TExp (f (TMu f)) Rational
+     -> Comp (TMu f)
+fold te = go (last_seq te)
+  where go te1@(TEVar _)
+          = do { x <- var
+               ; add_bindings [((var_of_texp x,0),var_of_texp te1)]
+               ; ret x
+               }
+        go te1@(_)
+          = do { x1 <- var
+               ; x <- var
+               ; add_bindings [((var_of_texp x,0),var_of_texp x1)]
+               ; ret $ TESeq (TEUpdate x1 te1) x
+               }
 
 ----------------------------------------------------
 --
@@ -500,6 +582,9 @@ fromRational r = TEVal (VField (r :: Rational))
 exp_of_int :: Int -> TExp TField Rational
 exp_of_int i = TEVal (VField $ P.fromIntegral i)
 
+ifThenElse :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
+ifThenElse b e1 e2 = TEIf b e1 e2
+
 ----------------------------------------------------
 --
 -- Iteration
@@ -537,7 +622,8 @@ forall as mf = g as mf
         g (a : as') mf'
           = do { _ <- mf' a; g as' mf' }
 
-forall2 (as1,as2) mf = forall as1 (\a1 -> forall as2 (\a2 -> mf a1 a2))
+forall2 (as1,as2) mf
+  = forall as1 (\a1 -> forall as2 (\a2 -> mf a1 a2))
 forall3 (as1,as2,as3) mf
   = forall2 (as1,as2) (\a1 a2 -> forall as3 (\a3 -> mf a1 a2 a3))
 
@@ -562,9 +648,15 @@ instance Show Result where
       ++ ", constraints = " ++ show the_constraints
       ++ ", result = " ++ show the_result
 
+fuel :: Int
+fuel = 1000
+
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs
-  = let (e,s)    = runState mf (Env (P.fromInteger 0) [] Map.empty IntMap.empty)
+  = let (e,s) =
+          case runState mf (Env (P.fromInteger 0) [] Map.empty fuel fuel) of
+            Left err -> fail_with err
+            Right x -> x
         nv       = next_var s
         in_vars  = reverse $ input_vars s
         r1cs     = r1cs_of_exp nv in_vars e

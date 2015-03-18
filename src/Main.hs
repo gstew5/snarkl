@@ -18,6 +18,7 @@ import qualified Prelude as P
 
 import Syntax
 import Source
+import Peano
 
 -- | 1. A standalone "program" in the expression language
 prog1 
@@ -244,6 +245,13 @@ bool_prog23
            z
        }
 
+-- | 24. peano test 1
+bool_prog24
+  = do { n2 <- nat_of_int 10
+       ; n3 <- nat_of_int 9
+       ; nat_eq 11 n2 n3
+       }
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -314,7 +322,9 @@ bool_tests
 
     , (bool_prog22, [0,1], 1)
 
-    , (bool_prog23, [0,1], 0)            
+    , (bool_prog23, [0,1], 0)
+
+    , (bool_prog24, [], 0)                  
     ]
 
 main

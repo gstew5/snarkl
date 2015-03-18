@@ -32,7 +32,8 @@ data Ty =
   | TBool
   | TArr Ty
   | TProd Ty Ty
-  | TSum Ty Ty    
+  | TSum Ty Ty
+  | TMu (Ty -> Ty)  
   | TUnit
   deriving Typeable
 

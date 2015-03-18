@@ -7,6 +7,7 @@ module Compile
   , get_constraints
   , constraints_of_exp
   , r1cs_of_exp
+  , exp_of_texp
   ) where
 
 import Data.Typeable
