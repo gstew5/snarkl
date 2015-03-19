@@ -1,4 +1,5 @@
 {-# LANGUAGE RebindableSyntax
+           , DataKinds
   #-}
 
 module Peano where
@@ -41,7 +42,7 @@ nat_eq :: Int
        -> Comp TBool
 nat_eq level n m
   | level > 0
-  = do { n' <- unfold n
+  = do { n' <- unfold_privately n
        ; m' <- unfold m
        ; case_sum
          (const $ case_sum (const $ ret true) (const $ ret false) m')

@@ -19,6 +19,7 @@ import qualified Prelude as P
 import Syntax
 import Source
 import Peano
+import Lam
 
 -- | 1. A standalone "program" in the expression language
 prog1 
@@ -247,9 +248,15 @@ bool_prog23
 
 -- | 24. peano test 1
 bool_prog24
-  = do { n2 <- nat_of_int 10
-       ; n3 <- nat_of_int 9
-       ; nat_eq 11 n2 n3
+  = do { n2 <- nat_of_int 8
+       ; n3 <- nat_of_int 8
+       ; nat_eq 9 n2 n3
+       }
+
+-- | 25. lam test 1
+bool_prog25
+  = do { t <- term1
+       ; is_lam t
        }
 
 tests :: [(Comp 'TField,[Int],Integer)]
@@ -324,7 +331,9 @@ bool_tests
 
     , (bool_prog23, [0,1], 0)
 
-    , (bool_prog24, [], 0)                  
+    , (bool_prog24, [], 1)
+
+    , (bool_prog25, [], 1)                        
     ]
 
 main

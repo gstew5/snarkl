@@ -156,6 +156,13 @@ modify f
 derive_tick :: Comp TUnit
 derive_tick = modify (\s -> s { derive_level = dec $ derive_level s })
 
+derive_privately :: Comp ty -> Comp ty
+derive_privately mf
+  = State (\s -> case runState mf s of
+              Left err -> Left err
+              Right (a,s') -> Right (a,s' {derive_level = derive_level s})
+          )
+
 -- | Guard a (recursive) value derivation, by returning 'unit' when
 -- the 'derive_level' is less than or equal 0. The 'unsafeCoerce' is
 -- safe here because of the following global [TICK INVARIANT]: no
@@ -166,7 +173,7 @@ derive_guard f
             case derive_level s <= 0 of
               False -> runState f s
               True -> Right ( unsafeCoerce unit
-                            , s { derive_level = fuel }
+                            , s 
                             )
           )
 
@@ -180,6 +187,15 @@ guard f
             case recur_level s <= 0 of
               False -> runState f s
               True -> Left $ ErrMsg "ran out of fuel"
+          )
+
+-- | Execute computation 'mf' without modifying the overall recursion
+-- budget for the remainder of the computation.
+privately :: Comp ty -> Comp ty
+privately mf
+  = State (\s -> case runState mf s of
+              Left err -> Left err
+              Right (a,s') -> Right (a,s' {recur_level = recur_level s})
           )
 
 iter_comp :: Typeable ty
@@ -359,9 +375,10 @@ instance ( Typeable ty1
          , Derive ty1
          , Typeable ty2
          , Derive ty2
-         ) => Derive (TProd ty1 ty2) where
+         )
+      => Derive (TProd ty1 ty2) where
   derive
-    = do { v1 <- derive
+    = do { v1 <- derive_privately derive
          ; v2 <- derive
          ; pair v1 v2
          }
@@ -373,7 +390,7 @@ instance ( Typeable ty1
          )
       => Derive (TSum ty1 ty2) where
   derive
-    = do { v1 <- derive
+    = do { v1 <- derive_privately derive
          ; inl v1
          }
 
@@ -438,7 +455,7 @@ case_sum f1 f2 e
        ; p_rest <- snd_pair p
        ; e1 <- fst_pair p_rest
        ; e2 <- snd_pair p_rest
-       ; le <- f1 e1
+       ; le <- privately $ f1 e1
        ; re <- f2 e2
        ; ret $ if b then re else le
        }
@@ -522,6 +539,14 @@ unfold te
        ; guard (get_addr (var_of_texp te,0)) 
        }
 
+-- | Unfold 'te' without ticking the recursion budget.
+-- WARNING: Don't use this operation unless you know what you're doing.
+unfold_privately :: ( Typeable (Rep f (TMu f))
+                    )  
+                 => TExp (TMu f) Rational
+                 -> Comp (Rep f (TMu f))
+unfold_privately te = privately $ unfold te
+
 fold :: ( Typeable f
         , Typeable (Rep f (TMu f))
         )
@@ -583,7 +608,12 @@ fromRational :: Rational -> TExp TField Rational
 fromRational r = TEVal (VField (r :: Rational))
 
 exp_of_int :: Int -> TExp TField Rational
-exp_of_int i = TEVal (VField $ P.fromIntegral i)
+exp_of_int i = TEVal (VField $ fromIntegral i)
+
+int_of_exp :: TExp TField Rational -> Int
+int_of_exp e = case e of
+  TEVal (VField r) -> truncate r
+  _ -> fail_with $ ErrMsg $ "expected field elem " ++ show e
 
 ifThenElse :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
 ifThenElse b e1 e2 = TEIf b e1 e2
@@ -652,12 +682,15 @@ instance Show Result where
       ++ ", result = " ++ show the_result
 
 fuel :: Int
-fuel = 1000
+fuel = 10
+
+run :: State Env a -> CompResult Env a
+run mf = runState mf (Env (P.fromInteger 0) [] Map.empty fuel fuel)
 
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs
   = let (e,s) =
-          case runState mf (Env (P.fromInteger 0) [] Map.empty fuel fuel) of
+          case run mf of
             Left err -> fail_with err
             Right x -> x
         nv       = next_var s
