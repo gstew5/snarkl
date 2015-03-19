@@ -24,15 +24,18 @@ import Source
 
 type TF = TFSum (TFConst TField) (TFSum TFId (TFProd TFId TFId))
 
-type TF' = TFSum (TFConst TField) (TFSum TFId (TFProd TFId TFId))
-  
 type TTerm = TMu TF
 
-type TTerm' = TMu TF'
-
-varN :: Int
+varN :: TExp TField Rational
      -> Comp TTerm
-varN i
+varN e
+  = do { v <- inl e
+       ; fold v
+       }
+
+varN' :: Int
+     -> Comp TTerm
+varN' i
   = do { v <- inl (exp_of_int i)
        ; fold v
        }
@@ -45,20 +48,18 @@ lam t
        ; fold v
        }
 
-app :: TExp TTerm Rational
-    -> TExp TTerm Rational
+app :: TExp (TProd TTerm TTerm) Rational
     -> Comp TTerm
-app t1 t2
-  = do { t' <- pair t1 t2
-       ; t'' <- inr t'
-       ; v <- inr t''
+app t
+  = do { t' <- inr t
+       ; v <- inr t'
        ; fold v
        }
 
 -- \x y -> x
 term1 :: Comp TTerm
 term1
-  = do { x <- varN 1
+  = do { x <- varN' 1
        ; t <- lam x
        ; lam t
        }
@@ -81,3 +82,12 @@ is_lam t
      (const $ ret false)
      (const $ ret true)
      (const $ ret false)
+
+shift :: TExp TField Rational
+      -> TExp TTerm Rational
+      -> Comp TTerm
+shift n t
+  = case_term t
+      (\m -> varN (n + m))
+      lam
+      app

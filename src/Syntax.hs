@@ -104,7 +104,7 @@ raise_err msg = State (\_ -> Left msg)
     Right (e,s') ->
       case runState (g e) s' of
         Left err -> Left err
-        Right (e',s'') -> Right (TESeq e e',s''))
+        Right (e',s'') -> Right (te_seq e e',s''))
 
 (>>) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
         Typeable ty1
@@ -457,7 +457,8 @@ case_sum f1 f2 e
        ; e2 <- snd_pair p_rest
        ; le <- privately $ f1 e1
        ; re <- f2 e2
-       ; ret $ if b then re else le
+       ; x <- var
+       ; ret $ te_seq (TEUpdate x (if b then re else le)) x
        }
 
 ----------------------------------------------------
@@ -487,7 +488,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; x2 <- var      
                ; add_bindings [((var_of_texp x,0),x1)
                               ,((var_of_texp x,1),var_of_texp x2)]
-               ; ret $ TESeq (TEUpdate x2 e2) x
+               ; ret $ te_seq (TEUpdate x2 e2) x
                }    
         go e1@(_) e2@(TEVar _)
           = do { x <- var
@@ -495,7 +496,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; let x2 = var_of_texp e2
                ; add_bindings [((var_of_texp x,0),var_of_texp x1)
                               ,((var_of_texp x,1),x2)]
-               ; ret $ TESeq (TEUpdate x1 e1) x
+               ; ret $ te_seq (TEUpdate x1 e1) x
                }    
         go e1@(_) e2@(_)
           = do { x1 <- var
@@ -503,7 +504,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; x <- var
                ; add_bindings [((var_of_texp x,0),var_of_texp x1)
                               ,((var_of_texp x,1),var_of_texp x2)]
-               ; ret $ TESeq (TESeq (TEUpdate x1 e1) (TEUpdate x2 e2)) x
+               ; ret $ te_seq (te_seq (TEUpdate x1 e1) (TEUpdate x2 e2)) x
                }
 
 fst_pair :: ( Typeable ty1
@@ -536,7 +537,7 @@ unfold te
   = do { -- decrement 'recur_level' by one
          tick 
          -- give up here if no fuel
-       ; guard (get_addr (var_of_texp te,0)) 
+       ; guard $ ret (unsafeCoerce te)
        }
 
 -- | Unfold 'te' without ticking the recursion budget.
@@ -552,19 +553,8 @@ fold :: ( Typeable f
         )
      => TExp (Rep f (TMu f)) Rational
      -> Comp (TMu f)
-fold te = go (last_seq te)
-  where go te1@(TEVar _)
-          = do { x <- var
-               ; add_bindings [((var_of_texp x,0),var_of_texp te1)]
-               ; ret x
-               }
-        go te1@(_)
-          = do { x1 <- var
-               ; x <- var
-               ; add_bindings [((var_of_texp x,0),var_of_texp x1)]
-               ; ret $ TESeq (TEUpdate x1 te1) x
-               }
-
+fold te = ret $ unsafeCoerce te
+  
 ----------------------------------------------------
 --
 -- Operators, Values
@@ -682,7 +672,7 @@ instance Show Result where
       ++ ", result = " ++ show the_result
 
 fuel :: Int
-fuel = 10
+fuel = 5
 
 run :: State Env a -> CompResult Env a
 run mf = runState mf (Env (P.fromInteger 0) [] Map.empty fuel fuel)

@@ -20,6 +20,7 @@ import Syntax
 import Source
 import Peano
 import Lam
+import List
 
 -- | 1. A standalone "program" in the expression language
 prog1 
@@ -248,15 +249,21 @@ bool_prog23
 
 -- | 24. peano test 1
 bool_prog24
-  = do { n2 <- nat_of_int 8
-       ; n3 <- nat_of_int 8
-       ; nat_eq 9 n2 n3
+  = do { n2 <- nat_of_int 0
+       ; n3 <- nat_of_int 0
+       ; nat_eq 1 n2 n3
        }
 
 -- | 25. lam test 1
 bool_prog25
   = do { t <- term1
        ; is_lam t
+       }
+
+-- | 26. list test 1
+prog26
+  = do { l <- list1
+       ; head_list (exp_of_int 0) l
        }
 
 tests :: [(Comp 'TField,[Int],Integer)]
@@ -296,6 +303,8 @@ tests
     , (prog14, [3,4], 0)
 
     , (prog15, [], 2)
+
+    , (prog26, [], 23)
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]
@@ -333,7 +342,7 @@ bool_tests
 
     , (bool_prog24, [], 1)
 
-    , (bool_prog25, [], 1)                        
+--    , (bool_prog25, [], 1)                        
     ]
 
 main
