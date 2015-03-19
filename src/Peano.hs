@@ -1,6 +1,4 @@
 {-# LANGUAGE RebindableSyntax
-           , DataKinds
-           , ScopedTypeVariables
   #-}
 
 module Peano where
@@ -21,11 +19,13 @@ import Prelude hiding
 import Syntax
 import Source
 
-type TNat = TMu (TSum TUnit)
+type TF = TFSum (TFConst TUnit) TFId 
+
+type TNat = TMu TF
 
 nat_zero :: Comp TNat
-nat_zero
-  = do { x <- inl unit
+nat_zero 
+  = do { x <- inl unit 
        ; fold x
        }
 
@@ -61,5 +61,4 @@ nat_of_int n
   = do { x <- nat_of_int (dec n)
        ; nat_succ x
        }
-    
-             
+            

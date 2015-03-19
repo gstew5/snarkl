@@ -6,6 +6,7 @@
            , ScopedTypeVariables
            , FlexibleContexts
            , UndecidableInstances
+           , PolyKinds
   #-}
 
 module Syntax where
@@ -380,7 +381,8 @@ instance ( Typeable ty1
 -- end up with infinite derived values in some cases (e.g., 'inl'
 -- inside some recursive type).
 instance ( Typeable f
-         , Derive (f (TMu f))
+         , Typeable (Rep f (TMu f))   
+         , Derive (Rep f (TMu f))
          )
       => Derive (TMu f) where
   derive
@@ -509,10 +511,10 @@ snd_pair e = get_addr (var_of_texp e,1)
 
 -- [TICK INVARIANT:] Must tick at every 'unfold' & give up if we run
 -- out of fuel.
-unfold :: ( Typeable f
-          )
+unfold :: ( Typeable (Rep f (TMu f))
+          )  
        => TExp (TMu f) Rational
-       -> Comp (f (TMu f))
+       -> Comp (Rep f (TMu f))
 unfold te
   = do { -- decrement 'recur_level' by one
          tick 
@@ -521,8 +523,9 @@ unfold te
        }
 
 fold :: ( Typeable f
+        , Typeable (Rep f (TMu f))
         )
-     => TExp (f (TMu f)) Rational
+     => TExp (Rep f (TMu f)) Rational
      -> Comp (TMu f)
 fold te = go (last_seq te)
   where go te1@(TEVar _)

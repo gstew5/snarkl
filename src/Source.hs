@@ -4,12 +4,16 @@
            , RankNTypes
            , DeriveDataTypeable
            , AutoDeriveTypeable
+           , TypeFamilies
+           , UndecidableInstances 
   #-}
 
 module Source
   ( Val(..)    
   , TExp(..)
+  , TFunct(..)
   , Ty(..)
+  , Rep
   , TOp(..)
   , TVar(..)
   , boolean_vars_of_texp
@@ -27,15 +31,30 @@ import Field
 --                 Source Expression Language                 --
 ----------------------------------------------------------------
 
-data Ty =
-    TField
-  | TBool
-  | TArr Ty
-  | TProd Ty Ty
-  | TSum Ty Ty
-  | TMu (Ty -> Ty)  
-  | TUnit
+data TFunct where
+  TFConst :: Ty -> TFunct
+  TFId :: TFunct
+  TFProd :: TFunct -> TFunct -> TFunct
+  TFSum :: TFunct -> TFunct -> TFunct
+  TFComp :: TFunct -> TFunct -> TFunct
   deriving Typeable
+
+data Ty where
+  TField:: Ty
+  TBool :: Ty
+  TArr  :: Ty -> Ty
+  TProd :: Ty -> Ty -> Ty  
+  TSum  :: Ty -> Ty -> Ty
+  TMu   :: TFunct -> Ty
+  TUnit :: Ty
+  deriving Typeable
+
+type family Rep (f :: TFunct) (x :: Ty) :: Ty
+type instance Rep (TFConst ty) x = ty
+type instance Rep TFId x = x
+type instance Rep (TFProd f g) x = TProd (Rep f x) (Rep g x)
+type instance Rep (TFSum f g) x = TSum (Rep f x) (Rep g x)
+type instance Rep (TFComp f g) x = Rep f (Rep g x)
 
 newtype TVar (ty :: Ty) = TVar Var
   
