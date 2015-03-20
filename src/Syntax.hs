@@ -75,11 +75,7 @@ module Syntax
 
          -- | Top-level functions
        , input
-       , sat
-       , vars
-       , constraints
-       , result
-       , the_r1cs
+       , Result(..)
        , run
        , check
        , test
@@ -261,6 +257,8 @@ privately mf
               Right (a,s') -> Right (a,s' {recur_level = recur_level s})
           )
 
+-- | Execute computation 'mf' with 'new_fuel', also without modifying
+-- the recursion budget for the remainder of the computation.
 with_fuel :: Int -> Comp ty -> Comp ty
 with_fuel new_fuel mf
   = State (\s -> case runState mf (s { recur_level = new_fuel }) of
@@ -696,6 +694,7 @@ unfold te
        ; guard $ ret (unsafeCoerce te)
        }
 
+-- | For internal use only.
 unsafe_unfold :: ( Typeable (Rep f (TMu f))
                  )  
               => TExp (TMu f) Rational
@@ -824,11 +823,11 @@ forall3 (as1,as2,as3) mf
 ----------------------------------------------------        
 
 data Result = 
-  Result { sat :: Bool
-         , vars :: Int
-         , constraints :: Int
-         , result :: Rational 
-         , the_r1cs :: String
+  Result { result_sat :: Bool
+         , result_vars :: Int
+         , result_constraints :: Int
+         , result_result :: Rational 
+         , result_r1cs :: String
          }
 
 instance Show Result where
