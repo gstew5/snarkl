@@ -27,13 +27,13 @@ type TNat = TMu TF
 nat_zero :: Comp TNat
 nat_zero 
   = do { x <- inl unit 
-       ; fold x
+       ; roll x
        }
 
 nat_succ :: TExp TNat Rational -> Comp TNat
 nat_succ n
   = do { x <- inr n
-       ; fold x
+       ; roll x
        }
 
 nat_eq :: Int
@@ -42,8 +42,8 @@ nat_eq :: Int
        -> Comp TBool
 nat_eq level n m
   | level > 0
-  = do { n' <- unfold_privately n
-       ; m' <- unfold m
+  = do { n' <- privately $ unroll n
+       ; m' <- unroll m
        ; case_sum
          (const $ case_sum (const $ ret true) (const $ ret false) m')
          (\n'' -> case_sum

@@ -28,14 +28,14 @@ type TList = TMu TF
 
 nil :: Comp TList
 nil = do { t <- inl unit
-         ; fold t
+         ; roll t
          }
 
 cons :: TExp TField Rational -> TExp TList Rational -> Comp TList
 cons f t
   = do { p <- pair f t
        ; t' <- inr p
-       ; fold t'
+       ; roll t'
        }
 
 case_list :: ( Typeable ty
@@ -46,7 +46,7 @@ case_list :: ( Typeable ty
           -> (TExp (TProd TField TList) Rational -> Comp ty)
           -> Comp ty
 case_list t f_nil f_cons
-  = do { t' <- unfold t
+  = do { t' <- unroll t
        ; case_sum (\_ -> f_nil) f_cons t'
        }
 

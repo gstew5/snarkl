@@ -29,9 +29,9 @@ module Syntax
        , pair
        , fst_pair
        , snd_pair
-       , fold
-       , unfold
-       , unfold_privately
+       , roll
+       , unroll
+       , privately
          
          -- | Arithmetic and boolean operations 
        , (+)
@@ -217,7 +217,7 @@ input = State (\s ->
 
 -- | Guard a (recursive) value derivation, by raising an error when
 -- the 'recur_level' is less than or equal 0. This is the user-facing
--- guard exposed in the 'unfold' function in this file.
+-- guard exposed in the 'unroll' function in this file.
 guard :: Comp ty -> Comp ty
 guard f
   = State (\s ->
@@ -230,7 +230,7 @@ guard f
 -- | FOR INTERNAL USE: Guard a (recursive) value derivation, by
 -- returning 'unit' when the 'recur_level' is less than or equal
 -- 0. The 'unsafeCoerce' is safe here because of the following global
--- [GUARD INVARIANT]: no 'Comp' ever 'unfold's a value more than 'fuel'
+-- [GUARD INVARIANT]: no 'Comp' ever 'unroll's a value more than 'fuel'
 -- times.
 unsafe_guard :: Comp ty -> Comp ty
 unsafe_guard f
@@ -243,7 +243,8 @@ unsafe_guard f
           )
 
 -- | Execute computation 'mf' without modifying the overall recursion
--- budget for the remainder of the computation.
+-- budget for the remainder of the computation.  WARNING: Don't use
+-- this operation unless you know what you're doing.
 privately :: Comp ty -> Comp ty
 privately mf
   = State (\s -> case runState mf s of
@@ -470,7 +471,7 @@ instance ( Typeable f
       => Derive (TMu f) where
   derive
     = do { v1 <- unsafe_guard derive
-         ; fold v1
+         ; roll v1
          }
 
 -- 'inl' vs. 'inl_aux': 'inl' gets a fresh recursion/derivation
@@ -602,10 +603,10 @@ instance ( Typeable f
          )
       => Zippable (TMu f) where
   zip_vals b e1 e2
-    = do { e1' <- privately $ unsafe_unfold e1
-         ; e2' <- unsafe_unfold e2
+    = do { e1' <- privately $ unsafe_unroll e1
+         ; e2' <- unsafe_unroll e2
          ; x <- unsafe_guard $ zip_vals b e1' e2'
-         ; fold x
+         ; roll x
          }
 
 
@@ -675,43 +676,35 @@ snd_pair e = get_addr (var_of_texp e,1)
 --        
 ----------------------------------------------------        
 
--- [GUARD INVARIANT:] Must guard every 'unfold' & give up if we run
+-- [GUARD INVARIANT:] Must guard every 'unroll' & give up if we run
 -- out of fuel.
-unfold :: ( Typeable (Rep f (TMu f))
+unroll :: ( Typeable (Rep f (TMu f))
           )  
        => TExp (TMu f) Rational
        -> Comp (Rep f (TMu f))
-unfold te
+unroll te
   = do { -- decrement 'recur_level' by one,
          -- give up if no fuel
        ; guard $ ret (unsafeCoerce te)
        }
 
 -- | For internal use only.
-unsafe_unfold :: ( Typeable (Rep f (TMu f))
+unsafe_unroll :: ( Typeable (Rep f (TMu f))
                  )  
               => TExp (TMu f) Rational
               -> Comp (Rep f (TMu f))
-unsafe_unfold te
+unsafe_unroll te
   = do { -- decrement 'recur_level' by one,
          -- return a value of type 'TUnit' if no fuel
        ; unsafe_guard $ ret (unsafeCoerce te)
        }
 
--- | Unfold 'te' without ticking the recursion budget.
--- WARNING: Don't use this operation unless you know what you're doing.
-unfold_privately :: ( Typeable (Rep f (TMu f))
-                    )  
-                 => TExp (TMu f) Rational
-                 -> Comp (Rep f (TMu f))
-unfold_privately te = privately $ unfold te
-
-fold :: ( Typeable f
+roll :: ( Typeable f
         , Typeable (Rep f (TMu f))
         )
      => TExp (Rep f (TMu f)) Rational
      -> Comp (TMu f)
-fold te = ret $ unsafeCoerce te
+roll te = ret $ unsafeCoerce te
   
 ----------------------------------------------------
 --

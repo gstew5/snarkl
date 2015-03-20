@@ -30,14 +30,14 @@ varN :: TExp TField Rational
      -> Comp TTerm
 varN e
   = do { v <- inl e
-       ; fold v
+       ; roll v
        }
 
 varN' :: Int
      -> Comp TTerm
 varN' i
   = do { v <- inl (exp_of_int i)
-       ; fold v
+       ; roll v
        }
 
 lam :: TExp TTerm Rational
@@ -45,7 +45,7 @@ lam :: TExp TTerm Rational
 lam t
   = do { t' <- inl t
        ; v <- inr t'
-       ; fold v
+       ; roll v
        }
 
 app :: TExp (TProd TTerm TTerm) Rational
@@ -53,7 +53,7 @@ app :: TExp (TProd TTerm TTerm) Rational
 app t
   = do { t' <- inr t
        ; v <- inr t'
-       ; fold v
+       ; roll v
        }
 
 -- \x y -> x
@@ -73,7 +73,7 @@ case_term :: ( Typeable ty
           -> (TExp (TProd TTerm TTerm) Rational -> Comp ty)          
           -> Comp ty
 case_term t f_var f_lam f_app
-  = do { t' <- unfold t
+  = do { t' <- unroll t
        ; case_sum f_var (case_sum f_lam f_app) t'
        }
 
