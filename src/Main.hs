@@ -268,7 +268,7 @@ prog26
 
 -- | 27. list test 2
 prog27
-  = do { l <- list2 1
+  = do { l <- list2 4
        ; head_list (exp_of_int 0) l
        }
 

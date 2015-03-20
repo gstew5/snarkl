@@ -159,6 +159,7 @@ runState mf s = case mf of
 raise_err :: ErrMsg -> Comp ty
 raise_err msg = State (\_ -> Left msg)
 
+
 -- | We have to define our own bind operator, unfortunately,
 -- because the "result" that's returned is the sequential composition
 -- of the results of 'mf', 'g' (not just whatever 'g' returns)
@@ -213,39 +214,32 @@ input = State (\s ->
                       )
               )
 
-modify :: (Env -> Env) -> Comp TUnit
-modify f
-  = State (\s ->
-            Right ( unit
-                  , f s
-                  )
-          )
 
--- | Guard a (recursive) value derivation, by returning 'unit' when
--- the 'recur_level' is less than or equal 0. The 'unsafeCoerce' is
--- safe here because of the following global [TICK INVARIANT]: no
--- 'Comp' ever 'unfold's a value more than 'recur_level' times.
-guard_or_unit :: Comp ty -> Comp ty
-guard_or_unit f
-  = State (\s ->
-            case recur_level s <= 0 of
-              False -> runState f s
-              True -> Right ( unsafeCoerce unit
-                            , s 
-                            )
-          )
-
--- | Decrement 'recur_level'.
-tick :: Comp TUnit
-tick = modify (\s -> s { recur_level = dec $ recur_level s })
-
+-- | Guard a (recursive) value derivation, by raising an error when
+-- the 'recur_level' is less than or equal 0. This is the user-facing
+-- guard exposed in the 'unfold' function in this file.
 guard :: Comp ty -> Comp ty
 guard f
   = State (\s ->
             case recur_level s <= 0 of
-              False -> runState f s
+              False -> runState f (s { recur_level = dec $ recur_level s})
               True -> Left $ ErrMsg $ "ran out of fuel in state\n  "
                                       ++ show s
+          )
+
+-- | FOR INTERNAL USE: Guard a (recursive) value derivation, by
+-- returning 'unit' when the 'recur_level' is less than or equal
+-- 0. The 'unsafeCoerce' is safe here because of the following global
+-- [GUARD INVARIANT]: no 'Comp' ever 'unfold's a value more than 'fuel'
+-- times.
+unsafe_guard :: Comp ty -> Comp ty
+unsafe_guard f
+  = State (\s ->
+            case recur_level s <= 0 of
+              False -> runState f (s { recur_level = dec $ recur_level s})
+              True -> Right ( unsafeCoerce unit
+                            , s 
+                            )
           )
 
 -- | Execute computation 'mf' without modifying the overall recursion
@@ -442,6 +436,7 @@ instance (Typeable ty,Derive ty) => Derive (TArr ty) where
          ; set (a,0) v
          ; ret a
          }
+
 instance ( Typeable ty1
          , Derive ty1
          , Typeable ty2
@@ -465,7 +460,7 @@ instance ( Typeable ty1
          ; inl_aux v1
          }
 
--- [NOTE:] Must be careful to 'tick' here...otherwise we may
+-- [NOTE:] Must be careful to 'guard' here...otherwise we may
 -- end up with infinite derived values in some cases (e.g., 'inl'
 -- inside some recursive type).
 instance ( Typeable f
@@ -474,8 +469,7 @@ instance ( Typeable f
          )
       => Derive (TMu f) where
   derive
-    = do { tick
-         ; v1 <- guard_or_unit derive
+    = do { v1 <- unsafe_guard derive
          ; fold v1
          }
 
@@ -610,7 +604,7 @@ instance ( Typeable f
   zip_vals b e1 e2
     = do { e1' <- privately $ unsafe_unfold e1
          ; e2' <- unsafe_unfold e2
-         ; x <- guard_or_unit $ zip_vals b e1' e2'
+         ; x <- unsafe_guard $ zip_vals b e1' e2'
          ; fold x
          }
 
@@ -681,16 +675,15 @@ snd_pair e = get_addr (var_of_texp e,1)
 --        
 ----------------------------------------------------        
 
--- [TICK INVARIANT:] Must tick at every 'unfold' & give up if we run
+-- [GUARD INVARIANT:] Must guard every 'unfold' & give up if we run
 -- out of fuel.
 unfold :: ( Typeable (Rep f (TMu f))
           )  
        => TExp (TMu f) Rational
        -> Comp (Rep f (TMu f))
 unfold te
-  = do { -- decrement 'recur_level' by one
-         tick 
-         -- give up here if no fuel
+  = do { -- decrement 'recur_level' by one,
+         -- give up if no fuel
        ; guard $ ret (unsafeCoerce te)
        }
 
@@ -700,10 +693,9 @@ unsafe_unfold :: ( Typeable (Rep f (TMu f))
               => TExp (TMu f) Rational
               -> Comp (Rep f (TMu f))
 unsafe_unfold te
-  = do { -- decrement 'recur_level' by one
-         tick 
+  = do { -- decrement 'recur_level' by one,
          -- return a value of type 'TUnit' if no fuel
-       ; guard_or_unit $ ret (unsafeCoerce te)
+       ; unsafe_guard $ ret (unsafeCoerce te)
        }
 
 -- | Unfold 'te' without ticking the recursion budget.
