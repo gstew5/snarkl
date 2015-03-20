@@ -9,7 +9,81 @@
            , PolyKinds
   #-}
 
-module Syntax where
+module Syntax
+       ( Zippable
+
+         -- | Computation monad
+       , Comp
+       , ret
+       , return
+       , (>>=)
+       , (>>)
+
+         -- | Booleans, unit, sums, products, recursive types
+       , true
+       , false
+       , unit
+       , inl
+       , inr
+       , case_sum
+       , pair
+       , fst_pair
+       , snd_pair
+       , fold
+       , unfold
+       , unfold_privately
+         
+         -- | Arithmetic and boolean operations 
+       , (+)
+       , (-)
+       , (*)
+       , (/)
+       , (&&)
+       , not
+       , xor
+       , eq
+       , exp_of_int
+       , int_of_exp
+       , inc
+       , dec
+       , fromRational
+       , ifThenElse
+
+         -- | Arrays
+       , arr
+       , arr2
+       , arr3
+       , input_arr
+       , input_arr2
+       , input_arr3
+       , set
+       , set2
+       , set3
+       , set4
+       , get
+       , get2
+       , get3
+       , get4
+
+         -- | Iteration
+       , iter
+       , bigsum
+       , times
+       , forall
+       , forall2
+       , forall3
+
+         -- | Top-level functions
+       , input
+       , sat
+       , vars
+       , constraints
+       , result
+       , the_r1cs
+       , run
+       , check
+       , test
+       ) where
 
 import Prelude hiding 
   ( (>>)
@@ -76,7 +150,6 @@ type ObjMap
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
                , obj_map  :: ObjMap
-               , derive_level :: Int -- ^ Bounds size of (derived) recursive objects
                , recur_level :: Int -- ^ Bounds recursion in general 
                }
            deriving Show
@@ -152,25 +225,14 @@ modify f
                   )
           )
 
--- | Decrement 'derive_level'. 
-derive_tick :: Comp TUnit
-derive_tick = modify (\s -> s { derive_level = dec $ derive_level s })
-
-derive_privately :: Comp ty -> Comp ty
-derive_privately mf
-  = State (\s -> case runState mf s of
-              Left err -> Left err
-              Right (a,s') -> Right (a,s' {derive_level = derive_level s})
-          )
-
 -- | Guard a (recursive) value derivation, by returning 'unit' when
--- the 'derive_level' is less than or equal 0. The 'unsafeCoerce' is
+-- the 'recur_level' is less than or equal 0. The 'unsafeCoerce' is
 -- safe here because of the following global [TICK INVARIANT]: no
--- 'Comp' ever 'unfold's a value more than 'derive_level' times.
-derive_guard :: Comp ty -> Comp ty
-derive_guard f
+-- 'Comp' ever 'unfold's a value more than 'recur_level' times.
+guard_or_unit :: Comp ty -> Comp ty
+guard_or_unit f
   = State (\s ->
-            case derive_level s <= 0 of
+            case recur_level s <= 0 of
               False -> runState f s
               True -> Right ( unsafeCoerce unit
                             , s 
@@ -186,7 +248,8 @@ guard f
   = State (\s ->
             case recur_level s <= 0 of
               False -> runState f s
-              True -> Left $ ErrMsg "ran out of fuel"
+              True -> Left $ ErrMsg $ "ran out of fuel in state\n  "
+                                      ++ show s
           )
 
 -- | Execute computation 'mf' without modifying the overall recursion
@@ -194,6 +257,13 @@ guard f
 privately :: Comp ty -> Comp ty
 privately mf
   = State (\s -> case runState mf s of
+              Left err -> Left err
+              Right (a,s') -> Right (a,s' {recur_level = recur_level s})
+          )
+
+with_fuel :: Int -> Comp ty -> Comp ty
+with_fuel new_fuel mf
+  = State (\s -> case runState mf (s { recur_level = new_fuel }) of
               Left err -> Left err
               Right (a,s') -> Right (a,s' {recur_level = recur_level s})
           )
@@ -360,10 +430,13 @@ class Derive ty where
 
 instance Derive TUnit where
   derive = ret $ TEVal VUnit
+
 instance Derive TBool where
   derive = ret $ TEVal VFalse
+
 instance Derive TField where
   derive = ret $ TEVal (VField 0)
+
 instance (Typeable ty,Derive ty) => Derive (TArr ty) where
   derive
     = do { a <- arr 1
@@ -378,7 +451,7 @@ instance ( Typeable ty1
          )
       => Derive (TProd ty1 ty2) where
   derive
-    = do { v1 <- derive_privately derive
+    = do { v1 <- privately derive
          ; v2 <- derive
          ; pair v1 v2
          }
@@ -390,11 +463,11 @@ instance ( Typeable ty1
          )
       => Derive (TSum ty1 ty2) where
   derive
-    = do { v1 <- derive_privately derive
-         ; inl v1
+    = do { v1 <- privately derive
+         ; inl_aux v1
          }
 
--- [NOTE:] Must be careful to 'derive_tick' here...otherwise we may
+-- [NOTE:] Must be careful to 'tick' here...otherwise we may
 -- end up with infinite derived values in some cases (e.g., 'inl'
 -- inside some recursive type).
 instance ( Typeable f
@@ -403,47 +476,56 @@ instance ( Typeable f
          )
       => Derive (TMu f) where
   derive
-    = do { derive_tick
-         ; v1 <- derive_guard derive
+    = do { tick
+         ; v1 <- guard_or_unit derive
          ; fold v1
          }
 
-inl :: forall ty1 ty2.
-       ( Typeable ty1
-       , Typeable ty2
-       , Derive ty2
-       )
-    => TExp ty1 Rational
-    -> Comp (TSum ty1 ty2)
-inl te1
+-- 'inl' vs. 'inl_aux': 'inl' gets a fresh recursion/derivation
+-- budget. And likewise for 'inr'. The reason: 'inl' is exposed to the
+-- programmer. 'inl_aux' is only used internally, when deriving values
+-- of sum types.
+inl te1 = with_fuel fuel $ inl_aux te1
+
+inl_aux :: forall ty1 ty2.
+           ( Typeable ty1
+           , Typeable ty2
+           , Derive ty2
+           )
+        => TExp ty1 Rational
+        -> Comp (TSum ty1 ty2)
+inl_aux te1
   = do { x <- var
-       ; v2 <- (derive :: Comp ty2)
+       ; v2 <- privately $ derive :: Comp ty2
        ; y <- pair te1 v2
        ; z <- pair (TEVal VFalse) y
        ; add_bindings [((var_of_texp x,0),var_of_texp z)]
        ; ret x
        }
 
-inr :: forall ty1 ty2.
-       ( Typeable ty1
-       , Derive ty1         
-       , Typeable ty2
-       )
-    => TExp ty2 Rational
-    -> Comp (TSum ty1 ty2)
-inr te2
+inr_aux :: forall ty1 ty2.
+           ( Typeable ty1
+           , Derive ty1         
+           , Typeable ty2
+           )
+        => TExp ty2 Rational
+        -> Comp (TSum ty1 ty2)
+inr_aux te2
   = do { x <- var
-       ; v1 <- (derive :: Comp ty1)
+       ; v1 <- privately $ derive :: Comp ty1
        ; y <- pair v1 te2
        ; z <- pair (TEVal VTrue) y
        ; add_bindings [((var_of_texp x,0),var_of_texp z)]
        ; ret x
        }
 
+inr te2 = with_fuel fuel $ inr_aux te2
+
 case_sum :: forall ty1 ty2 ty.
             ( Typeable ty1
             , Typeable ty2
             , Typeable ty
+            , Zippable ty
             )
          => (TExp ty1 Rational -> Comp ty)
          -> (TExp ty2 Rational -> Comp ty)
@@ -457,9 +539,83 @@ case_sum f1 f2 e
        ; e2 <- snd_pair p_rest
        ; le <- privately $ f1 e1
        ; re <- f2 e2
-       ; x <- var
-       ; ret $ te_seq (TEUpdate x (if b then re else le)) x
+         -- NOTE: 'zip_vals' with a fresh recursion budget here.
+       ; with_fuel fuel $ zip_vals b re le
        }
+
+class Zippable ty where
+  zip_vals :: TExp TBool Rational
+           -> TExp ty Rational
+           -> TExp ty Rational
+           -> Comp ty
+
+instance Zippable TUnit where
+  zip_vals _ _ _ = ret unit
+
+instance Zippable TBool where
+  zip_vals b b1 b2 = ret $ if b then b1 else b2
+
+instance Zippable TField where
+  zip_vals b e1 e2 = ret $ if b then e1 else e2
+
+instance ( Zippable ty1
+         , Typeable ty1
+         , Zippable ty2
+         , Typeable ty2
+         )
+      => Zippable (TProd ty1 ty2) where
+  zip_vals b e1 e2
+    = do { e11 <- fst_pair e1
+         ; e12 <- snd_pair e1
+         ; e21 <- fst_pair e2
+         ; e22 <- snd_pair e2
+         ; p1 <- privately $ zip_vals b e11 e21
+         ; p2 <- zip_vals b e12 e22
+         ; pair p1 p2
+         }
+
+instance ( Zippable ty1
+         , Typeable ty1
+         , Zippable ty2
+         , Typeable ty2
+         )
+      => Zippable (TSum ty1 ty2) where
+  zip_vals b e1 e2
+    = do { p1 <- get_addr (var_of_texp e1,0)
+                 :: Comp (TProd TBool (TProd ty1 ty2))
+         ; b1 <- fst_pair p1
+         ; p1_rest <- snd_pair p1
+         ; e11 <- fst_pair p1_rest
+         ; e12 <- snd_pair p1_rest
+
+         ; p2 <- get_addr (var_of_texp e2,0)
+         ; b2 <- fst_pair p2
+         ; p2_rest <- snd_pair p2
+         ; e21 <- fst_pair p2_rest
+         ; e22 <- snd_pair p2_rest
+
+         ; b' <- zip_vals b b1 b2
+         ; e1' <- privately $ zip_vals b e11 e21
+         ; e2' <- zip_vals b e12 e22
+         ; p'' <- pair e1' e2'
+         ; p' <- pair b' p''
+         ; x <- var
+         ; add_bindings [((var_of_texp x,0),var_of_texp p')]
+         ; ret x
+         }
+
+instance ( Typeable f
+         , Typeable (Rep f (TMu f))
+         , Zippable (Rep f (TMu f))
+         )
+      => Zippable (TMu f) where
+  zip_vals b e1 e2
+    = do { e1' <- privately $ unsafe_unfold e1
+         ; e2' <- unsafe_unfold e2
+         ; x <- guard_or_unit $ zip_vals b e1' e2'
+         ; fold x
+         }
+
 
 ----------------------------------------------------
 --
@@ -538,6 +694,17 @@ unfold te
          tick 
          -- give up here if no fuel
        ; guard $ ret (unsafeCoerce te)
+       }
+
+unsafe_unfold :: ( Typeable (Rep f (TMu f))
+                 )  
+              => TExp (TMu f) Rational
+              -> Comp (Rep f (TMu f))
+unsafe_unfold te
+  = do { -- decrement 'recur_level' by one
+         tick 
+         -- return a value of type 'TUnit' if no fuel
+       ; guard_or_unit $ ret (unsafeCoerce te)
        }
 
 -- | Unfold 'te' without ticking the recursion budget.
@@ -675,7 +842,7 @@ fuel :: Int
 fuel = 5
 
 run :: State Env a -> CompResult Env a
-run mf = runState mf (Env (P.fromInteger 0) [] Map.empty fuel fuel)
+run mf = runState mf (Env (P.fromInteger 0) [] Map.empty fuel)
 
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs

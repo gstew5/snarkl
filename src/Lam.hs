@@ -65,6 +65,7 @@ term1
        }
 
 case_term :: ( Typeable ty
+             , Zippable ty
              )
           => TExp TTerm Rational
           -> (TExp TField Rational -> Comp ty)

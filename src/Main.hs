@@ -249,9 +249,9 @@ bool_prog23
 
 -- | 24. peano test 1
 bool_prog24
-  = do { n2 <- nat_of_int 0
-       ; n3 <- nat_of_int 0
-       ; nat_eq 1 n2 n3
+  = do { n2 <- nat_of_int 3
+       ; n3 <- nat_of_int 3
+       ; nat_eq 4 n2 n3
        }
 
 -- | 25. lam test 1
@@ -262,7 +262,13 @@ bool_prog25
 
 -- | 26. list test 1
 prog26
-  = do { l <- list1
+  = do { l <- list1 
+       ; head_list (exp_of_int 0) l
+       }
+
+-- | 27. list test 2
+prog27
+  = do { l <- list2 1
        ; head_list (exp_of_int 0) l
        }
 
@@ -305,6 +311,8 @@ tests
     , (prog15, [], 2)
 
     , (prog26, [], 23)
+
+    , (prog27, [], 24)      
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]
@@ -342,7 +350,7 @@ bool_tests
 
     , (bool_prog24, [], 1)
 
---    , (bool_prog25, [], 1)                        
+    , (bool_prog25, [], 1)                        
     ]
 
 main

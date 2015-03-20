@@ -39,6 +39,7 @@ cons f t
        }
 
 case_list :: ( Typeable ty
+             , Zippable ty
              )
           => TExp TList Rational
           -> Comp ty
