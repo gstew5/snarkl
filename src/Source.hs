@@ -89,17 +89,14 @@ data TExp :: Ty -> * -> * where
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
 
 
--- | Smart constructor for 'TESeq'.  Previously simplified 'TESeq te1
--- te2' to 'te2' whenever the normal form of 'te1' (with seq's
--- reassociated right) is *not* equal 'TEUpdate _ _', but this
--- caused a performance regression. Now, it's just 'TESeq te1 te2'.
+-- | Smart constructor for 'TESeq'.  Simplify 'TESeq te1 te2' to 'te2'
+-- whenever the normal form of 'te1' (with seq's reassociated right)
+-- is *not* equal 'TEUpdate _ _'.
 te_seq :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
-te_seq te1 te2 = TESeq te1 te2
--- PREVIOUSLY:
--- te_seq te1 te2 = case (te1,te2) of
---   (TEUpdate _ _,_) -> TESeq te1 te2
---   (TESeq tx ty,_) -> te_seq tx (te_seq ty te2)
---   (_,_) -> te2
+te_seq te1 te2 = case (te1,te2) of
+  (TEUpdate _ _,_) -> TESeq te1 te2
+  (TESeq tx ty,_) -> te_seq tx (te_seq ty te2)
+  (_,_) -> te2
   
 boolean_vars_of_texp :: Typeable ty => TExp ty a -> [Var]
 boolean_vars_of_texp = go []

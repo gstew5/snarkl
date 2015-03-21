@@ -56,8 +56,9 @@ exp_seq e1 e2
       (ESeq l1,_) -> go (l1 ++ [e2])
       (_,ESeq l2) -> go (e1 : l2)
       (_,_) -> go [e1,e2]
-  where go l = let linit = init l -- safe, by smart constructor invariant
-               in ESeq $ filter (not . is_pure) linit ++ [last l]
+  where go [] = fail_with $ ErrMsg "empty sequence in 'exp_seq'"
+        go [e] = e
+        go (e : l) = if is_pure e then go l else ESeq [e,go l]
 
 is_pure :: Exp a -> Bool
 is_pure e
