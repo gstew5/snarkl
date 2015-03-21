@@ -72,7 +72,7 @@ map_list :: Int
     -> TExp TList Rational
     -> Comp TList
 map_list level f l
-  | level >= 0
+  | level > 0
   = case_list l
       nil
       (\hd tl ->
@@ -87,12 +87,12 @@ map_list level f l
 list1
   = do { tl <- nil
        ; tl' <- cons (exp_of_int 23) tl
-       ; cons (exp_of_int 33) tl'                         
+       ; cons (exp_of_int 33) tl'
        }
 
 inc_elem e = ret $ exp_of_int 1 + e
 
 list2 
   = do { l <- list1
-       ; map_list 1 inc_elem l
+       ; map_list 2 inc_elem l
        }

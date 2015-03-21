@@ -509,13 +509,21 @@ instance ( Typeable f
          )
       => Derive (TMu f) where
   derive n
-    | n >= 0
+    | n > 0
     = do { v1 <- derive (dec n)
          ; roll v1
          }
 
     | otherwise
     = do { x <- var 
+           -- [CANARY_INVARIANT]: Every expression of recursive type
+           -- that was derived at level 0 is marked as a 'canary'.
+           -- The intent is that before unrolling a recursive
+           -- expression, we always first check whether the expression
+           -- is a canary.  If it is, then we either report an error
+           -- (in the case of of 'unroll', a user-visible operation,
+           -- or just return the given canary expression, in the case
+           -- of 'zip_vals' (an operation internal to this module).
          ; add_canary x
          ; ret x
          }
@@ -566,8 +574,7 @@ instance ( Zippable ty1
          ; ret $ unrep_sum p'
          }
 
--- NOTE: Correctness relies on the fact that we unroll values of
--- recursive type to a fixed depth ('fuel').
+-- NOTE: Correctness relies on [CANARY_INVARIANT].
 instance ( Typeable f
          , Typeable (Rep f (TMu f))
          , Zippable (Rep f (TMu f))
@@ -578,8 +585,8 @@ instance ( Typeable f
          ; b2 <- is_canary e2
          ; case (b1,b2) of
              (TEVal VFalse,TEVal VFalse) ->
-               do { e1' <- unroll e1
-                  ; e2' <- unroll e2
+               do { e1' <- unroll_aux e1
+                  ; e2' <- unroll_aux e2
                   ; x <- zip_vals b e1' e2'
                   ; roll x
                   }
@@ -662,11 +669,25 @@ snd_pair e = get_addr (var_of_texp e,1)
 unsafe_cast :: TExp ty1 Rational -> TExp ty2 Rational
 unsafe_cast = unsafeCoerce
 
+unroll_aux :: ( Typeable (Rep f (TMu f))
+              )  
+           => TExp (TMu f) Rational
+           -> Comp (Rep f (TMu f))
+unroll_aux te = ret $ unsafe_cast te
+
 unroll :: ( Typeable (Rep f (TMu f))
           )  
        => TExp (TMu f) Rational
        -> Comp (Rep f (TMu f))
-unroll te = ret $ unsafe_cast te
+unroll te
+  = do { b <- is_canary te
+       ; case b of
+           TEVal VFalse -> unroll_aux te
+           TEVal VTrue ->
+             raise_err $ ErrMsg "ran out of fuel while unrolling"
+           _ ->
+             raise_err $ ErrMsg "internal error in unroll"
+       }
 
 roll :: ( Typeable f
         , Typeable (Rep f (TMu f))
