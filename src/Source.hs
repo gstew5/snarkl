@@ -88,6 +88,7 @@ data TExp :: Ty -> * -> * where
   TEUpdate :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
 
+
 -- | Smart constructor for 'TESeq'.  Previously simplified 'TESeq te1
 -- te2' to 'te2' whenever the normal form of 'te1' (with seq's
 -- reassociated right) is *not* equal 'TEUpdate _ _', but this

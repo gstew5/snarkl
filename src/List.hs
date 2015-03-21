@@ -56,12 +56,18 @@ head_list def l
       (ret def)
       fst_pair
 
+tail_list :: TExp TList Rational -> Comp TList
+tail_list l
+  = case_list l
+      nil
+      snd_pair
+
 map_list :: Int
     -> (TExp TField Rational -> Comp TField)
     -> TExp TList Rational
     -> Comp TList
 map_list level f l
-  | level > 0
+  | level >= 0
   = case_list l
       nil
       (\p -> do { hd <- fst_pair p
@@ -74,14 +80,23 @@ map_list level f l
   | otherwise
   = ret l    
 
+id_list :: 
+       TExp TList Rational
+    -> Comp TList
+id_list l  
+  = case_list l
+      (ret l)
+      (\_ -> ret l)
+
 list1
   = do { tl <- nil
-       ; cons (exp_of_int 23) tl
+       ; tl' <- cons (exp_of_int 23) tl
+       ; cons (exp_of_int 33) tl'                         
        }
 
 inc_elem e = ret $ exp_of_int 1 + e
 
-list2 level
+list2 
   = do { l <- list1
-       ; map_list level inc_elem l
+       ; map_list 1 inc_elem l
        }

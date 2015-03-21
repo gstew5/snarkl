@@ -11,6 +11,8 @@
 
 module Syntax
        ( Zippable
+       , zip_vals
+       , rep_sum
 
          -- | Computation monad
        , Comp
@@ -31,7 +33,6 @@ module Syntax
        , snd_pair
        , roll
        , unroll
-       , privately
          
          -- | Arithmetic and boolean operations 
        , (+)
@@ -108,6 +109,7 @@ import Data.Typeable
 
 import Unsafe.Coerce
 
+import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
 
@@ -146,7 +148,7 @@ type ObjMap
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
                , obj_map  :: ObjMap
-               , recur_level :: Int -- ^ Bounds recursion in general 
+               , canaries :: Set.Set Var
                }
            deriving Show
 
@@ -158,7 +160,6 @@ runState mf s = case mf of
 
 raise_err :: ErrMsg -> Comp ty
 raise_err msg = State (\_ -> Left msg)
-
 
 -- | We have to define our own bind operator, unfortunately,
 -- because the "result" that's returned is the sequential composition
@@ -183,6 +184,7 @@ raise_err msg = State (\_ -> Left msg)
      -> State s (TExp ty2 a)
 (>>) mf g = do { _ <- mf; g }    
 
+
 return :: a -> State s a
 return e = State (\s -> Right (e,s))
 
@@ -206,60 +208,31 @@ var = State (\s ->
 
 -- | Allocate a new input variable (instantiated by user)
 input :: Comp ty
-input = State (\s ->
-                Right ( TEVar (TVar (next_var s))
-                      , s { next_var = inc (next_var s)
-                          , input_vars = next_var s : input_vars s
-                          }
-                      )
-              )
-
-
--- | Guard a (recursive) value derivation, by raising an error when
--- the 'recur_level' is less than or equal 0. This is the user-facing
--- guard exposed in the 'unroll' function in this file.
-guard :: Comp ty -> Comp ty
-guard f
-  = State (\s ->
-            case recur_level s <= 0 of
-              False -> runState f (s { recur_level = dec $ recur_level s})
-              True -> Left $ ErrMsg $ "ran out of fuel in state\n  "
-                                      ++ show s
+input
+  = State (\s -> Right ( TEVar (TVar (next_var s))
+                       , s { next_var = inc (next_var s)
+                           , input_vars = next_var s : input_vars s
+                           }
+                       )
           )
 
--- | FOR INTERNAL USE: Guard a (recursive) value derivation, by
--- returning 'unit' when the 'recur_level' is less than or equal
--- 0. The 'unsafeCoerce' is safe here because of the following global
--- [GUARD INVARIANT]: no 'Comp' ever 'unroll's a value more than 'fuel'
--- times.
-unsafe_guard :: Comp ty -> Comp ty
-unsafe_guard f
-  = State (\s ->
-            case recur_level s <= 0 of
-              False -> runState f (s { recur_level = dec $ recur_level s})
-              True -> Right ( unsafeCoerce unit
-                            , s 
-                            )
+add_canary :: TExp ty Rational -> Comp TUnit
+add_canary x
+  = State (\s -> Right ( unit
+                       , s { canaries
+                             = Set.insert (var_of_texp x) $ canaries s }
+                       )
           )
 
--- | Execute computation 'mf' without modifying the overall recursion
--- budget for the remainder of the computation.  WARNING: Don't use
--- this operation unless you know what you're doing.
-privately :: Comp ty -> Comp ty
-privately mf
-  = State (\s -> case runState mf s of
-              Left err -> Left err
-              Right (a,s') -> Right (a,s' {recur_level = recur_level s})
+is_canary :: TExp ty Rational -> Comp TBool
+is_canary x
+  = State (\s -> Right ( case Set.member (var_of_texp x) (canaries s) of
+                            True -> true
+                            False -> false
+                       , s
+                       )
           )
 
--- | Execute computation 'mf' with 'new_fuel', also without modifying
--- the recursion budget for the remainder of the computation.
-with_fuel :: Int -> Comp ty -> Comp ty
-with_fuel new_fuel mf
-  = State (\s -> case runState mf (s { recur_level = new_fuel }) of
-              Left err -> Left err
-              Right (a,s') -> Right (a,s' {recur_level = recur_level s})
-          )
 
 iter_comp :: Typeable ty
           => Comp ty
@@ -273,6 +246,7 @@ iter_comp f n =
      }
   where g 0 = ret (TEVal VUnit)
         g m = f >> g (dec m)
+
 
 ----------------------------------------------------
 --
@@ -418,101 +392,48 @@ get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
 --        
 ----------------------------------------------------        
 
-class Derive ty where
-  derive :: Comp ty
+rep_sum :: TExp (TSum ty1 ty2) Rational
+        -> TExp (TProd TBool (TProd ty1 ty2)) Rational
+rep_sum = unsafe_cast
 
-instance Derive TUnit where
-  derive = ret $ TEVal VUnit
-
-instance Derive TBool where
-  derive = ret $ TEVal VFalse
-
-instance Derive TField where
-  derive = ret $ TEVal (VField 0)
-
-instance (Typeable ty,Derive ty) => Derive (TArr ty) where
-  derive
-    = do { a <- arr 1
-         ; v <- derive
-         ; set (a,0) v
-         ; ret a
-         }
-
-instance ( Typeable ty1
-         , Derive ty1
-         , Typeable ty2
-         , Derive ty2
-         )
-      => Derive (TProd ty1 ty2) where
-  derive
-    = do { v1 <- privately derive
-         ; v2 <- derive
-         ; pair v1 v2
-         }
-
-instance ( Typeable ty1
-         , Derive ty1
-         , Typeable ty2
-         , Derive ty2
-         )
-      => Derive (TSum ty1 ty2) where
-  derive
-    = do { v1 <- privately derive
-         ; inl_aux v1
-         }
-
--- [NOTE:] Must be careful to 'guard' here...otherwise we may
--- end up with infinite derived values in some cases (e.g., 'inl'
--- inside some recursive type).
-instance ( Typeable f
-         , Typeable (Rep f (TMu f))   
-         , Derive (Rep f (TMu f))
-         )
-      => Derive (TMu f) where
-  derive
-    = do { v1 <- unsafe_guard derive
-         ; roll v1
-         }
+unrep_sum :: TExp (TProd TBool (TProd ty1 ty2)) Rational
+          -> TExp (TSum ty1 ty2) Rational
+unrep_sum = unsafe_cast
 
 -- 'inl' vs. 'inl_aux': 'inl' gets a fresh recursion/derivation
--- budget. And likewise for 'inr'. The reason: 'inl' is exposed to the
--- programmer. 'inl_aux' is only used internally, when deriving values
--- of sum types.
-inl te1 = with_fuel fuel $ inl_aux te1
+-- budget. The reason: 'inl' is exposed to the programmer. 'inl_aux'
+-- is only used internally, when deriving values of sum types, and may
+-- be called recursively with less fuel.
+inl te1 = inl_aux fuel te1
 
 inl_aux :: forall ty1 ty2.
            ( Typeable ty1
            , Typeable ty2
            , Derive ty2
            )
-        => TExp ty1 Rational
+        => Int
+        -> TExp ty1 Rational
         -> Comp (TSum ty1 ty2)
-inl_aux te1
-  = do { x <- var
-       ; v2 <- privately $ derive :: Comp ty2
+inl_aux n te1
+  = do { v2 <- derive n :: Comp ty2
        ; y <- pair te1 v2
        ; z <- pair (TEVal VFalse) y
-       ; add_bindings [((var_of_texp x,0),var_of_texp z)]
-       ; ret x
+       ; ret $ unrep_sum z
        }
 
-inr_aux :: forall ty1 ty2.
-           ( Typeable ty1
-           , Derive ty1         
-           , Typeable ty2
-           )
-        => TExp ty2 Rational
-        -> Comp (TSum ty1 ty2)
-inr_aux te2
-  = do { x <- var
-       ; v1 <- privately $ derive :: Comp ty1
+inr :: forall ty1 ty2.
+       ( Typeable ty1
+       , Derive ty1         
+       , Typeable ty2
+       )
+    => TExp ty2 Rational
+    -> Comp (TSum ty1 ty2)
+inr te2
+  = do { v1 <- derive fuel :: Comp ty1
        ; y <- pair v1 te2
        ; z <- pair (TEVal VTrue) y
-       ; add_bindings [((var_of_texp x,0),var_of_texp z)]
-       ; ret x
+       ; ret $ unrep_sum z
        }
-
-inr te2 = with_fuel fuel $ inr_aux te2
 
 case_sum :: forall ty1 ty2 ty.
             ( Typeable ty1
@@ -525,17 +446,82 @@ case_sum :: forall ty1 ty2 ty.
          -> TExp (TSum ty1 ty2) Rational
          -> Comp ty
 case_sum f1 f2 e
-  = do { p <- get_addr (var_of_texp e,0)
+  = do { let p = rep_sum e
        ; b <- fst_pair p
        ; p_rest <- snd_pair p
        ; e1 <- fst_pair p_rest
        ; e2 <- snd_pair p_rest
-       ; le <- privately $ f1 e1
+       ; le <- f1 e1
        ; re <- f2 e2
-         -- NOTE: 'zip_vals' with a fresh recursion budget here.
-       ; with_fuel fuel $ zip_vals b re le
+       ; zip_vals (not b) le re
        }
 
+-- | Types for which a default value is derivable
+class Derive ty where
+  derive :: Int -> Comp ty
+
+instance Derive TUnit where
+  derive _ = ret $ TEVal VUnit
+
+instance Derive TBool where
+  derive _ = ret $ TEVal VFalse
+
+instance Derive TField where
+  derive _ = ret $ TEVal (VField 0)
+
+instance (Typeable ty,Derive ty) => Derive (TArr ty) where
+  derive n
+    = do { a <- arr 1
+         ; v <- derive n
+         ; set (a,0) v
+         ; ret a
+         }
+
+instance ( Typeable ty1
+         , Derive ty1
+         , Typeable ty2
+         , Derive ty2
+         )
+      => Derive (TProd ty1 ty2) where
+  derive n
+    = do { v1 <- derive n
+         ; v2 <- derive n
+         ; pair v1 v2
+         }
+
+instance ( Typeable ty1
+         , Derive ty1
+         , Typeable ty2
+         , Derive ty2
+         )
+      => Derive (TSum ty1 ty2) where
+  derive n
+    = do { v1 <- derive n
+         ; inl_aux n v1
+         }
+
+-- [NOTE:] Must be careful to 'guard' here...otherwise we may
+-- end up with infinite derived values in some cases (e.g., 'inl'
+-- inside some recursive type).
+instance ( Typeable f
+         , Typeable (Rep f (TMu f))   
+         , Derive (Rep f (TMu f))
+         )
+      => Derive (TMu f) where
+  derive n
+    | n >= 0
+    = do { v1 <- derive (dec n)
+         ; roll v1
+         }
+
+    | otherwise
+    = do { x <- var 
+         ; add_canary x
+         ; ret x
+         }
+
+-- | Types for which conditional branches can be pushed to the leaves
+-- of two values.
 class Zippable ty where
   zip_vals :: TExp TBool Rational
            -> TExp ty Rational
@@ -562,7 +548,7 @@ instance ( Zippable ty1
          ; e12 <- snd_pair e1
          ; e21 <- fst_pair e2
          ; e22 <- snd_pair e2
-         ; p1 <- privately $ zip_vals b e11 e21
+         ; p1 <- zip_vals b e11 e21
          ; p2 <- zip_vals b e12 e22
          ; pair p1 p2
          }
@@ -574,39 +560,35 @@ instance ( Zippable ty1
          )
       => Zippable (TSum ty1 ty2) where
   zip_vals b e1 e2
-    = do { p1 <- get_addr (var_of_texp e1,0)
-                 :: Comp (TProd TBool (TProd ty1 ty2))
-         ; b1 <- fst_pair p1
-         ; p1_rest <- snd_pair p1
-         ; e11 <- fst_pair p1_rest
-         ; e12 <- snd_pair p1_rest
-
-         ; p2 <- get_addr (var_of_texp e2,0)
-         ; b2 <- fst_pair p2
-         ; p2_rest <- snd_pair p2
-         ; e21 <- fst_pair p2_rest
-         ; e22 <- snd_pair p2_rest
-
-         ; b' <- zip_vals b b1 b2
-         ; e1' <- privately $ zip_vals b e11 e21
-         ; e2' <- zip_vals b e12 e22
-         ; p'' <- pair e1' e2'
-         ; p' <- pair b' p''
-         ; x <- var
-         ; add_bindings [((var_of_texp x,0),var_of_texp p')]
-         ; ret x
+    = do { let p1 = rep_sum e1 
+         ; let p2 = rep_sum e2 
+         ; p' <- zip_vals b p1 p2
+         ; ret $ unrep_sum p'
          }
 
+-- NOTE: Correctness relies on the fact that we unroll values of
+-- recursive type to a fixed depth ('fuel').
 instance ( Typeable f
          , Typeable (Rep f (TMu f))
          , Zippable (Rep f (TMu f))
          )
       => Zippable (TMu f) where
   zip_vals b e1 e2
-    = do { e1' <- privately $ unsafe_unroll e1
-         ; e2' <- unsafe_unroll e2
-         ; x <- unsafe_guard $ zip_vals b e1' e2'
-         ; roll x
+    = do { b1 <- is_canary e1
+         ; b2 <- is_canary e2
+         ; case (b1,b2) of
+             (TEVal VFalse,TEVal VFalse) ->
+               do { e1' <- unroll e1
+                  ; e2' <- unroll e2
+                  ; x <- zip_vals b e1' e2'
+                  ; roll x
+                  }
+             (TEVal VTrue,TEVal VFalse) -> ret e1
+             (TEVal VFalse,TEVal VTrue) -> ret e2
+             (TEVal VTrue,TEVal VTrue) -> ret e1
+             (_,_) -> raise_err
+                      $ ErrMsg
+                      $ "internal error in zip_vals"
          }
 
 
@@ -670,41 +652,29 @@ snd_pair :: ( Typeable ty1
          -> Comp ty2
 snd_pair e = get_addr (var_of_texp e,1)
 
+
 ----------------------------------------------------
 --
 -- Recursive Types
 --        
 ----------------------------------------------------        
 
--- [GUARD INVARIANT:] Must guard every 'unroll' & give up if we run
--- out of fuel.
+unsafe_cast :: TExp ty1 Rational -> TExp ty2 Rational
+unsafe_cast = unsafeCoerce
+
 unroll :: ( Typeable (Rep f (TMu f))
           )  
        => TExp (TMu f) Rational
        -> Comp (Rep f (TMu f))
-unroll te
-  = do { -- decrement 'recur_level' by one,
-         -- give up if no fuel
-       ; guard $ ret (unsafeCoerce te)
-       }
-
--- | For internal use only.
-unsafe_unroll :: ( Typeable (Rep f (TMu f))
-                 )  
-              => TExp (TMu f) Rational
-              -> Comp (Rep f (TMu f))
-unsafe_unroll te
-  = do { -- decrement 'recur_level' by one,
-         -- return a value of type 'TUnit' if no fuel
-       ; unsafe_guard $ ret (unsafeCoerce te)
-       }
+unroll te = ret $ unsafe_cast te
 
 roll :: ( Typeable f
         , Typeable (Rep f (TMu f))
         )
      => TExp (Rep f (TMu f)) Rational
      -> Comp (TMu f)
-roll te = ret $ unsafeCoerce te
+roll te = ret $ unsafe_cast te
+             
   
 ----------------------------------------------------
 --
@@ -758,6 +728,7 @@ int_of_exp e = case e of
 
 ifThenElse :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
 ifThenElse b e1 e2 = TEIf b e1 e2
+
 
 ----------------------------------------------------
 --
@@ -823,10 +794,10 @@ instance Show Result where
       ++ ", result = " ++ show the_result
 
 fuel :: Int
-fuel = 5
+fuel = 1
 
 run :: State Env a -> CompResult Env a
-run mf = runState mf (Env (P.fromInteger 0) [] Map.empty fuel)
+run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Set.empty)
 
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs
@@ -879,3 +850,4 @@ do_test (prog,inputs,res) =
 test :: Typeable ty => (Comp ty,[Int],Integer) -> IO ()
 test (prog,args,res)
   = do_test (prog,map fromIntegral args,fromIntegral res)
+

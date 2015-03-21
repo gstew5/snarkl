@@ -268,8 +268,15 @@ prog26
 
 -- | 27. list test 2
 prog27
-  = do { l <- list2 4
+  = do { l <- list2
        ; head_list (exp_of_int 0) l
+       }
+
+-- | 28. list test 3
+prog28 
+  = do { l <- list2
+       ; l' <- tail_list l
+       ; head_list (exp_of_int 0) l'
        }
 
 tests :: [(Comp 'TField,[Int],Integer)]
@@ -310,9 +317,11 @@ tests
 
     , (prog15, [], 2)
 
-    , (prog26, [], 23)
+    , (prog26, [], 33)
 
-    , (prog27, [], 24)      
+    , (prog27, [], 34)
+
+    , (prog28, [], 24)            
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

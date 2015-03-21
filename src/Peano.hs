@@ -42,7 +42,7 @@ nat_eq :: Int
        -> Comp TBool
 nat_eq level n m
   | level > 0
-  = do { n' <- privately $ unroll n
+  = do { n' <- unroll n
        ; m' <- unroll m
        ; case_sum
          (const $ case_sum (const $ ret true) (const $ ret false) m')
