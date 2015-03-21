@@ -532,10 +532,10 @@ instance Zippable TUnit where
   zip_vals _ _ _ = ret unit
 
 instance Zippable TBool where
-  zip_vals b b1 b2 = ret $ if b then b1 else b2
+  zip_vals b b1 b2 = ret $ ifThenElse_aux b b1 b2
 
 instance Zippable TField where
-  zip_vals b e1 e2 = ret $ if b then e1 else e2
+  zip_vals b e1 e2 = ret $ ifThenElse_aux b e1 e2
 
 instance ( Zippable ty1
          , Typeable ty1
@@ -707,7 +707,7 @@ false = TEVal VFalse
 (&&) e1 e2 = TEBinop (TOp And) e1 e2
 
 not :: TExp TBool Rational -> TExp TBool Rational
-not e = if e then false else true
+not e = ifThenElse_aux e false true
 
 xor :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
 xor e1 e2 = TEBinop (TOp XOr) e1 e2
@@ -726,8 +726,20 @@ int_of_exp e = case e of
   TEVal (VField r) -> truncate r
   _ -> fail_with $ ErrMsg $ "expected field elem " ++ show e
 
-ifThenElse :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-ifThenElse b e1 e2 = TEIf b e1 e2
+ifThenElse_aux :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
+ifThenElse_aux b e1 e2
+  = case b of
+      TEVal VFalse -> e2
+      TEVal VTrue -> e1
+      _ -> TEIf b e1 e2
+
+ifThenElse :: Zippable ty
+           => TExp TBool Rational
+           -> TExp ty Rational
+           -> TExp ty Rational
+           -> Comp ty
+ifThenElse b e1 e2
+  = zip_vals b e1 e2
 
 
 ----------------------------------------------------

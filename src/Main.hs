@@ -28,8 +28,8 @@ prog1
        ; y <- input -- int
        ; z <- input -- bool
        ; u <- ret $ y + 2.0
-       ; v <- ret (if z then y else y)
-       ; w <- ret (if x then y else y)
+       ; v <- if z then y else y
+       ; w <- if x then y else y
        ; ret $ u*u - w*u*u*y*y*v
        }
 
