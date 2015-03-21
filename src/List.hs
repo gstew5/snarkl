@@ -43,24 +43,29 @@ case_list :: ( Typeable ty
              )
           => TExp TList Rational
           -> Comp ty
-          -> (TExp (TProd TField TList) Rational -> Comp ty)
+          -> (TExp TField Rational -> TExp TList Rational -> Comp ty)
           -> Comp ty
 case_list t f_nil f_cons
   = do { t' <- unroll t
-       ; case_sum (\_ -> f_nil) f_cons t'
+       ; case_sum (\_ -> f_nil) go t'
        }
+  where go p
+          = do { e1 <- fst_pair p
+               ; e2 <- snd_pair p
+               ; f_cons e1 e2
+               }
 
 head_list :: TExp TField Rational -> TExp TList Rational -> Comp TField
 head_list def l
   = case_list l
       (ret def)
-      fst_pair
+      (\hd _ -> ret hd)
 
 tail_list :: TExp TList Rational -> Comp TList
 tail_list l
   = case_list l
       nil
-      snd_pair
+      (\_ tl -> ret tl)
 
 map_list :: Int
     -> (TExp TField Rational -> Comp TField)
@@ -70,23 +75,14 @@ map_list level f l
   | level >= 0
   = case_list l
       nil
-      (\p -> do { hd <- fst_pair p
-                ; tl <- snd_pair p
-                ; hd' <- f hd
-                ; tl' <- map_list (dec level) f tl
-                ; cons hd' tl'
-                })
+      (\hd tl ->
+        do { hd' <- f hd
+           ; tl' <- map_list (dec level) f tl
+           ; cons hd' tl'
+           })
 
   | otherwise
   = ret l    
-
-id_list :: 
-       TExp TList Rational
-    -> Comp TList
-id_list l  
-  = case_list l
-      (ret l)
-      (\_ -> ret l)
 
 list1
   = do { tl <- nil
