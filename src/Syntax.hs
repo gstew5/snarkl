@@ -147,7 +147,8 @@ type ObjMap
 
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
-               , obj_map  :: ObjMap
+               , obj_map :: ObjMap
+               , bools :: Map.Map Var Bool
                , canaries :: Set.Set Var
                }
            deriving Show
@@ -233,6 +234,43 @@ is_canary x
                        )
           )
 
+-- | Does expression 'e' resolve statically to 'true'?
+is_true :: TExp ty Rational -> Comp TBool
+is_true (TEVal VTrue) = ret true
+is_true e@(TEVar _)
+  = State (\s -> Right ( case Map.lookup (var_of_texp e) (bools s) of
+                            Nothing -> false
+                            Just True -> true
+                            Just False -> false
+                       , s
+                       )
+          )
+is_true _ = ret false
+
+-- | Does expression 'e' resolve statically to 'false'?
+is_false :: TExp ty Rational -> Comp TBool
+is_false (TEVal VFalse) = ret true
+is_false e@(TEVar _)
+  = State (\s -> Right ( case Map.lookup (var_of_texp e) (bools s) of
+                            Nothing -> false
+                            Just True -> false
+                            Just False -> true
+                       , s
+                       )
+          )
+is_false _ = ret false
+
+assert_bool :: TExp ty Rational -> Bool -> Comp TUnit
+assert_bool e@(TEVar _) b
+  = State (\s ->
+            Right ( unit
+                  , s { bools = Map.insert (var_of_texp e) b (bools s) }
+                  )
+          )
+
+assert_true = flip assert_bool True
+
+assert_false = flip assert_bool False
 
 iter_comp :: Typeable ty
           => Comp ty
@@ -418,6 +456,8 @@ inl_aux n te1
   = do { v2 <- derive n :: Comp ty2
        ; y <- pair te1 v2
        ; z <- pair (TEVal VFalse) y
+       ; z_fst <- fst_pair z
+       ; assert_false z_fst
        ; ret $ unrep_sum z
        }
 
@@ -432,6 +472,8 @@ inr te2
   = do { v1 <- derive fuel :: Comp ty1
        ; y <- pair v1 te2
        ; z <- pair (TEVal VTrue) y
+       ; z_fst <- fst_pair z
+       ; assert_true z_fst
        ; ret $ unrep_sum z
        }
 
@@ -448,12 +490,19 @@ case_sum :: forall ty1 ty2 ty.
 case_sum f1 f2 e
   = do { let p = rep_sum e
        ; b <- fst_pair p
+       ; is_inl <- is_false b              
+       ; is_inr <- is_true b
        ; p_rest <- snd_pair p
        ; e1 <- fst_pair p_rest
        ; e2 <- snd_pair p_rest
-       ; le <- f1 e1
-       ; re <- f2 e2
-       ; zip_vals (not b) le re
+       ; case is_inl of
+           TEVal VTrue -> f1 e1
+           _ -> case is_inr of
+             TEVal VTrue -> f2 e2
+             _ -> do { le <- f1 e1
+                     ; re <- f2 e2
+                     ; zip_vals (not b) le re
+                     }
        }
 
 -- | Types for which a default value is derivable
@@ -833,7 +882,7 @@ fuel :: Int
 fuel = 1
 
 run :: State Env a -> CompResult Env a
-run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Set.empty)
+run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty Set.empty)
 
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs
