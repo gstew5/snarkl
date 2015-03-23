@@ -521,7 +521,7 @@ instance ( Typeable f
            -- The intent is that before unrolling a recursive
            -- expression, we always first check whether the expression
            -- is a canary.  If it is, then we either report an error
-           -- (in the case of of 'unroll', a user-visible operation,
+           -- (in the case of of 'unroll', a user-visible operation),
            -- or just return the given canary expression, in the case
            -- of 'zip_vals' (an operation internal to this module).
          ; add_canary x
@@ -574,7 +574,8 @@ instance ( Zippable ty1
          ; ret $ unrep_sum p'
          }
 
--- NOTE: Correctness relies on [CANARY_INVARIANT].
+-- NOTE: Correctness relies on [CANARY_INVARIANT].  Before going under
+-- a \mu, we must make sure to check for canaries.
 instance ( Typeable f
          , Typeable (Rep f (TMu f))
          , Zippable (Rep f (TMu f))
@@ -585,7 +586,9 @@ instance ( Typeable f
          ; b2 <- is_canary e2
          ; case (b1,b2) of
              (TEVal VFalse,TEVal VFalse) ->
-               do { e1' <- unroll_aux e1
+               do { -- We 'unroll_aux' here because we know neither
+                    -- 'e1' nor 'e2' is a canary.
+                    e1' <- unroll_aux e1
                   ; e2' <- unroll_aux e2
                   ; x <- zip_vals b e1' e2'
                   ; roll x

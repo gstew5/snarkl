@@ -48,10 +48,12 @@ lam t
        ; roll v
        }
 
-app :: TExp (TProd TTerm TTerm) Rational
+app :: TExp TTerm Rational
+    -> TExp TTerm Rational
     -> Comp TTerm
-app t
-  = do { t' <- inr t
+app t1 t2
+  = do { t <- pair t1 t2
+       ; t' <- inr t
        ; v <- inr t'
        ; roll v
        }
@@ -70,25 +72,78 @@ case_term :: ( Typeable ty
           => TExp TTerm Rational
           -> (TExp TField Rational -> Comp ty)
           -> (TExp TTerm Rational -> Comp ty)
-          -> (TExp (TProd TTerm TTerm) Rational -> Comp ty)          
+          -> (TExp TTerm Rational -> TExp TTerm Rational -> Comp ty)
           -> Comp ty
 case_term t f_var f_lam f_app
   = do { t' <- unroll t
-       ; case_sum f_var (case_sum f_lam f_app) t'
+       ; case_sum f_var (case_sum f_lam go) t'
        }
+  where go p
+          = do { e1 <- fst_pair p
+               ; e2 <- fst_pair p
+               ; f_app e1 e2
+               }
 
 is_lam :: TExp TTerm Rational -> Comp TBool
 is_lam t
   = case_term t
      (const $ ret false)
      (const $ ret true)
-     (const $ ret false)
+     (\_ _ -> ret false)
 
-shift :: TExp TField Rational
+shift :: Int
+      -> TExp TField Rational
       -> TExp TTerm Rational
       -> Comp TTerm
-shift n t
-  = case_term t
+shift level n t
+  | level > 0
+  = case_term t 
       (\m -> varN (n + m))
-      lam
-      app
+      (\t' ->
+        do { t'' <- shift (dec level) n t'
+           ; lam t''
+           })
+      (\t1 t2 ->
+        do { t1' <- shift (dec level) n t1
+           ; t2' <- shift (dec level) n t2
+           ; app t1' t2'
+           })
+
+  | otherwise
+  = ret t
+
+
+-- Explicit Substitutions
+-- \sigma ::= Shift n + (Term * \sigma)
+
+type TFSubst = TFSum (TFConst TField) (TFProd (TFConst TTerm) TFId)
+    
+type TSubst = TMu TFSubst
+
+subst_nil n
+  = do { n' <- inl n
+       ; roll n' :: Comp TSubst
+       }
+
+subst_cons t sigma
+  = do { p <- pair t sigma
+       ; p' <- inr p
+       ; roll p' :: Comp TSubst
+       }
+
+case_subst sigma f_shift f_cons
+  = do { sigma' <- unroll (sigma :: TExp TSubst Rational)
+       ; case_sum f_shift go sigma'
+       }
+  where go p
+          = do { t <- fst_pair p
+               ; sigma' <- snd_pair p
+               ; f_cons t sigma'
+               }
+
+-- subst_term sigma t
+--   = case_term t
+--       -- Var(n)
+--       (\n -> case_subst t
+--                (\m -> varN $ n+m)
+--                (\t' sigma' -> ...
