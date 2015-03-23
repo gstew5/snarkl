@@ -267,6 +267,9 @@ assert_bool e@(TEVar _) b
                   , s { bools = Map.insert (var_of_texp e) b (bools s) }
                   )
           )
+assert_bool e _
+  = raise_err
+    $ ErrMsg $ "expected " ++ show e ++ " to be a variable"     
 
 assert_true = flip assert_bool True
 
