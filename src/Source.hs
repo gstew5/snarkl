@@ -7,6 +7,7 @@
            , TypeFamilies
            , UndecidableInstances
            , FlexibleContexts
+           , ScopedTypeVariables
   #-}
 
 module Source
@@ -21,6 +22,7 @@ module Source
   , var_of_texp
   , te_seq
   , last_seq
+  , exp_of_texp
   ) where
 
 import Data.Typeable
@@ -28,6 +30,7 @@ import Data.Typeable
 import Common
 import Errors
 import Field
+import Expr
 
 ----------------------------------------------------------------
 --                 Source Expression Language                 --
@@ -89,6 +92,37 @@ data TExp :: Ty -> * -> * where
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
   TEBot    :: Typeable ty => TExp ty a
 
+exp_of_val :: Field a => Val ty a -> Exp a
+exp_of_val v = case v of
+  VField c -> EVal c
+  VTrue -> EVal one
+  VFalse -> EVal zero
+  VUnit -> EUnit
+
+instance ( Field a
+         , Eq a
+         )
+      => Eq (Val ty a) where
+  v1 == v2 = exp_of_val v1 == exp_of_val v2
+
+exp_of_texp :: Field a => TExp ty a -> Exp a
+exp_of_texp te = case te of
+  TEVar (TVar x) -> EVar x
+  TEVal v -> exp_of_val v
+  TEBinop (TOp op) te1 te2 ->
+    exp_binop op (exp_of_texp te1) (exp_of_texp te2)
+  TEIf te1 te2 te3 ->
+    EIf (exp_of_texp te1) (exp_of_texp te2) (exp_of_texp te3)
+  TEUpdate te1 te2 ->
+    EUpdate (exp_of_texp te1) (exp_of_texp te2)
+  TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
+  TEBot -> EUnit
+
+instance ( Field a
+         , Eq a
+         )
+      => Eq (TExp ty a) where
+  te1 == te2 = exp_of_texp te1 == exp_of_texp te2
 
 -- | Smart constructor for 'TESeq'.  Simplify 'TESeq te1 te2' to 'te2'
 -- whenever the normal form of 'te1' (with seq's reassociated right)

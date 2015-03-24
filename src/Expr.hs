@@ -23,6 +23,19 @@ data Exp :: * -> * where
   ESeq    :: [Exp a] -> Exp a
   EUnit   :: Exp a
 
+instance Eq a => Eq (Exp a) where
+  EVar x == EVar y = x == y
+  EVal a == EVal b = a == b
+  EBinop op es == EBinop op' es'
+    = op == op' && es == es'
+  EIf e e1 e2 == EIf e' e1' e2'
+    = e == e' && e1 == e1' && e2 == e2'
+  EUpdate e1 e2 == EUpdate e1' e2'
+    = e1 == e1' && e2 == e2'
+  ESeq es == ESeq es' = es == es'
+  EUnit == EUnit = True
+  _ == _ = False
+
 var_of_exp :: Show a => Exp a -> Var
 var_of_exp e = case e of
   EVar x -> x

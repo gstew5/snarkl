@@ -26,29 +26,6 @@ import Source
 import Expr
 import Constraints
 
-----------------------------------------------------------------
---                      Source -> Expr                        --
-----------------------------------------------------------------
-
-exp_of_val :: Field a => Val ty a -> Exp a
-exp_of_val v = case v of
-  VField c -> EVal c
-  VTrue -> EVal one
-  VFalse -> EVal zero
-  VUnit -> EUnit
-
-exp_of_texp :: Field a => TExp ty a -> Exp a
-exp_of_texp te = case te of
-  TEVar (TVar x) -> EVar x
-  TEVal v -> exp_of_val v
-  TEBinop (TOp op) te1 te2 ->
-    exp_binop op (exp_of_texp te1) (exp_of_texp te2)
-  TEIf te1 te2 te3 ->
-    EIf (exp_of_texp te1) (exp_of_texp te2) (exp_of_texp te3)
-  TEUpdate te1 te2 ->
-    EUpdate (exp_of_texp te1) (exp_of_texp te2)
-  TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
-  TEBot -> EUnit
 
 ----------------------------------------------------------------
 --                      Expr -> Constraints                   --

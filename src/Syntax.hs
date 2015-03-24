@@ -595,7 +595,7 @@ check_bots f e1 e2
            (TEVal VTrue,TEVal VFalse) -> ret e2
            (TEVal VFalse,TEVal VTrue) -> ret e1
            (TEVal VFalse,TEVal VFalse) -> f
-           (_,_) -> raise_err $ ErrMsg "internal error"
+           (_,_) -> raise_err $ ErrMsg "internal error in check_bots"
        }
 
 instance ( Zippable ty1
@@ -779,8 +779,13 @@ int_of_exp e = case e of
   TEVal (VField r) -> truncate r
   _ -> fail_with $ ErrMsg $ "expected field elem " ++ show e
 
-ifThenElse_aux :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
+ifThenElse_aux :: Field a
+               => TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
 ifThenElse_aux b e1 e2
+  | e1 == e2
+  = e1    
+
+  | otherwise
   = case b of
       TEVal VFalse -> e2
       TEVal VTrue -> e1
