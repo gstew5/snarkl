@@ -33,6 +33,7 @@ module Syntax
        , snd_pair
        , roll
        , unroll
+       , fix
          
          -- | Arithmetic and boolean operations 
        , (+)
@@ -728,6 +729,17 @@ roll :: ( Typeable f
      -> Comp (TMu f)
 roll te = ret $ unsafe_cast te
              
+fix :: Typeable ty2
+    => ((TExp ty1 Rational -> Comp ty2)
+        -> TExp ty1 Rational
+        -> Comp ty2)
+    -> TExp ty1 Rational
+    -> Comp ty2
+fix f e = go depth e
+  where go 0 _ = ret TEBot
+        go n e0 = f (go (dec n)) e0
+        depth = 100000 
+
 
 ----------------------------------------------------
 --

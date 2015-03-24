@@ -67,22 +67,35 @@ tail_list l
       nil
       (\_ tl -> ret tl)
 
-map_list :: Int
-    -> (TExp TField Rational -> Comp TField)
-    -> TExp TList Rational
-    -> Comp TList
-map_list level f l
-  | level > 0
-  = case_list l
-      nil
-      (\hd tl ->
-        do { hd' <- f hd
-           ; tl' <- map_list (dec level) f tl
-           ; cons hd' tl'
-           })
+map_list :: (TExp TField Rational -> Comp TField)
+         -> TExp TList Rational
+         -> Comp TList
+map_list f l
+  = fix go l
+  where go self l0
+          = case_list l0
+            nil
+            (\hd tl ->
+              do { hd' <- f hd
+                 ; tl' <- self tl
+                 ; cons hd' tl'
+                 })
 
-  | otherwise
-  = ret l
+last_list :: TExp TField Rational
+          -> TExp TList Rational
+          -> Comp TField
+last_list def l
+  = fix go l
+  where go :: (TExp TList Rational -> Comp TField)
+           -> TExp TList Rational
+           -> Comp TField    
+        go self l0
+          = case_list l0
+            (ret def)
+            (\hd tl ->
+              case_list tl
+              (ret hd)
+              (\_ _ -> self tl))
 
 list1
   = do { tl <- nil
@@ -94,7 +107,7 @@ inc_elem e = ret $ exp_of_int 1 + e
 
 list2 
   = do { l <- list1
-       ; map_list 2000 inc_elem l
+       ; map_list inc_elem l
        }
 
 list_comp3
@@ -103,7 +116,12 @@ list_comp3
        ; l' <- cons 23.0 l
        ; l'' <- cons 33.0 l'
        ; l2 <- if b then l'' else l
-       ; l3 <- map_list 100000 inc_elem l2
+       ; l3 <- map_list inc_elem l2
        ; l4 <- tail_list l3
        ; head_list 0.0 l4
+       }
+
+list_comp4
+  = do { l <- list2
+       ; last_list 0.0 l
        }
