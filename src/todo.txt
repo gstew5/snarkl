@@ -1,0 +1,10 @@
+Stupid stuff:
+-General (in)equality (not just boolean)
+  . inequality requires binary decomposition
+  . equality can be done more easily (see the Pinnochio paper?)
+-Detect field overflow via static analysis on Expr language
+  . question: can this be done directly on rationals? or should
+    we first do the embedding into F_p?
+-Division! via support for general witnesses (computable via 
+ arbitrary Hask functions)
+

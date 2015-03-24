@@ -257,7 +257,7 @@ bool_prog24
 -- | 25. lam test 1
 bool_prog25
   = do { t <- term1
-       ; t' <- shift 2 (exp_of_int 2) t
+       ; t' <- shift (exp_of_int 2) t
        ; is_lam t'
        }
 

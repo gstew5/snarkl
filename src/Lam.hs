@@ -91,26 +91,22 @@ is_lam t
      (const $ ret true)
      (\_ _ -> ret false)
 
-shift :: Int
-      -> TExp TField Rational
+shift :: TExp TField Rational
       -> TExp TTerm Rational
       -> Comp TTerm
-shift level n t
-  | level > 0
-  = case_term t 
-      (\m -> varN (n + m))
-      (\t' ->
-        do { t'' <- shift (dec level) n t'
-           ; lam t''
-           })
-      (\t1 t2 ->
-        do { t1' <- shift (dec level) n t1
-           ; t2' <- shift (dec level) n t2
-           ; app t1' t2'
-           })
-
-  | otherwise
-  = ret t
+shift n t = fix go t
+  where go self t0 
+          = case_term t0 
+            (\m -> varN (n + m))
+            (\t' ->
+              do { t'' <- self t'
+                 ; lam t''
+                 })
+            (\t1 t2 ->
+              do { t1' <- self t1
+                 ; t2' <- self t2
+                 ; app t1' t2'
+                 })
 
 
 -- Explicit Substitutions
@@ -141,6 +137,7 @@ case_subst sigma f_shift f_cons
                ; f_cons t sigma'
                }
 
+-- NEED GENERAL EQUALITY HERE...
 -- subst_term sigma t
 --   = case_term t
 --       -- Var(n)
