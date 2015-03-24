@@ -109,7 +109,6 @@ import Data.Typeable
 
 import Unsafe.Coerce
 
-import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
 
@@ -148,8 +147,7 @@ type ObjMap
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
                , obj_map :: ObjMap
-               , bools :: Map.Map Var Bool
-               , canaries :: Set.Set Var
+               , guards :: Map.Map Var Bool
                }
            deriving Show
 
@@ -217,54 +215,32 @@ input
                        )
           )
 
-add_canary :: TExp ty Rational -> Comp TUnit
-add_canary x
-  = State (\s -> Right ( unit
-                       , s { canaries
-                             = Set.insert (var_of_texp x) $ canaries s }
-                       )
-          )
-
-is_canary :: TExp ty Rational -> Comp TBool
-is_canary x
-  = State (\s -> Right ( case Set.member (var_of_texp x) (canaries s) of
-                            True -> true
-                            False -> false
+-- | Does boolean expression 'e' resolve statically to 'b'?
+is_bool :: TExp ty Rational -> Bool -> Comp TBool
+is_bool (TEVal VTrue) False = ret true
+is_bool (TEVal VTrue) True = ret true
+is_bool e@(TEVar _) b
+  = State (\s -> Right ( case Map.lookup (var_of_texp e) (guards s) of
+                            Nothing -> false
+                            Just b'| b==b' -> true
+                            Just _ | otherwise -> false
                        , s
                        )
           )
+is_bool _ _ = ret false
 
--- | Does expression 'e' resolve statically to 'true'?
 is_true :: TExp ty Rational -> Comp TBool
-is_true (TEVal VTrue) = ret true
-is_true e@(TEVar _)
-  = State (\s -> Right ( case Map.lookup (var_of_texp e) (bools s) of
-                            Nothing -> false
-                            Just True -> true
-                            Just False -> false
-                       , s
-                       )
-          )
-is_true _ = ret false
+is_true = flip is_bool True
 
--- | Does expression 'e' resolve statically to 'false'?
 is_false :: TExp ty Rational -> Comp TBool
-is_false (TEVal VFalse) = ret true
-is_false e@(TEVar _)
-  = State (\s -> Right ( case Map.lookup (var_of_texp e) (bools s) of
-                            Nothing -> false
-                            Just True -> false
-                            Just False -> true
-                       , s
-                       )
-          )
-is_false _ = ret false
+is_false = flip is_bool False
 
+-- | Add binding 'e = b'.
 assert_bool :: TExp ty Rational -> Bool -> Comp TUnit
 assert_bool e@(TEVar _) b
   = State (\s ->
             Right ( unit
-                  , s { bools = Map.insert (var_of_texp e) b (bools s) }
+                  , s { guards = Map.insert (var_of_texp e) b (guards s) }
                   )
           )
 assert_bool e _
@@ -450,13 +426,12 @@ inl te1 = inl_aux fuel te1
 inl_aux :: forall ty1 ty2.
            ( Typeable ty1
            , Typeable ty2
-           , Derive ty2
            )
         => Int
         -> TExp ty1 Rational
         -> Comp (TSum ty1 ty2)
-inl_aux n te1
-  = do { v2 <- derive n :: Comp ty2
+inl_aux _ te1
+  = do { let v2 = TEBot
        ; y <- pair te1 v2
        ; z <- pair (TEVal VFalse) y
        ; z_fst <- fst_pair z
@@ -466,13 +441,12 @@ inl_aux n te1
 
 inr :: forall ty1 ty2.
        ( Typeable ty1
-       , Derive ty1         
        , Typeable ty2
        )
     => TExp ty2 Rational
     -> Comp (TSum ty1 ty2)
 inr te2
-  = do { v1 <- derive fuel :: Comp ty1
+  = do { let v1 = TEBot
        ; y <- pair v1 te2
        ; z <- pair (TEVal VTrue) y
        ; z_fst <- fst_pair z
@@ -507,78 +481,6 @@ case_sum f1 f2 e
                      ; zip_vals (not b) le re
                      }
        }
-
--- | Types for which a default value is derivable
-class Derive ty where
-  derive :: Int -> Comp ty
-
-instance Derive TUnit where
-  derive _ = ret $ TEVal VUnit
-
-instance Derive TBool where
-  derive _ = ret $ TEVal VFalse
-
-instance Derive TField where
-  derive _ = ret $ TEVal (VField 0)
-
-instance (Typeable ty,Derive ty) => Derive (TArr ty) where
-  derive n
-    = do { a <- arr 1
-         ; v <- derive n
-         ; set (a,0) v
-         ; ret a
-         }
-
-instance ( Typeable ty1
-         , Derive ty1
-         , Typeable ty2
-         , Derive ty2
-         )
-      => Derive (TProd ty1 ty2) where
-  derive n
-    = do { v1 <- derive n
-         ; v2 <- derive n
-         ; pair v1 v2
-         }
-
-instance ( Typeable ty1
-         , Derive ty1
-         , Typeable ty2
-         , Derive ty2
-         )
-      => Derive (TSum ty1 ty2) where
-  derive n
-    = do { v1 <- derive n
-         ; inl_aux n v1
-         }
-
--- [NOTE:] Must be careful to 'guard' here...otherwise we may
--- end up with infinite derived values in some cases (e.g., 'inl'
--- inside some recursive type).
-instance ( Typeable f
-         , Typeable (Rep f (TMu f))   
-         , Derive (Rep f (TMu f))
-         )
-      => Derive (TMu f) where
-  derive n
-    | n > 0
-    = do { v1 <- derive (dec n)
-         ; roll v1
-         }
-
-    | otherwise
-    = do { x <- var 
-           -- [CANARY_INVARIANT]: Every expression of recursive type
-           -- that was derived at level 0 is marked as a 'canary'.
-           -- The intent is that before unrolling a recursive
-           -- expression, we always first check whether the expression
-           -- is a canary.  If it is, then we either report an error
-           -- (in the case of of 'unroll', a user-visible operation),
-           -- or just return the given canary expression, in the case
-           -- of 'zip_vals' (an operation internal to this module).
-         ; add_canary x
-         ; ret x
-         }
 
 -- | Types for which conditional branches can be pushed to the leaves
 -- of two values.
@@ -634,23 +536,10 @@ instance ( Typeable f
          )
       => Zippable (TMu f) where
   zip_vals b e1 e2
-    = do { b1 <- is_canary e1
-         ; b2 <- is_canary e2
-         ; case (b1,b2) of
-             (TEVal VFalse,TEVal VFalse) ->
-               do { -- We 'unroll_aux' here because we know neither
-                    -- 'e1' nor 'e2' is a canary.
-                    e1' <- unroll_aux e1
-                  ; e2' <- unroll_aux e2
-                  ; x <- zip_vals b e1' e2'
-                  ; roll x
-                  }
-             (TEVal VTrue,TEVal VFalse) -> ret e1
-             (TEVal VFalse,TEVal VTrue) -> ret e2
-             (TEVal VTrue,TEVal VTrue) -> ret e1
-             (_,_) -> raise_err
-                      $ ErrMsg
-                      $ "internal error in zip_vals"
+    = do { e1' <- unroll e1
+         ; e2' <- unroll e2
+         ; x <- zip_vals b e1' e2'
+         ; roll x
          }
 
 
@@ -724,25 +613,11 @@ snd_pair e = get_addr (var_of_texp e,1)
 unsafe_cast :: TExp ty1 Rational -> TExp ty2 Rational
 unsafe_cast = unsafeCoerce
 
-unroll_aux :: ( Typeable (Rep f (TMu f))
-              )  
-           => TExp (TMu f) Rational
-           -> Comp (Rep f (TMu f))
-unroll_aux te = ret $ unsafe_cast te
-
 unroll :: ( Typeable (Rep f (TMu f))
           )  
        => TExp (TMu f) Rational
        -> Comp (Rep f (TMu f))
-unroll te
-  = do { b <- is_canary te
-       ; case b of
-           TEVal VFalse -> unroll_aux te
-           TEVal VTrue ->
-             raise_err $ ErrMsg "ran out of fuel while unrolling"
-           _ ->
-             raise_err $ ErrMsg "internal error in unroll"
-       }
+unroll te = ret $ unsafe_cast te
 
 roll :: ( Typeable f
         , Typeable (Rep f (TMu f))
@@ -882,10 +757,10 @@ instance Show Result where
       ++ ", result = " ++ show the_result
 
 fuel :: Int
-fuel = 1
+fuel = 100
 
 run :: State Env a -> CompResult Env a
-run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty Set.empty)
+run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty)
 
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs

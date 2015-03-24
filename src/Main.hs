@@ -280,6 +280,10 @@ prog28
        ; head_list (exp_of_int 0) l'
        }
 
+-- | 29. list test 4
+prog29 
+  = list_comp3
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -322,7 +326,9 @@ tests
 
     , (prog27, [], 34)
 
-    , (prog28, [], 24)            
+    , (prog28, [], 24)
+
+    , (prog29, [1], 33)
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

@@ -48,7 +48,7 @@ exp_of_texp te = case te of
   TEUpdate te1 te2 ->
     EUpdate (exp_of_texp te1) (exp_of_texp te2)
   TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
-
+  TEBot -> EUnit
 
 ----------------------------------------------------------------
 --                      Expr -> Constraints                   --

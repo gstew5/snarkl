@@ -87,6 +87,7 @@ data TExp :: Ty -> * -> * where
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
   TEUpdate :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
+  TEBot    :: Typeable ty => TExp ty a
 
 
 -- | Smart constructor for 'TESeq'.  Simplify 'TESeq te1 te2' to 'te2'
@@ -110,6 +111,7 @@ boolean_vars_of_texp = go []
           = go (go (go vars e1) e2) e3
         go vars (TEUpdate e1 e2) = go (go vars e1) e2
         go vars (TESeq e1 e2) = go (go vars e1) e2
+        go vars TEBot = vars
 
 var_of_texp :: Show a => TExp ty a -> Var
 var_of_texp te = case last_seq te of
@@ -139,4 +141,5 @@ instance Show a => Show (TExp ty a) where
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
   show (TEUpdate e1 e2) = show e1 ++ " := " ++ show e2
   show (TESeq e1 e2) = show e1 ++ "; " ++ show e2
+  show TEBot = "bot"
 
