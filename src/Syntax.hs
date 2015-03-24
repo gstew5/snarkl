@@ -417,20 +417,13 @@ unrep_sum :: TExp (TProd TBool (TProd ty1 ty2)) Rational
           -> TExp (TSum ty1 ty2) Rational
 unrep_sum = unsafe_cast
 
--- 'inl' vs. 'inl_aux': 'inl' gets a fresh recursion/derivation
--- budget. The reason: 'inl' is exposed to the programmer. 'inl_aux'
--- is only used internally, when deriving values of sum types, and may
--- be called recursively with less fuel.
-inl te1 = inl_aux fuel te1
-
-inl_aux :: forall ty1 ty2.
-           ( Typeable ty1
-           , Typeable ty2
-           )
-        => Int
-        -> TExp ty1 Rational
-        -> Comp (TSum ty1 ty2)
-inl_aux _ te1
+inl :: forall ty1 ty2.
+       ( Typeable ty1
+       , Typeable ty2
+       )
+    => TExp ty1 Rational
+    -> Comp (TSum ty1 ty2)
+inl te1
   = do { let v2 = TEBot
        ; y <- pair te1 v2
        ; z <- pair (TEVal VFalse) y
@@ -626,7 +619,7 @@ roll :: ( Typeable f
      -> Comp (TMu f)
 roll te = ret $ unsafe_cast te
              
-  
+
 ----------------------------------------------------
 --
 -- Operators, Values
@@ -755,9 +748,6 @@ instance Show Result where
       ++ ", vars = " ++ show the_vars
       ++ ", constraints = " ++ show the_constraints
       ++ ", result = " ++ show the_result
-
-fuel :: Int
-fuel = 100
 
 run :: State Env a -> CompResult Env a
 run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty)
