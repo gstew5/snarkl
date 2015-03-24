@@ -328,7 +328,7 @@ tests
 
     , (prog28, [], 24)
 
-    , (prog29, [1], 33)
+    , (prog29, [1], 24)
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

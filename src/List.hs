@@ -22,19 +22,19 @@ import Data.Typeable
 import Syntax
 import Source
 
-type TF = TFSum (TFProd (TFConst TField) TFId) (TFConst TUnit) 
+type TF = TFSum (TFConst TUnit) (TFProd (TFConst TField) TFId) 
 
 type TList = TMu TF
 
 nil :: Comp TList
-nil = do { t <- inr unit
+nil = do { t <- inl unit
          ; roll t
          }
 
 cons :: TExp TField Rational -> TExp TList Rational -> Comp TList
 cons f t
   = do { p <- pair f t
-       ; t' <- inl p
+       ; t' <- inr p
        ; roll t'
        }
 
@@ -47,7 +47,7 @@ case_list :: ( Typeable ty
           -> Comp ty
 case_list t f_nil f_cons
   = do { t' <- unroll t
-       ; case_sum go (\_ -> f_nil) t'
+       ; case_sum (\_ -> f_nil) go t'
        }
   where go p
           = do { e1 <- fst_pair p
@@ -82,7 +82,7 @@ map_list level f l
            })
 
   | otherwise
-  = ret l    
+  = ret l
 
 list1
   = do { tl <- nil
@@ -97,11 +97,13 @@ list2
        ; map_list 2000 inc_elem l
        }
 
-list_comp3    
+list_comp3
   = do { b <- input
-       ; l1 <- list1
-       ; l2 <- list2
-       ; hd1 <- head_list 0.0 l1
-       ; hd2 <- head_list 0.0 l2
-       ; if b then hd1 else hd2
+       ; l <- nil
+       ; l' <- cons 23.0 l
+       ; l'' <- cons 33.0 l'
+       ; l2 <- if b then l'' else l
+       ; l3 <- map_list 100000 inc_elem l2
+       ; l4 <- tail_list l3
+       ; head_list 0.0 l4
        }

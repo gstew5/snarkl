@@ -109,6 +109,7 @@ import Data.Typeable
 
 import Unsafe.Coerce
 
+import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
 
@@ -147,7 +148,9 @@ type ObjMap
 data Env = Env { next_var :: Int
                , input_vars :: [Int]
                , obj_map :: ObjMap
+               , bots :: Set.Set Var 
                , guards :: Map.Map Var Bool
+                 
                }
            deriving Show
 
@@ -250,6 +253,22 @@ assert_bool e _
 assert_true = flip assert_bool True
 
 assert_false = flip assert_bool False
+
+mark_bot :: TExp ty Rational -> Comp TUnit
+mark_bot x
+  = State (\s -> Right ( unit
+                       , s { bots = Set.insert (var_of_texp x) $ bots s }
+                       )
+          )
+
+is_bot :: TExp ty Rational -> Comp TBool
+is_bot x
+  = State (\s -> Right ( case Set.member (var_of_texp x) (bots s) of
+                            True -> true
+                            False -> false
+                       , s
+                       )
+          )
 
 iter_comp :: Typeable ty
           => Comp ty
@@ -392,7 +411,8 @@ get_addr (x,i)
                    Nothing ->
                      Left
                      $ ErrMsg ("unbound var " ++ show (x,i)
-                               ++ " in map " ++ show (obj_map s))
+                               ++ " in map " ++ show (obj_map s)
+                               ++ " in bots " ++ show (bots s))
                    Just y  ->
                      Right (TEVar (TVar y), s)
           )
@@ -426,6 +446,8 @@ inl :: forall ty1 ty2.
 inl te1
   = do { let v2 = TEBot
        ; y <- pair te1 v2
+       ; v2_var <- snd_pair y
+       ; mark_bot v2_var
        ; z <- pair (TEVal VFalse) y
        ; z_fst <- fst_pair z
        ; assert_false z_fst
@@ -441,6 +463,8 @@ inr :: forall ty1 ty2.
 inr te2
   = do { let v1 = TEBot
        ; y <- pair v1 te2
+       ; v1_var <- fst_pair y
+       ; mark_bot v1_var
        ; z <- pair (TEVal VTrue) y
        ; z_fst <- fst_pair z
        ; assert_true z_fst
@@ -475,6 +499,67 @@ case_sum f1 f2 e
                      }
        }
 
+-- | Types for which a default value is derivable
+class Derive ty where
+  derive :: Int -> Comp ty
+
+instance Derive TUnit where
+  derive _ = ret $ TEVal VUnit
+
+instance Derive TBool where
+  derive _ = ret $ TEVal VFalse
+
+instance Derive TField where
+  derive _ = ret $ TEVal (VField 0)
+
+instance (Typeable ty,Derive ty) => Derive (TArr ty) where
+  derive n
+    = do { a <- arr 1
+         ; v <- derive n
+         ; set (a,0) v
+         ; ret a
+         }
+
+instance ( Typeable ty1
+         , Derive ty1
+         , Typeable ty2
+         , Derive ty2
+         )
+      => Derive (TProd ty1 ty2) where
+  derive n
+    = do { v1 <- derive n
+         ; v2 <- derive n
+         ; pair v1 v2
+         }
+
+instance ( Typeable ty1
+         , Derive ty1
+         , Typeable ty2
+         , Derive ty2
+         )
+      => Derive (TSum ty1 ty2) where
+  derive n
+    = do { v1 <- derive n
+         ; inl v1
+         }
+
+instance ( Typeable f
+         , Typeable (Rep f (TMu f))   
+         , Derive (Rep f (TMu f))
+         )
+      => Derive (TMu f) where
+  derive n
+    | n > 0
+    = do { v1 <- derive (dec n)
+         ; roll v1
+         }
+
+    | otherwise
+    = do { x <- var
+         ; mark_bot x
+         ; ret x
+         } 
+
 -- | Types for which conditional branches can be pushed to the leaves
 -- of two values.
 class Zippable ty where
@@ -492,48 +577,72 @@ instance Zippable TBool where
 instance Zippable TField where
   zip_vals b e1 e2 = ret $ ifThenElse_aux b e1 e2
 
+fuel :: Int
+fuel = 1
+
+check_bots :: ( Typeable ty
+              , Derive ty
+              )
+           => Comp ty
+           -> TExp ty Rational
+           -> TExp ty Rational
+           -> Comp ty
+check_bots f e1 e2
+  = do { e1_bot <- is_bot e1
+       ; e2_bot <- is_bot e2
+       ; case (e1_bot,e2_bot) of
+           (TEVal VTrue,TEVal VTrue) -> derive fuel
+           (TEVal VTrue,TEVal VFalse) -> ret e2
+           (TEVal VFalse,TEVal VTrue) -> ret e1
+           (TEVal VFalse,TEVal VFalse) -> f
+           (_,_) -> raise_err $ ErrMsg "internal error"
+       }
+
 instance ( Zippable ty1
          , Typeable ty1
+         , Derive ty1
          , Zippable ty2
          , Typeable ty2
+         , Derive ty2
          )
       => Zippable (TProd ty1 ty2) where
-  zip_vals b e1 e2
-    = do { e11 <- fst_pair e1
-         ; e12 <- snd_pair e1
-         ; e21 <- fst_pair e2
-         ; e22 <- snd_pair e2
-         ; p1 <- zip_vals b e11 e21
-         ; p2 <- zip_vals b e12 e22
-         ; pair p1 p2
-         }
+  zip_vals b e1 e2 = check_bots f e1 e2
+    where f = do { e11 <- fst_pair e1
+                 ; e12 <- snd_pair e1
+                 ; e21 <- fst_pair e2
+                 ; e22 <- snd_pair e2
+                 ; p1 <- zip_vals b e11 e21
+                 ; p2 <- zip_vals b e12 e22
+                 ; pair p1 p2
+                 }
 
 instance ( Zippable ty1
          , Typeable ty1
+         , Derive ty1
          , Zippable ty2
          , Typeable ty2
+         , Derive ty2
          )
       => Zippable (TSum ty1 ty2) where
-  zip_vals b e1 e2
-    = do { let p1 = rep_sum e1 
-         ; let p2 = rep_sum e2 
-         ; p' <- zip_vals b p1 p2
-         ; ret $ unrep_sum p'
-         }
+  zip_vals b e1 e2 = check_bots f e1 e2
+    where f = do { let p1 = rep_sum e1 
+                 ; let p2 = rep_sum e2 
+                 ; p' <- zip_vals b p1 p2
+                 ; ret $ unrep_sum p'
+                 }
 
--- NOTE: Correctness relies on [CANARY_INVARIANT].  Before going under
--- a \mu, we must make sure to check for canaries.
 instance ( Typeable f
          , Typeable (Rep f (TMu f))
          , Zippable (Rep f (TMu f))
+         , Derive (Rep f (TMu f))
          )
       => Zippable (TMu f) where
-  zip_vals b e1 e2
-    = do { e1' <- unroll e1
-         ; e2' <- unroll e2
-         ; x <- zip_vals b e1' e2'
-         ; roll x
-         }
+  zip_vals b e1 e2 = check_bots f e1 e2
+    where f = do { e1' <- unroll e1
+                 ; e2' <- unroll e2
+                 ; x <- zip_vals b e1' e2'
+                 ; roll x
+                 }
 
 
 ----------------------------------------------------
@@ -750,7 +859,7 @@ instance Show Result where
       ++ ", result = " ++ show the_result
 
 run :: State Env a -> CompResult Env a
-run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Map.empty)
+run mf = runState mf (Env (P.fromInteger 0) [] Map.empty Set.empty Map.empty)
 
 check :: Typeable ty => Comp ty -> [Rational] -> Result
 check mf inputs
