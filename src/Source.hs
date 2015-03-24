@@ -88,7 +88,7 @@ data TExp :: Ty -> * -> * where
   TEVal    :: Val ty a -> TExp ty a
   TEBinop  :: TOp ty -> TExp ty a -> TExp ty a -> TExp ty a
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-  TEUpdate :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
+  TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
   TEBot    :: Typeable ty => TExp ty a
 
@@ -113,8 +113,8 @@ exp_of_texp te = case te of
     exp_binop op (exp_of_texp te1) (exp_of_texp te2)
   TEIf te1 te2 te3 ->
     EIf (exp_of_texp te1) (exp_of_texp te2) (exp_of_texp te3)
-  TEUpdate te1 te2 ->
-    EUpdate (exp_of_texp te1) (exp_of_texp te2)
+  TEAssert te1 te2 ->
+    EAssert (exp_of_texp te1) (exp_of_texp te2)
   TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
   TEBot -> EUnit
 
@@ -126,10 +126,10 @@ instance ( Field a
 
 -- | Smart constructor for 'TESeq'.  Simplify 'TESeq te1 te2' to 'te2'
 -- whenever the normal form of 'te1' (with seq's reassociated right)
--- is *not* equal 'TEUpdate _ _'.
+-- is *not* equal 'TEAssert _ _'.
 te_seq :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
 te_seq te1 te2 = case (te1,te2) of
-  (TEUpdate _ _,_) -> TESeq te1 te2
+  (TEAssert _ _,_) -> TESeq te1 te2
   (TESeq tx ty,_) -> te_seq tx (te_seq ty te2)
   (_,_) -> te2
   
@@ -143,7 +143,7 @@ boolean_vars_of_texp = go []
         go vars (TEBinop _ e1 e2) = go (go vars e1) e2
         go vars (TEIf e1 e2 e3)
           = go (go (go vars e1) e2) e3
-        go vars (TEUpdate e1 e2) = go (go vars e1) e2
+        go vars (TEAssert e1 e2) = go (go vars e1) e2
         go vars (TESeq e1 e2) = go (go vars e1) e2
         go vars TEBot = vars
 
@@ -173,7 +173,7 @@ instance Show a => Show (TExp ty a) where
   show (TEBinop op e1 e2) = show e1 ++ show op ++ show e2
   show (TEIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
-  show (TEUpdate e1 e2) = show e1 ++ " := " ++ show e2
+  show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
   show (TESeq e1 e2) = show e1 ++ "; " ++ show e2
   show TEBot = "bot"
 

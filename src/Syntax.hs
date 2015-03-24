@@ -397,7 +397,7 @@ set_addr (a,i) e
            do { le <- var
               ; let y = var_of_texp le
               ; _ <- add_bindings [((x,i),y)]
-              ; ret $ TEUpdate le e
+              ; ret $ TEAssert le e
               }
 
 set (a,i) e      = set_addr (a,i) e
@@ -673,7 +673,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; x2 <- var      
                ; add_bindings [((var_of_texp x,0),x1)
                               ,((var_of_texp x,1),var_of_texp x2)]
-               ; ret $ te_seq (TEUpdate x2 e2) x
+               ; ret $ te_seq (TEAssert x2 e2) x
                }    
         go e1@(_) e2@(TEVar _)
           = do { x <- var
@@ -681,7 +681,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; let x2 = var_of_texp e2
                ; add_bindings [((var_of_texp x,0),var_of_texp x1)
                               ,((var_of_texp x,1),x2)]
-               ; ret $ te_seq (TEUpdate x1 e1) x
+               ; ret $ te_seq (TEAssert x1 e1) x
                }    
         go e1@(_) e2@(_)
           = do { x1 <- var
@@ -689,7 +689,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; x <- var
                ; add_bindings [((var_of_texp x,0),var_of_texp x1)
                               ,((var_of_texp x,1),var_of_texp x2)]
-               ; ret $ te_seq (te_seq (TEUpdate x1 e1) (TEUpdate x2 e2)) x
+               ; ret $ te_seq (te_seq (TEAssert x1 e1) (TEAssert x2 e2)) x
                }
 
 fst_pair :: ( Typeable ty1
@@ -841,17 +841,8 @@ bigsum :: Int
        -> TExp TField Rational
 bigsum n f = iter n (\n' e -> f n' + e) 0.0
 
-times :: Typeable ty
-      => Int
-      -> Comp ty
-      -> Comp TUnit
-times n mf = g n mf 
-  where g 0 _   = ret unit
-        g m mf' = do { _ <- mf'; g (dec m) mf' }
-
-forall :: Typeable ty
-       => [a]
-       -> (a -> Comp ty)
+forall :: [a]
+       -> (a -> Comp TUnit)
        -> Comp TUnit
 forall as mf = g as mf
   where g [] _ = ret unit
@@ -862,6 +853,12 @@ forall2 (as1,as2) mf
   = forall as1 (\a1 -> forall as2 (\a2 -> mf a1 a2))
 forall3 (as1,as2,as3) mf
   = forall2 (as1,as2) (\a1 a2 -> forall as3 (\a3 -> mf a1 a2 a3))
+
+times :: Int
+      -> Comp TUnit
+      -> Comp TUnit
+times n mf = forall [0..dec n] (const mf)
+
 
 ----------------------------------------------------
 --

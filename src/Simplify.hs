@@ -155,8 +155,8 @@ do_simplify :: Field a
                 -- ^ Resulting assignment, simplified constraint set
 do_simplify env cs
   = let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
-    in fst $ runState (g pinned_vars) (SEnv (new_uf { extras = env }))
-  where g pinned_vars
+    in fst $ runState (go pinned_vars) (SEnv (new_uf { extras = env }))
+  where go pinned_vars
           = do { sigma' <- simplify pinned_vars $ cs_constraints cs
                  -- NOTE: In the next line, it's OK that 'pinned_vars' may
                  -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may

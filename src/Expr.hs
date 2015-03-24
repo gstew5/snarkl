@@ -19,7 +19,7 @@ data Exp :: * -> * where
   EVal    :: Field a => a -> Exp a
   EBinop  :: Op -> [Exp a] -> Exp a
   EIf     :: Exp a -> Exp a -> Exp a -> Exp a
-  EUpdate :: Exp a -> Exp a -> Exp a
+  EAssert :: Exp a -> Exp a -> Exp a
   ESeq    :: [Exp a] -> Exp a
   EUnit   :: Exp a
 
@@ -30,7 +30,7 @@ instance Eq a => Eq (Exp a) where
     = op == op' && es == es'
   EIf e e1 e2 == EIf e' e1' e2'
     = e == e' && e1 == e1' && e2 == e2'
-  EUpdate e1 e2 == EUpdate e1' e2'
+  EAssert e1 e2 == EAssert e1' e2'
     = e1 == e1' && e2 == e2'
   ESeq es == ESeq es' = es == es'
   EUnit == EUnit = True
@@ -80,7 +80,7 @@ is_pure e
       EVal _ -> True
       EBinop _ es -> all is_pure es
       EIf b e1 e2 -> is_pure b && is_pure e1 && is_pure e2
-      EUpdate _ _ -> False
+      EAssert _ _ -> False
       ESeq es -> all is_pure es
       EUnit -> True
 
@@ -94,7 +94,7 @@ instance Show a => Show (Exp a) where
           go (e1 : es') = show e1 ++ show op ++ go es'
   show (EIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
-  show (EUpdate e1 e2) = show e1 ++ " := " ++ show e2
+  show (EAssert e1 e2) = show e1 ++ " := " ++ show e2
   show (ESeq es) = go es
     where go [] = ""
           go (e1 : es') = show e1 ++ "; " ++ go es'

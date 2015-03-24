@@ -15,7 +15,8 @@ import Constraints
 number_constraints :: ConstraintSystem a -> IntMap (Constraint a)
 number_constraints cs
   = go 0 Map.empty (Set.toList $ cs_constraints cs)
-  where go :: Int -> IntMap (Constraint a) -> [Constraint a] -> IntMap (Constraint a)
+  where go :: Int -> IntMap (Constraint a) -> [Constraint a]
+           -> IntMap (Constraint a)
         go _ m [] = m
         go n m (c : cs')
           = go (n+1) (Map.insert n c m) cs'

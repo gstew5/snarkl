@@ -28,7 +28,9 @@ import Constraints
 
 
 ----------------------------------------------------------------
---                      Expr -> Constraints                   --
+--
+-- Expr -> Constraints
+--
 ----------------------------------------------------------------
 
 data CEnv a =
@@ -120,25 +122,25 @@ encode_boolean_eq (x,y,z)
 
 -- | Encode the constraint 'x op y = z'.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
-encode_binop op (x,y,z) = g op
-  where g And = encode_binop Mult (x,y,z)
-        g Or  = encode_or (x,y,z)
-        g XOr = encode_xor (x,y,z)
-        g Eq  = encode_boolean_eq (x,y,z)        
+encode_binop op (x,y,z) = go op
+  where go And = encode_binop Mult (x,y,z)
+        go Or  = encode_or (x,y,z)
+        go XOr = encode_xor (x,y,z)
+        go Eq  = encode_boolean_eq (x,y,z)        
 
-        g Add
+        go Add
           = add_constraint
             $ cadd zero [(x,one),(y,one),(z,neg one)]
 
-        g Sub
+        go Sub
           = add_constraint
             $ cadd zero [(x,one),(y,neg one),(z,neg one)]
             
-        g Mult
+        go Mult
           = add_constraint
             $ CMult (one,x) (one,y) (one,Just z)
 
-        g Div
+        go Div
           = fail_with $ ErrMsg "div not yet implemented"
 
 encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
@@ -157,11 +159,11 @@ cs_of_exp out e = case e of
        }
 
   EBinop op es ->
-    let g [] = return []
-        g (e1 : es')
+    let go [] = return []
+        go (e1 : es')
           = do { e1_out <- fresh_var
                ; cs_of_exp e1_out e1
-               ; labels <- g es'
+               ; labels <- go es'
                ; return $ e1_out : labels
                }
 
@@ -174,7 +176,7 @@ cs_of_exp out e = case e of
                ; encode_binop op (l1,l2,res_out)
                }
             
-    in do { labels <- g es
+    in do { labels <- go es
           ; case op of
               -- Encode x1 + x2 + ... + xn directly as a linear constraint.
               Add -> encode_linear out labels
@@ -204,18 +206,18 @@ cs_of_exp out e = case e of
   -- to introduce a new var, e2_out, bound to result of e2 and
   -- then ensure that e2_out == x. We optimize by passing x to
   -- compilation of e2 directly.
-  EUpdate e1 e2 ->
+  EAssert e1 e2 ->
     do { let x = var_of_exp e1
        ; cs_of_exp x e2
        }
 
-  ESeq le -> g le 
-    where g []   = fail_with $ ErrMsg "internal error: empty ESeq"
-          g [e1] = cs_of_exp out e1
-          g (e1 : le')  
+  ESeq le -> go le 
+    where go []   = fail_with $ ErrMsg "internal error: empty ESeq"
+          go [e1] = cs_of_exp out e1
+          go (e1 : le')  
             = do { e1_out <- fresh_var
                  ; cs_of_exp e1_out e1
-                 ; g le'
+                 ; go le'
                  }
   EUnit ->
     do { return () }
