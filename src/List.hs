@@ -22,7 +22,7 @@ import Data.Typeable
 import Syntax
 import Source
 
-type TF = TFSum (TFConst TUnit) (TFProd (TFConst TField) TFId) 
+type TF = TFSum (TFConst TUnit) (TFProd (TFConst TField) TFId)
 
 type TList = TMu TF
 
@@ -86,10 +86,7 @@ last_list :: TExp TField Rational
           -> Comp TField
 last_list def l
   = fix go l
-  where go :: (TExp TList Rational -> Comp TField)
-           -> TExp TList Rational
-           -> Comp TField    
-        go self l0
+  where go self l0
           = case_list l0
             (ret def)
             (\hd tl ->

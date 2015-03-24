@@ -736,9 +736,18 @@ fix :: Typeable ty2
     -> TExp ty1 Rational
     -> Comp ty2
 fix f e = go depth e
-  where go 0 _ = ret TEBot
+  where -- WARNING: This combinator assumes the fixpoint expansion f^n
+        -- ( f^{n-1} ( ... f^1 e ... ) ) bottoms out at 'n < depth'
+        -- (that is, there's an 'n < depth' that throws away its
+        -- recursion parameter). This means, in particular, that we
+        -- only handle inductive data up to size 'depth'.
+        go 0 _
+          = fail_with
+            $ ErrMsg
+            $ "exceeded fixed recursion depth "
+              ++ show depth
         go n e0 = f (go (dec n)) e0
-        depth = 100000 
+        depth = 1000000
 
 
 ----------------------------------------------------
