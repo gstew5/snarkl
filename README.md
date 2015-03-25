@@ -34,7 +34,7 @@ snårkl is a preliminary research prototype undergoing active development. Altho
 
 * [Syntax.hs](https://github.com/gstew5/snarkl/blob/master/src/Syntax.hs): Shallowly embedded source language
 
-* [TExpr.hs](https://github.com/gstew5/snarkl/blob/master/src/Source.hs): A simple embedded intermediate language (statically typed)
+* [TExpr.hs](https://github.com/gstew5/snarkl/blob/master/src/TExpr.hs): A simple embedded intermediate language (statically typed)
 
 * [Expr.hs](https://github.com/gstew5/snarkl/blob/master/src/Expr.hs): Like `TExpr` but types have been erased
 
