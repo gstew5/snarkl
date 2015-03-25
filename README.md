@@ -18,23 +18,52 @@ snårkl builds with GHC version >= 7.8.3. It may compile with earlier versions a
 > make keccak
 ```
 
-from the `src` directory, contains a basic implementation of the Keccak (SHA3) round function.
+from the `src` directory, contains an implementation of the Keccak (SHA3) round function. 
+[List.hs](https://github.com/gstew5/snarkl/blob/master/src/List.hs), 
+[Peano.hs](https://github.com/gstew5/snarkl/blob/master/src/Peano.hs), 
+[Lam.hs](https://github.com/gstew5/snarkl/blob/master/src/Lam.hs)
+contain programs that make use of inductive types.
 
 ## Limitations
 
-snårkl is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to such a system has not yet been implemented.
+snårkl is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to `libsnark` hasn't yet been implemented.
 
 ## Overview of Main Files
 
-* [Source.hs](https://github.com/gstew5/snarkl/blob/master/src/Source.hs): A simple embedded source language (statically typed)
+### Languages
 
-* [Expr.hs](https://github.com/gstew5/snarkl/blob/master/src/Expr.hs): The first compiler intermediate language (similar to `Source`, except types have been erased) 
+* [Syntax.hs](https://github.com/gstew5/snarkl/blob/master/src/Syntax.hs): Shallowly embedded source language
+
+* [TExpr.hs](https://github.com/gstew5/snarkl/blob/master/src/Source.hs): A simple embedded intermediate language (statically typed)
+
+* [Expr.hs](https://github.com/gstew5/snarkl/blob/master/src/Expr.hs): Like `TExpr` but types have been erased
 
 * [Constraints.hs](https://github.com/gstew5/snarkl/blob/master/src/Constraints.hs): The intermediate arithmetic constraint language
 
 * [R1CS.hs](https://github.com/gstew5/snarkl/blob/master/src/R1CS.hs): Rank-1 constraint systems
 
-* [Simplify.hs](https://github.com/gstew5/snarkl/blob/master/src/Simplify.hs): Minimizer/solver for the language in `Constraints`
+### Compiler Phases
 
-* [Syntax.hs](https://github.com/gstew5/snarkl/blob/master/src/Syntax.hs): Combinators and (rebound) syntax useful for (meta-)programming in the `Source` language
+#### `Source`
 
+* `Source` to `TExpr` [Syntax.hs](https://github.com/gstew5/snarkl/blob/master/src/Syntax.hs)
+
+#### `TExpr`
+
+* `TExpr` to `Expr` [TExpr.hs](https://github.com/gstew5/snarkl/blob/master/src/Compile.hs)
+
+#### `Expr`
+
+* `Expr` to `Constraints` [Compile.hs](https://github.com/gstew5/snarkl/blob/master/src/Compile.hs)
+
+#### `Constraints`
+
+* `Constraint Minimization` [Simplify.hs](https://github.com/gstew5/snarkl/blob/master/src/Simplify.hs)
+
+* `Dataflow Analysis` [Dataflow.hs](https://github.com/gstew5/snarkl/blob/master/src/Dataflow.hs)
+
+* `Renumbering` [Constraints.hs](https://github.com/gstew5/snarkl/blob/master/src/Constraints.hs)
+
+* `Constraints` to `R1CS` [Constraints.hs](https://github.com/gstew5/snarkl/blob/master/src/Constraints.hs)
+
+#### `R1CS`
