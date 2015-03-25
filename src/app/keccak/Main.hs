@@ -21,7 +21,7 @@ import Prelude hiding
 import qualified Prelude as P
 
 import Syntax
-import Source
+import TExpr
 
 num_lanes :: Int
 num_lanes = (P.*) 5 5

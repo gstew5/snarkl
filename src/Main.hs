@@ -17,7 +17,7 @@ import Prelude hiding
 import qualified Prelude as P
 
 import Syntax
-import Source
+import TExpr
 import Peano
 import Lam
 import List

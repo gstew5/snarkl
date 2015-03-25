@@ -18,7 +18,7 @@ import Prelude hiding
   )
 
 import Syntax
-import Source
+import TExpr
 
 type TF = TFSum (TFConst TUnit) TFId 
 

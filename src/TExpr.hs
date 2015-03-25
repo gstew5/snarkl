@@ -10,7 +10,7 @@
            , ScopedTypeVariables
   #-}
 
-module Source
+module TExpr
   ( Val(..)    
   , TExp(..)
   , TFunct(..)
@@ -31,10 +31,6 @@ import Common
 import Errors
 import Field
 import Expr
-
-----------------------------------------------------------------
---                 Source Expression Language                 --
-----------------------------------------------------------------
 
 data TFunct where
   TFConst :: Ty -> TFunct

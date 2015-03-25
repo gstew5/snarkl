@@ -117,7 +117,7 @@ import qualified Data.IntMap.Lazy as IntMap
 import Common
 import Errors
 import R1CS
-import Source
+import TExpr
 import Compile
 import Serialize
 

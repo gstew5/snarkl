@@ -20,7 +20,7 @@ import Prelude hiding
 import Data.Typeable
 
 import Syntax
-import Source
+import TExpr
 
 type TF = TFSum (TFConst TField) (TFSum TFId (TFProd TFId TFId))
 
