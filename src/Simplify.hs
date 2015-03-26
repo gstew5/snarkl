@@ -10,6 +10,7 @@ import qualified Data.Set as Set
 import Control.Monad.State
 
 import Common
+import Errors
 import Field
 import Constraints
 import UnionFind
@@ -135,7 +136,11 @@ learn constr
 
   where go (CAdd a (CoeffList [(x,c)]))
           = if c == zero then return ()
-            else bind_var (x,neg a `mult` inv c)
+            else case inv c of
+                   Nothing -> 
+                     fail_with 
+                     $ ErrMsg (show c ++ " not invertible")
+                   Just c' -> bind_var (x,neg a `mult` c')
 
         go (CAdd a (CoeffList [(x,c),(y,d)]))
           | a==zero
