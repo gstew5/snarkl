@@ -17,7 +17,7 @@ module Constraints
   ) where
 
 import qualified Data.Set as Set
-import qualified Data.IntMap.Lazy as Map
+import qualified Data.IntMap.Lazy as IntMap
 
 import Common
 import Errors
@@ -68,9 +68,16 @@ data ConstraintSystem a =
   ConstraintSystem { cs_constraints :: ConstraintSet a
                    , cs_num_vars :: Int
                    , cs_in_vars :: [Var]                     
-                   , cs_out_vars :: [Var]                     
+                   , cs_out_vars :: [Var]
+                   , cs_hints :: ConstraintSet a
                    }
-  deriving (Show)
+
+instance Show a => Show (ConstraintSystem a) where
+  show (ConstraintSystem constrs nvars invars outvars _)
+    = show "constraints: " ++ show constrs ++ "\n"
+      ++ show "num vars: " ++ show nvars ++ "\n"
+      ++ show "in vars: " ++ show invars ++ "\n"
+      ++ show "out vars: " ++ show outvars ++ "\n"
 
 instance Eq a => Eq (Constraint a) where
   CAdd c m == CAdd c' m'
@@ -151,7 +158,7 @@ r1cs_of_cs cs
   where go [] = []
         go (CAdd a m : cs')
           = R1C ( const_poly one
-                , Poly $ Map.insert (-1) a $ Map.fromList (asList m)
+                , Poly $ IntMap.insert (-1) a $ IntMap.fromList (asList m)
                 , const_poly zero
                 ) : go cs'
 
@@ -183,20 +190,26 @@ renumber_constraints :: Field a
                          , ConstraintSystem a 
                          )
 renumber_constraints cs
-  = (renum_f,ConstraintSystem new_cs (Map.size var_map) new_in_vars new_out_vars)
+  = ( renum_f
+    , ConstraintSystem new_cs (IntMap.size var_map) 
+                       new_in_vars new_out_vars new_hints
+    )
   where new_cs       = Set.map renum_constr $ cs_constraints cs
         new_in_vars  = map renum_f $ cs_in_vars cs        
         new_out_vars = map renum_f $ cs_out_vars cs
+        new_hints    = Set.map renum_constr $ cs_hints cs
 
         var_map
-          = Map.fromList
+          = IntMap.fromList
             $ zip (cs_in_vars cs ++ filter is_input all_vars) [0..]
           where is_input = not . flip Set.member in_vars_set
                 in_vars_set = Set.fromList $ cs_in_vars cs
-                all_vars = constraint_vars $ cs_constraints cs
+                all_vars 
+                    = constraint_vars (cs_constraints cs)
+                      ++ constraint_vars (cs_hints cs)
 
         renum_f x
-          = case Map.lookup x var_map of
+          = case IntMap.lookup x var_map of
               Nothing ->
                 fail_with
                 $ ErrMsg ("can't find a binding for variable " ++ show x

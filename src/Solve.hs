@@ -10,6 +10,8 @@ import Field
 import Constraints
 import Simplify
 
+import qualified Data.Set as Set
+
 -- | Starting from an initial partial assignment [env], solve the
 -- constraints [cs] and return the resulting complete assignment.
 -- If the constraints are unsolvable from [env], report the first
@@ -21,7 +23,9 @@ solve :: Field a
       -> Assgn a -- ^ Resulting assignment
 solve cs env = 
   let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
-      (assgn,cs') = do_simplify env cs
+      (assgn,cs') = do_simplify env 
+                    $ cs { cs_constraints 
+                           = cs_constraints cs `Set.union` cs_hints cs }
   in if all_assigned pinned_vars assgn then assgn
      else fail_with
           $ ErrMsg ("some pinned variables are unassigned,\n"

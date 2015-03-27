@@ -69,8 +69,8 @@ instance Eq (TVar ty) where
 instance Show (TVar ty) where
   show (TVar x) = show x
 
-data TOp :: Ty -> * where
-  TOp :: forall ty. Op -> TOp ty
+data TOp :: Ty -> Ty -> Ty -> * where
+  TOp :: forall ty1 ty2 ty. Op -> TOp ty1 ty2 ty
   deriving Eq  
 
 data Val :: Ty -> * -> * where
@@ -82,7 +82,10 @@ data Val :: Ty -> * -> * where
 data TExp :: Ty -> * -> * where
   TEVar    :: TVar ty -> TExp ty a
   TEVal    :: Val ty a -> TExp ty a
-  TEBinop  :: TOp ty -> TExp ty a -> TExp ty a -> TExp ty a
+  TEBinop  :: ( Typeable ty1 
+              , Typeable ty2
+              )
+           => TOp ty1 ty2 ty -> TExp ty1 a -> TExp ty2 a -> TExp ty a
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
   TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
@@ -154,7 +157,7 @@ last_seq te = case te of
   TESeq _ te2 -> last_seq te2
   _ -> te
 
-instance Show (TOp ty) where
+instance Show (TOp ty1 ty2 ty) where
   show (TOp op) = show op
 
 instance Show a => Show (Val ty a) where

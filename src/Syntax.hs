@@ -5,8 +5,10 @@
            , KindSignatures
            , ScopedTypeVariables
            , FlexibleContexts
+           , FlexibleInstances
            , UndecidableInstances
            , PolyKinds
+           , OverlappingInstances
   #-}
 
 module Syntax
@@ -786,8 +788,20 @@ not e = ifThenElse_aux e false true
 xor :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
 xor e1 e2 = TEBinop (TOp XOr) e1 e2
 
-eq :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
-eq e1 e2 = TEBinop (TOp Eq) e1 e2
+class Equatable a where 
+  equate :: TExp a Rational -> TExp a Rational -> TExp TBool Rational
+
+instance Typeable ty => Equatable ty where
+  equate = TEBinop (TOp Eq)   
+
+-- instance Equatable TBool where
+--   equate = TEBinop (TOp BEq) 
+
+eq :: ( Equatable ty 
+      , Typeable ty 
+      )
+   => TExp ty Rational -> TExp ty Rational -> TExp TBool Rational
+eq = equate
 
 fromRational :: Rational -> TExp TField Rational
 fromRational r = TEVal (VField (r :: Rational))

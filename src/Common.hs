@@ -6,8 +6,10 @@ type Var = Int
 
 type Assgn a = Map.IntMap a
 
-data Op = Add | Sub | Mult | Div
-        | And | Or | XOr | Eq
+-- 'Eq' is general equality. 'BEq' is specialized to booleans, 
+-- and is compiled more efficiently.
+data Op = Add | Sub | Mult | Div | Eq 
+        | And | Or | XOr | BEq
   deriving Eq                           
 
 instance Show Op where
@@ -15,10 +17,11 @@ instance Show Op where
   show Sub  = "-"
   show Mult = "*"
   show Div  = "-*"
+  show Eq   = "=="
   show And  = "&&"
   show Or   = "||"  
   show XOr  = "xor"
-  show Eq   = "=="  
+  show BEq   = "=b="  
 
 is_boolean :: Op -> Bool
 is_boolean op = case op of
@@ -26,10 +29,11 @@ is_boolean op = case op of
   Sub -> False
   Mult -> False
   Div -> False
+  Eq  -> True
   And -> True
   Or -> True  
   XOr -> True
-  Eq -> True  
+  BEq -> True  
 
 is_assoc :: Op -> Bool
 is_assoc op = case op of
@@ -37,9 +41,10 @@ is_assoc op = case op of
   Sub -> False
   Mult -> True
   Div -> False
+  Eq  -> True
   And -> True
   Or -> True  
   XOr -> True
-  Eq -> True
+  BEq -> True
 
       

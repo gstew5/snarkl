@@ -36,11 +36,12 @@ import Constraints
 data CEnv a =
   CEnv { cur_cs   :: Set.Set (Constraint a)
        , next_var :: Var
+       , hints    :: Set.Set (Constraint a)
        }
 
 add_constraint :: Ord a => Constraint a -> State (CEnv a) ()
 add_constraint c
-  = modify (\cenv -> cenv {cur_cs = Set.insert c $ cur_cs cenv})
+  = modify (\cenv -> cenv { cur_cs = Set.insert c $ cur_cs cenv })
 
 get_constraints :: State (CEnv a) [Constraint a]
 get_constraints
@@ -62,6 +63,16 @@ fresh_var
   = do { next <- get_next_var
        ; set_next_var (next + 1)
        ; return next
+       }
+
+add_hint :: Ord a => Constraint a -> State (CEnv a) ()
+add_hint constr 
+  = modify (\cenv -> cenv { hints = Set.insert constr $ hints cenv })
+
+get_hints :: State (CEnv a) (Set.Set (Constraint a))
+get_hints 
+  = do { cenv <- get
+       ; return $ hints cenv
        }
 
 -- | Add constraint 'x = y'
@@ -120,13 +131,41 @@ encode_boolean_eq (x,y,z)
        ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
        }
 
+-- | Constraint 'y = x!=0 ? 1 : 0'.
+-- The encoding is: 
+-- for some m,
+--    x*m = y
+-- /\ (1-y)*x = 0
+-- Cf. p7. of [pinnochio-sp13], which follows [setty-usenix12].
+encode_neq_zero :: Field a => (Var,Var) -> State (CEnv a) ()
+encode_neq_zero (x,y)
+  = do { m     <- fresh_var
+       ; neg_y <- fresh_var
+       ; encode_binop Mult (x,m,y)
+       ; add_constraint
+           (cadd one [(y,neg one),(neg_y,neg one)])
+       ; add_constraint 
+           (CMult (one,neg_y) (one,x) (zero,Nothing))
+       ; add_hint
+           (CMult (one `add` one,x) (one,y) (one,Just y))
+       }
+
+-- | Constraint 'x == y = z'.
+-- The encoding is: if (x-y == 0) then z=1 else z=0
+encode_eq :: Field a => (Var,Var,Var) -> State (CEnv a) ()
+encode_eq (x,y,z) = cs_of_exp z e
+  where e = EIf (EZeq (EBinop Sub [EVar x,EVar y]))
+                (EVal one)
+                (EVal zero)
+
 -- | Encode the constraint 'x op y = z'.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
 encode_binop op (x,y,z) = go op
   where go And = encode_binop Mult (x,y,z)
         go Or  = encode_or (x,y,z)
         go XOr = encode_xor (x,y,z)
-        go Eq  = encode_boolean_eq (x,y,z)        
+        go BEq = encode_boolean_eq (x,y,z)        
+        go Eq  = encode_eq (x,y,z)
 
         go Add
           = add_constraint
@@ -140,8 +179,7 @@ encode_binop op (x,y,z) = go op
           = add_constraint
             $ CMult (one,x) (one,y) (one,Just z)
 
-        go Div
-          = fail_with $ ErrMsg "div not yet implemented"
+        go Div = encode_binop Mult (y,z,x)
 
 encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
 encode_linear out xs
@@ -156,6 +194,15 @@ cs_of_exp out e = case e of
     
   EVal c ->
     do { ensure_const (out,c)
+       }
+
+  EZeq e1 ->
+    do { e1_out <- fresh_var
+       ; e1_not_zero <- fresh_var 
+       ; cs_of_exp e1_out e1
+         -- 'e1_not_zero' == 'e1_out /= zero'
+       ; encode_neq_zero (e1_out,e1_not_zero)
+       ; cs_of_exp out (EBinop Sub [EVal one,EVar e1_not_zero])
        }
 
   EBinop op es ->
@@ -236,7 +283,10 @@ r1cs_of_constraints cs
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts.
         (renumber_f,cs') = renumber_constraints cs_dataflow
-         -- 'f' is a function mapping input bindings to witnesses.    
+         -- 'f' is a function mapping input bindings to witnesses.
+         -- [NOTE: Hints] Hints are with respect to the original
+         -- variable naming. We must apply them to the input
+         -- assignment first, then renumber.
         f = solve cs' . Map.mapKeys renumber_f
     in r1cs_of_cs cs' f
 
@@ -250,7 +300,7 @@ constraints_of_exp :: Field a
             -> Exp a -- ^ Expression
             -> ConstraintSystem a
 constraints_of_exp out in_vars boolean_in_vars e
-  = let cenv_init = CEnv Set.empty (out+1)
+  = let cenv_init = CEnv Set.empty (out+1) Set.empty
         (constrs,_) = runState go cenv_init
     in constrs
   where go = do { -- Compile 'e' to constraints 'cs', with output wire 'out'.
@@ -261,9 +311,11 @@ constraints_of_exp out in_vars boolean_in_vars e
                 ; let constraint_set = Set.fromList cs
                 ; let num_constraint_vars
                         = length $ constraint_vars constraint_set
+                  -- Extract hints
+                ; the_hints <- get_hints
                 ; return
                   $ ConstraintSystem
-                    constraint_set num_constraint_vars in_vars [out]
+                    constraint_set num_constraint_vars in_vars [out] the_hints
                 } 
 
 -- | Compile an expression 'e' to R1CS.
