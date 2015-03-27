@@ -41,6 +41,7 @@ module Syntax
        , (*)
        , (/)
        , (&&)
+       , zeq
        , not
        , xor
        , eq
@@ -779,6 +780,9 @@ false = TEVal VFalse
 
 (&&) :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
 (&&) e1 e2 = TEBinop (TOp And) e1 e2
+
+zeq :: TExp TField Rational -> TExp TBool Rational
+zeq e = TEUnop (TUnop ZEq) e
 
 not :: TExp TBool Rational -> TExp TBool Rational
 not e = ifThenElse_aux e false true

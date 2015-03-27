@@ -17,6 +17,7 @@ import Field
 data Exp :: * -> * where
   EVar    :: Var -> Exp a
   EVal    :: Field a => a -> Exp a
+  EUnop   :: UnOp -> Exp a -> Exp a
   EBinop  :: Op -> [Exp a] -> Exp a
   EIf     :: Exp a -> Exp a -> Exp a -> Exp a
   EAssert :: Exp a -> Exp a -> Exp a
@@ -26,6 +27,8 @@ data Exp :: * -> * where
 instance Eq a => Eq (Exp a) where
   EVar x == EVar y = x == y
   EVal a == EVal b = a == b
+  EUnop op e1 == EUnop op' e1' 
+    = op == op' && e1 == e1'
   EBinop op es == EBinop op' es'
     = op == op' && es == es'
   EIf e e1 e2 == EIf e' e1' e2'
@@ -78,6 +81,7 @@ is_pure e
   = case e of
       EVar _ -> True
       EVal _ -> True
+      EUnop _ e1 -> is_pure e1
       EBinop _ es -> all is_pure es
       EIf b e1 e2 -> is_pure b && is_pure e1 && is_pure e2
       EAssert _ _ -> False
@@ -88,6 +92,7 @@ is_pure e
 instance Show a => Show (Exp a) where
   show (EVar x) = "var " ++ show x
   show (EVal c) = show c
+  show (EUnop op e1) = show op ++ show e1
   show (EBinop op es) = go es
     where go [] = ""
           go (e1 : [])  = show e1

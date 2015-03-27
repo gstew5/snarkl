@@ -6,6 +6,12 @@ type Var = Int
 
 type Assgn a = Map.IntMap a
 
+data UnOp = ZEq
+  deriving Eq
+
+instance Show UnOp where 
+  show ZEq = "(== 0)"
+
 data Op = Add | Sub | Mult | Div
         | And | Or | XOr | Eq
   deriving Eq                           

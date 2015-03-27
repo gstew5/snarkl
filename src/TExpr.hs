@@ -16,6 +16,7 @@ module TExpr
   , TFunct(..)
   , Ty(..)
   , Rep
+  , TUnop(..)
   , TOp(..)
   , TVar(..)
   , boolean_vars_of_texp
@@ -69,6 +70,10 @@ instance Eq (TVar ty) where
 instance Show (TVar ty) where
   show (TVar x) = show x
 
+data TUnop :: Ty -> Ty -> * where
+  TUnop :: forall ty1 ty. UnOp -> TUnop ty1 ty
+  deriving Eq  
+
 data TOp :: Ty -> Ty -> Ty -> * where
   TOp :: forall ty1 ty2 ty. Op -> TOp ty1 ty2 ty
   deriving Eq  
@@ -82,10 +87,13 @@ data Val :: Ty -> * -> * where
 data TExp :: Ty -> * -> * where
   TEVar    :: TVar ty -> TExp ty a
   TEVal    :: Val ty a -> TExp ty a
+  TEUnop   :: ( Typeable ty1
+              )
+             => TUnop ty1 ty -> TExp ty1 a -> TExp ty a 
   TEBinop  :: ( Typeable ty1 
               , Typeable ty2 
               ) 
-           => TOp ty1 ty2 ty -> TExp ty1 a -> TExp ty2 a -> TExp ty a
+             => TOp ty1 ty2 ty -> TExp ty1 a -> TExp ty2 a -> TExp ty a
   TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
   TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
@@ -108,6 +116,8 @@ exp_of_texp :: Field a => TExp ty a -> Exp a
 exp_of_texp te = case te of
   TEVar (TVar x) -> EVar x
   TEVal v -> exp_of_val v
+  TEUnop (TUnop op) te1 -> 
+    EUnop op (exp_of_texp te1)
   TEBinop (TOp op) te1 te2 ->
     exp_binop op (exp_of_texp te1) (exp_of_texp te2)
   TEIf te1 te2 te3 ->
@@ -139,6 +149,7 @@ boolean_vars_of_texp = go []
           = if var_is_boolean t then x : vars
             else vars
         go vars (TEVal _) = vars
+        go vars (TEUnop _ e1) = go vars e1
         go vars (TEBinop _ e1 e2) = go (go vars e1) e2
         go vars (TEIf e1 e2 e3)
           = go (go (go vars e1) e2) e3
@@ -157,6 +168,9 @@ last_seq te = case te of
   TESeq _ te2 -> last_seq te2
   _ -> te
 
+instance Show (TUnop ty1 ty) where
+  show (TUnop op) = show op
+
 instance Show (TOp ty1 ty2 ty) where
   show (TOp op) = show op
 
@@ -169,6 +183,7 @@ instance Show a => Show (Val ty a) where
 instance Show a => Show (TExp ty a) where
   show (TEVar x) = "var " ++ show x
   show (TEVal c) = show c
+  show (TEUnop op e1) = show op ++ show e1
   show (TEBinop op e1 e2) = show e1 ++ show op ++ show e2
   show (TEIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2

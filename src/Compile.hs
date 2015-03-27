@@ -123,6 +123,39 @@ encode_boolean_eq (x,y,z) = cs_of_exp z e
                     [EBinop Sub [EVal one,EVar x]
                     ,EBinop Sub [EVal one,EVar y]]]
 
+
+-- | Constraint 'y = x!=0 ? 1 : 0'.
+-- The encoding is:
+-- for some m,
+--    x*m = y
+-- /\ (1-y)*x = 0
+-- Cf. p7. of [pinnochio-sp13], which follows [setty-usenix12].
+encode_zneq :: Field a => (Var,Var) -> State (CEnv a) ()
+encode_zneq (x,y)
+  = do { m <- fresh_var
+       ; neg_y <- fresh_var
+         -- HINT: resolving value of nondet witness 'm' TODO: this
+         -- hint shouldn't get realized in the circuit, as it is now.
+--       ; cs_of_exp m (EBinop Div [EVar y,EVar x])
+       ; cs_of_exp y (EBinop Mult [EVar x,EVar m])
+       ; cs_of_exp neg_y (EBinop Sub [EVal one,EVar y])
+       ; add_constraint 
+           (CMult (one,neg_y) (one,x) (zero,Nothing))
+       }
+
+-- | Constraint 'y == x==0:1?0'
+encode_zeq :: Field a => (Var,Var) -> State (CEnv a) ()
+encode_zeq (x,y) 
+  = do { neg_y <- fresh_var
+       ; encode_zneq (x,neg_y)
+       ; cs_of_exp y (EBinop Sub [EVal one,EVar neg_y])
+       }
+
+-- | Encode the constraint 'un_op x = y'
+encode_unop :: Field a => UnOp -> (Var,Var) -> State (CEnv a) ()
+encode_unop op (x,y) = go op 
+  where go ZEq = encode_zeq (x,y)
+
 -- | Encode the constraint 'x op y = z'.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
 encode_binop op (x,y,z) = go op
@@ -160,6 +193,12 @@ cs_of_exp out e = case e of
     
   EVal c ->
     do { ensure_const (out,c)
+       }
+
+  EUnop op e1 -> 
+    do { e1_out <- fresh_var 
+       ; cs_of_exp e1_out e1
+       ; encode_unop op (e1_out,out)
        }
 
   EBinop op es ->

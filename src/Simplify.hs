@@ -150,6 +150,12 @@ learn constr
           | otherwise
           = return ()
 
+        -- go (CMult (c,_) (d,y) (e,Nothing))
+        --   | c==zero 
+        --   = case inv d of
+        --       Nothing -> return ()
+        --       Just d' -> bind_var (y,e `mult` d')
+
         go _ | otherwise = return ()
 
 

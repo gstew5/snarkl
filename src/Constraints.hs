@@ -31,9 +31,10 @@ import R1CS
 
 newtype CoeffList k v = CoeffList { asList :: [(k,v)] }
   deriving (Eq)
--- INVARIANT: no key appears more than once.
--- Upon duplicate insertion, insert field sum of the values.
--- Smart constructor 'cadd' (below) enforces this invariant.
+-- COEFFLIST INVARIANT: no key appears more than once.  Upon duplicate
+-- insertion, insert field sum of the values.  Terms with 0 coeff. are
+-- implicitly removed. Smart constructor 'cadd' (below) enforces this
+-- invariant.
 
 coeff_insert :: (Eq k,Field a) => k -> a -> CoeffList k a -> CoeffList k a
 coeff_insert k a l = CoeffList $ go (asList l)
@@ -48,6 +49,16 @@ coeff_merge l = go (CoeffList []) (asList l)
         go acc ((k,a) : l')
           = go (coeff_insert k a acc) l'
 
+remove_zeros :: (Field a) => CoeffList k a -> CoeffList k a
+remove_zeros (CoeffList l) = CoeffList $ go [] l
+  where go acc [] = acc
+        go acc ((_,a) : l')
+            | a==zero
+            = go acc l'
+        go acc (scrut@(_,_) : l')
+            | otherwise
+            = go (scrut : acc) l'
+
 -- | Constraints are either
 --   * 'CAdd a m': A linear combination of the constant 'a' with
 --     the variable-coeff. terms given by map 'm : Map.Map Var a'.
@@ -60,7 +71,7 @@ data Constraint a =
 
 -- | Smart constructor enforcing CoeffList invariant
 cadd :: Field a => a -> [(Var,a)] -> Constraint a
-cadd !a !l = CAdd a (coeff_merge $ CoeffList l)
+cadd !a !l = CAdd a (remove_zeros $ coeff_merge $ CoeffList l)
 
 type ConstraintSet a = Set.Set (Constraint a)
 
