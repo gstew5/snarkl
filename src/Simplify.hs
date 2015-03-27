@@ -28,7 +28,16 @@ subst_constr :: Field a
              => Constraint a
              -> State (SEnv a) (Constraint a)
 subst_constr !constr = case constr of
-  COra !_ !_ -> return constr
+  CMagic !_ !xs !mf -> 
+    do { solve <- solve_mode_flag
+       ; if solve then  
+           do { b <- mf xs
+              ; if b then return $ cadd zero []
+                else return constr
+              }
+         else return constr
+       }
+
   CAdd a m -> 
     do { -- Variables resolvable to constants
          consts' <- mapM (\(x,a0) ->
@@ -115,7 +124,7 @@ is_taut constr
            CAdd _ (CoeffList []) -> return True
            CAdd _ (CoeffList (_ : _)) -> return False
            CMult _ _ _ -> return False
-           COra _ _ -> return False
+           CMagic _ xs mf -> mf xs
        }
 
 -- | Remove tautologous constraints.
@@ -152,32 +161,42 @@ learn constr
           | otherwise
           = return ()
 
-        go (COra xs mf)
-          = mf xs
-
         go _ | otherwise = return ()
 
 
 do_simplify :: Field a
-            => Assgn a -- ^ Initial variable assignment
+            => Bool -- ^ Solve mode? If 'True', use Magic. 
+            -> Assgn a -- ^ Initial variable assignment
             -> ConstraintSystem a -- ^ Constraint set to be simplified 
             -> (Assgn a,ConstraintSystem a)
                 -- ^ Resulting assignment, simplified constraint set
-do_simplify env cs
-  = let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
-    in fst $ runState (go pinned_vars) (SEnv (new_uf { extras = env }))
+do_simplify in_solve_mode env cs
+    -- NOTE: Pinned vars include:
+    -- * input vars
+    -- * output vars
+    -- * magic vars (those that appear in magic constraints, used to 
+    --   resolve nondeterministic inputs)   
+    -- Pinned vars are never optimized away.
+  = let pinned_vars = cs_in_vars cs ++ cs_out_vars cs ++ magic_vars (cs_constraints cs)
+        new_state   = SEnv (new_uf { extras = env }) in_solve_mode
+    in fst $ runState (go pinned_vars) new_state
   where go pinned_vars
           = do { sigma' <- simplify pinned_vars $ cs_constraints cs
-                 -- NOTE: In the next line, it's OK that 'pinned_vars' may
-                 -- overlap with 'constraint_vars cs'. 'assgn_of_vars' may
-                 -- just do a bit of duplicate work (to look up the same
-                 -- key more than once).          
+                 -- NOTE: In the next line, it's OK that 'pinned_vars'
+                 -- may overlap with 'constraint_vars cs'. 
+                 -- 'assgn_of_vars' might do a bit of duplicate
+                 -- work (to look up the same key more than once).
                ; assgn <- assgn_of_vars
                           $ pinned_vars
                             ++ constraint_vars (cs_constraints cs)
                ; return (assgn,cs { cs_constraints = sigma' })
                }
-
+        magic_vars cs0 
+          = Set.fold (\c0 acc -> 
+                          case c0 of 
+                            CMagic _ xs _ -> xs ++ acc
+                            _ -> acc
+                     ) [] cs0
 
 simplify :: Field a
          => [Var] 

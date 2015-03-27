@@ -19,6 +19,7 @@ import Common
 import Errors
 import Field
 import R1CS
+import SimplMonad
 import Simplify
 import Solve
 import Dataflow
@@ -134,14 +135,39 @@ encode_zneq :: Field a => (Var,Var) -> State (CEnv a) ()
 encode_zneq (x,y)
   = do { m <- fresh_var
        ; neg_y <- fresh_var
-         -- HINT: resolving value of nondet witness 'm' TODO: this
-         -- hint shouldn't get realized in the circuit, as it is now.
---       ; cs_of_exp m (EBinop Div [EVar y,EVar x])
+         -- The following 'magic' constraint resolves the value of
+         -- nondet witness 'm':
+         --   m = 0,      x = 0
+         --   m = inv x,  x <> 0
+       ; nm <- fresh_var
+       ; add_constraint (CMagic nm [x,m] mf)
+         -- END magic.
        ; cs_of_exp y (EBinop Mult [EVar x,EVar m])
        ; cs_of_exp neg_y (EBinop Sub [EVal one,EVar y])
        ; add_constraint 
            (CMult (one,neg_y) (one,x) (zero,Nothing))
        }
+    where mf [x0,m0] 
+            = do { tx <- bind_of_var x0
+                 ; case tx of
+                     Left _ -> return False
+                     Right c -> 
+                       if c == zero then 
+                         do { bind_var (m0,zero)
+                            ; return True
+                            }
+                       else case inv c of
+                         Nothing -> 
+                           fail_with 
+                           $ ErrMsg ("expected " ++ show x0 ++ "==" ++ show c
+                                     ++ " to be invertible")
+                         Just c' -> 
+                           do { bind_var (m0,c')
+                              ; return True
+                              }
+                 }
+          mf _ = fail_with 
+                 $ ErrMsg "internal error in 'encode_zeq'"
 
 -- | Constraint 'y == x==0:1?0'
 encode_zeq :: Field a => (Var,Var) -> State (CEnv a) ()
@@ -273,7 +299,7 @@ r1cs_of_constraints :: Field a
                     -> R1CS a
 r1cs_of_constraints cs
   = let  -- Simplify resulting constraints.
-        (_,cs_simpl) = do_simplify Map.empty cs
+        (_,cs_simpl) = do_simplify False Map.empty cs
         cs_dataflow  = remove_unreachable cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to

@@ -5,6 +5,7 @@ module SimplMonad
   , root_of_var
   , bind_of_var
   , assgn_of_vars
+  , solve_mode_flag
   ) where
 
 import qualified Data.IntMap.Lazy as Map
@@ -19,10 +20,14 @@ import UnionFind
 ----------------------------------------------------------------
 
 data SEnv a =
-  SEnv { eqs :: UnionFind a } -- ^ Equalities among variables,
+  SEnv { eqs :: UnionFind a   -- ^ Equalities among variables,
                               -- together with a partial map from variables
                               -- to constants (hidden inside the "UnionFind"
                               -- data structure).
+       , solve_mode :: Bool   -- ^ Use Magic only in 'solve_mode'.
+                              -- In simplify mode, only forced equalities 
+                              -- should be propagated.
+       }
   deriving Show
 
 -- | Unify variables 'x' and 'y'.
@@ -69,4 +74,11 @@ assgn_of_vars vars
                          Left _ -> []
                          Right c -> [(x,c)])
          $ zip vars binds
+       }
+
+-- | Are we in solve mode? 
+solve_mode_flag :: State (SEnv a) Bool
+solve_mode_flag 
+  = do { env <- get
+       ; return $ solve_mode env
        }

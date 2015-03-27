@@ -25,7 +25,7 @@ solve :: Field a
 solve cs env = 
   let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
       all_vars    = [0..cs_num_vars cs-1]
-      (assgn,cs') = do_simplify env cs
+      (assgn,cs') = do_simplify True env cs
   in if all_assigned all_vars assgn then assgn
      else fail_with
           $ ErrMsg ("unassigned variables,\n  "
