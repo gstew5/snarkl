@@ -2,6 +2,9 @@ module Solve
   ( solve
   ) where
 
+import Data.Maybe 
+  ( isJust
+  )
 import qualified Data.IntMap.Lazy as Map
 
 import Common
@@ -21,17 +24,17 @@ solve :: Field a
       -> Assgn a -- ^ Resulting assignment
 solve cs env = 
   let pinned_vars = cs_in_vars cs ++ cs_out_vars cs
+      all_vars    = [0..cs_num_vars cs-1]
       (assgn,cs') = do_simplify env cs
-  in if all_assigned pinned_vars assgn then assgn
+  in if all_assigned all_vars assgn then assgn
      else fail_with
-          $ ErrMsg ("some pinned variables are unassigned,\n"
+          $ ErrMsg ("unassigned variables,\n  "
+             ++ show (unassigned all_vars assgn) ++ ",\n"
              ++ "in assignment context\n  " ++ show assgn ++ ",\n"
              ++ "in pinned-variable context\n  " ++ show pinned_vars ++ ",\n"
              ++ "in optimized-constraint context\n  " ++ show cs' ++ ",\n"
              ++ "in constraint context\n  " ++ show cs)
 
   where all_assigned vars0 assgn = all id $ map (is_mapped assgn) vars0
-        is_mapped assgn x
-          = case Map.lookup x assgn of
-              Nothing -> False
-              Just _ -> True
+        is_mapped assgn x  = isJust (Map.lookup x assgn)
+        unassigned vars0 assgn = [x | x <- vars0, not $ is_mapped assgn x]
