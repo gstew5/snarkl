@@ -84,12 +84,12 @@ ensure_boolean b
 -- | Constraint 'x \/ y = z'.
 -- The encoding is: x+y - z = x*y; assumes x and y are boolean.
 encode_or :: Field a => (Var,Var,Var) -> State (CEnv a) ()
-encode_or (x,y,z)
-  = do { x_mult_y <- fresh_var
-       ; encode_binop Mult (x,y,x_mult_y)
-       ; add_constraint
-         $ cadd zero [(x,one),(y,one),(z,neg one)
-                     ,(x_mult_y,neg one)]
+encode_or (x,y,z) 
+  = do { x_mult_y <- fresh_var 
+       ; cs_of_exp x_mult_y (EBinop Mult [EVar x,EVar y])
+       ; cs_of_exp x_mult_y (EBinop Sub 
+                                    [EBinop Add [EVar x,EVar y]
+                                    ,EVar z])
        }
 
 -- | Constraint 'x xor y = z'.
@@ -102,23 +102,26 @@ encode_xor (x,y,z)
          $ cadd zero [(x,one),(y,one),(z,neg one)
                      ,(x_mult_y,neg (one `add`one))]
        }
+-- -- The following desugaring is preferable, but generates more constraints.
+--   = do { x_mult_y <- fresh_var
+--        ; cs_of_exp x_mult_y (EBinop Mult 
+--                                     [EVal (one `add` one)
+--                                     ,EBinop Mult [EVar x,EVar y]])
+--        ; cs_of_exp x_mult_y (EBinop Sub 
+--                                     [EBinop Add [EVar x,EVar y]
+--                                     ,EVar z])
+--        }
+
 
 -- | Constraint 'x == y = z' ASSUMING x, y are boolean.
 -- The encoding is: x*y + (1-x)*(1-y) = z.
 encode_boolean_eq :: Field a => (Var,Var,Var) -> State (CEnv a) ()
-encode_boolean_eq (x,y,z)
-  = do { x_mult_y <- fresh_var
-       ; neg_x    <- fresh_var
-       ; neg_y    <- fresh_var
-       ; neg_x_mult_neg_y <- fresh_var
-       ; encode_binop Mult (x,y,x_mult_y)
-       ; add_constraint
-           (cadd one [(x,neg one),(neg_x,neg one)])
-       ; add_constraint
-           (cadd one [(y,neg one),(neg_y,neg one)])  
-       ; encode_binop Mult (neg_x,neg_y,neg_x_mult_neg_y)
-       ; encode_binop Add (x_mult_y,neg_x_mult_neg_y,z)
-       }
+encode_boolean_eq (x,y,z) = cs_of_exp z e
+  where e = EBinop Add 
+            [EBinop Mult [EVar x,EVar y]
+            ,EBinop Mult 
+                    [EBinop Sub [EVal one,EVar x]
+                    ,EBinop Sub [EVal one,EVar y]]]
 
 -- | Encode the constraint 'x op y = z'.
 encode_binop :: Field a => Op -> (Var,Var,Var) -> State (CEnv a) ()
