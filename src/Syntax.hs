@@ -45,12 +45,14 @@ module Syntax
        , not
        , xor
        , eq
+       , beq
        , exp_of_int
        , int_of_exp
        , inc
        , dec
        , fromRational
        , ifThenElse
+       , negate
 
          -- | Arrays
        , arr
@@ -790,7 +792,10 @@ not e = ifThenElse_aux e false true
 xor :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
 xor e1 e2 = TEBinop (TOp XOr) e1 e2
 
-eq :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
+beq :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
+beq e1 e2 = TEBinop (TOp BEq) e1 e2
+
+eq :: Typeable ty => TExp ty Rational -> TExp ty Rational -> TExp TBool Rational
 eq e1 e2 = TEBinop (TOp Eq) e1 e2
 
 fromRational :: Rational -> TExp TField Rational
@@ -824,6 +829,8 @@ ifThenElse :: Zippable ty
 ifThenElse b e1 e2
   = zip_vals b e1 e2
 
+negate :: TExp TField Rational -> TExp TField Rational
+negate e = -1.0 * e
 
 ----------------------------------------------------
 --

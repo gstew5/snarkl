@@ -104,6 +104,7 @@ encode_xor (x,y,z)
                      ,(x_mult_y,neg (one `add`one))]
        }
 -- -- The following desugaring is preferable, but generates more constraints.
+-- -- Perhaps something to investigate wrt. Simplify.hs.
 --   = do { x_mult_y <- fresh_var
 --        ; cs_of_exp x_mult_y (EBinop Mult 
 --                                     [EVal (one `add` one)
@@ -124,6 +125,13 @@ encode_boolean_eq (x,y,z) = cs_of_exp z e
                     [EBinop Sub [EVal one,EVar x]
                     ,EBinop Sub [EVal one,EVar y]]]
 
+-- | Constraint 'x == y = z'.
+-- The encoding is: z = (x-y == 0).
+encode_eq :: Field a => (Var,Var,Var) -> State (CEnv a) ()
+encode_eq (x,y,z) = cs_of_exp z e
+  where e = EAssert
+            (EVar z)
+            (EUnop ZEq (EBinop Sub [EVar x,EVar y]))
 
 -- | Constraint 'y = x!=0 ? 1 : 0'.
 -- The encoding is:
@@ -188,7 +196,8 @@ encode_binop op (x,y,z) = go op
   where go And = encode_binop Mult (x,y,z)
         go Or  = encode_or (x,y,z)
         go XOr = encode_xor (x,y,z)
-        go Eq  = encode_boolean_eq (x,y,z)        
+        go Eq  = encode_eq (x,y,z)
+        go BEq = encode_boolean_eq (x,y,z)        
 
         go Add
           = add_constraint

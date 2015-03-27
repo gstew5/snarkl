@@ -139,7 +139,7 @@ prog11
 bool_prog12
   = do { a <- input
        ; b <- input
-       ; ret (a `eq` b)
+       ; ret (a `beq` b)
        }
 
 -- | 13. multiplicative identity
@@ -301,6 +301,13 @@ bool_prog32
        ; ret $ zeq x
        }
 
+-- | 33. eq test
+bool_prog33
+  = do { x <- input :: Comp TField
+       ; y <- input       
+       ; ret $ x `eq` y
+       }
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -395,6 +402,16 @@ bool_tests
     , (bool_prog32, [0], 1)      
     , (bool_prog32, [1], 0)      
     , (bool_prog32, [2], 0)      
+
+    , (bool_prog33, [23,44], 0)      
+    , (bool_prog33, [0,100], 0)      
+    , (bool_prog33, [0,0], 1)      
+    , (bool_prog33, [100,100], 1)      
+    , (bool_prog33, [P.negate 33,44], 0)      
+    , (bool_prog33, [0,100], 0)      
+    , (bool_prog33, [0,0], 1)      
+    , (bool_prog33, [100,100], 1)      
+    , (bool_prog33, [P.negate 33,P.negate 33], 1)      
     ]
 
 main

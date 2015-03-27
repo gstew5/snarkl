@@ -13,7 +13,7 @@ instance Show UnOp where
   show ZEq = "(== 0)"
 
 data Op = Add | Sub | Mult | Div
-        | And | Or | XOr | Eq
+        | And | Or | XOr | Eq | BEq
   deriving Eq                           
 
 instance Show Op where
@@ -25,6 +25,7 @@ instance Show Op where
   show Or   = "||"  
   show XOr  = "xor"
   show Eq   = "=="  
+  show BEq  = "=b="  
 
 is_boolean :: Op -> Bool
 is_boolean op = case op of
@@ -36,6 +37,7 @@ is_boolean op = case op of
   Or -> True  
   XOr -> True
   Eq -> True  
+  BEq -> True  
 
 is_assoc :: Op -> Bool
 is_assoc op = case op of
@@ -47,5 +49,4 @@ is_assoc op = case op of
   Or -> True  
   XOr -> True
   Eq -> True
-
-      
+  BEq -> True      
