@@ -137,10 +137,27 @@ case_subst sigma f_shift f_cons
                ; f_cons t sigma'
                }
 
--- NEED GENERAL EQUALITY HERE...
--- subst_term sigma t
---   = case_term t
---       -- Var(n)
---       (\n -> case_subst t
---                (\m -> varN $ n+m)
---                (\t' sigma' -> ...
+subst_term sigma t 
+  = do { p <- pair sigma t :: Comp (TProd TSubst TTerm)
+       ; fix go p
+       }
+  where go self p0
+          = do { sigma0 <- fst_pair p0
+               ; t0 <- snd_pair p0
+               ; case_term t0
+                 -- Var(n)
+                 (\n -> case_subst sigma0
+                        (\m -> varN $ n+m)
+                        (\t' sigma' -> 
+                           do { self' <- 
+                                  do { n' <- varN (n - 1.0)
+                                     ; p' <- pair sigma' n'
+                                     ; self p'
+                                     }
+                              ; if zeq n then t' else self'
+                              }))
+                 -- TODO: Lam t1
+                 (\t1 -> ret t1)
+                 -- TODO: App t1 t2
+                 (\t1 _ -> ret t1)
+               }
