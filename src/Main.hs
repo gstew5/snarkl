@@ -288,6 +288,13 @@ prog29
 prog30
   = list_comp4
 
+-- | 31. div test
+prog31
+  = do { x <- input
+       ; y <- input
+       ; ret $ x / y
+       }
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -335,6 +342,11 @@ tests
     , (prog29, [1], 24)
 
     , (prog30, [], 24)      
+
+    , (prog31, [4,2], 2)      
+    , (prog31, [4,1], 4)      
+    , (prog31, [4,4], 1)      
+    , (prog31, [21,7], 3)      
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

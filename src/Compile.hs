@@ -141,7 +141,8 @@ encode_binop op (x,y,z) = go op
             $ CMult (one,x) (one,y) (one,Just z)
 
         go Div
-          = fail_with $ ErrMsg "div not yet implemented"
+          = add_constraint
+            $ CMult (one,y) (one,z) (one,Just x)
 
 encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
 encode_linear out xs
