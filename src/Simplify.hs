@@ -28,6 +28,7 @@ subst_constr :: Field a
              => Constraint a
              -> State (SEnv a) (Constraint a)
 subst_constr !constr = case constr of
+  COra !_ !_ -> return constr
   CAdd a m -> 
     do { -- Variables resolvable to constants
          consts' <- mapM (\(x,a0) ->
@@ -114,6 +115,7 @@ is_taut constr
            CAdd _ (CoeffList []) -> return True
            CAdd _ (CoeffList (_ : _)) -> return False
            CMult _ _ _ -> return False
+           COra _ _ -> return False
        }
 
 -- | Remove tautologous constraints.
@@ -150,11 +152,8 @@ learn constr
           | otherwise
           = return ()
 
-        -- go (CMult (c,_) (d,y) (e,Nothing))
-        --   | c==zero 
-        --   = case inv d of
-        --       Nothing -> return ()
-        --       Just d' -> bind_var (y,e `mult` d')
+        go (COra xs mf)
+          = mf xs
 
         go _ | otherwise = return ()
 

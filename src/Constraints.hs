@@ -18,12 +18,14 @@ module Constraints
 
 import qualified Data.Set as Set
 import qualified Data.IntMap.Lazy as Map
+import Control.Monad.State
 
 import Common
 import Errors
 import Field
 import Poly
 import R1CS
+import SimplMonad
 
 ----------------------------------------------------------------
 --            Intermediate Constraint Language                
@@ -68,6 +70,7 @@ remove_zeros (CoeffList l) = CoeffList $ go [] l
 data Constraint a =
     CAdd !a !(CoeffList Var a)
   | CMult !(a,Var) !(a,Var) !(a, Maybe Var)
+  | COra [Var] ([Var] -> State (SEnv a) ())
 
 -- | Smart constructor enforcing CoeffList invariant
 cadd :: Field a => a -> [(Var,a)] -> Constraint a
@@ -91,6 +94,8 @@ instance Eq a => Eq (Constraint a) where
       && (cx == cx' && dy == dy' || cx == dy' && dy == cx')
   CAdd _ _ == CMult _ _ _ = False
   CMult _ _ _ == CAdd _ _ = False
+  COra _ _ == _ = False
+  _ == COra _ _ = False
 
 compare_add :: Ord a => Constraint a -> Constraint a -> Ordering
 {-# INLINE compare_add #-}
@@ -127,6 +132,8 @@ compare_constr !constr@(CAdd _ _) !constr'@(CAdd _ _)
   = compare_add constr constr'
 compare_constr !constr@(CMult {}) !constr'@(CMult {})
   = compare_mult constr constr'
+compare_constr !(COra _ _) !(_) = GT
+compare_constr !(_) !(COra _ _) = LT
 
 instance Ord a => Ord (Constraint a) where
   {-# SPECIALIZE instance Ord (Constraint Rational) #-}
@@ -145,6 +152,8 @@ instance Show a => Show (Constraint a) where
          ++ case mz of
               Nothing -> show e
               Just z  -> show_term e z
+
+  show (COra xs _) = "Oracle " ++ show xs
 
 ----------------------------------------------------------------
 -- Compilation to R1CS
@@ -172,6 +181,9 @@ r1cs_of_cs cs
         go (CMult cx dy (e,Just z) : cs')
           = R1C (var_poly cx,var_poly dy,var_poly (e,z)) : go cs'
 
+        go (COra _ _ : cs') 
+          = go cs'
+
 
 -- | Return the list of variables occurring in constraints 'cs'.
 constraint_vars :: ConstraintSet a -> [Var]
@@ -181,6 +193,7 @@ constraint_vars cs
   where get_vars (CAdd _ m) = Set.fromList $ map fst (asList m)
         get_vars (CMult (_,x) (_,y) (_,Nothing)) = Set.fromList [x,y]
         get_vars (CMult (_,x) (_,y) (_,Just z))  = Set.fromList [x,y,z]
+        get_vars (COra xs _) = Set.fromList xs
 
 
 -- | Sequentially renumber term variables '0..max_var'.
@@ -220,6 +233,8 @@ renumber_constraints cs
                 cadd a $ map (\(k,v) -> (renum_f k,v)) (asList m)
               CMult (c,x) (d,y) (e,mz) ->
                 CMult (c,renum_f x) (d,renum_f y) (e,fmap renum_f mz)
+              COra xs f -> 
+                COra (map renum_f xs) f   
             
 
 
