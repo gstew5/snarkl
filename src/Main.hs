@@ -308,6 +308,9 @@ bool_prog33
        ; ret $ x `eq` y
        }
 
+-- | 34. beta test
+prog34 = beta_test1
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,0,1], 0)
@@ -359,7 +362,9 @@ tests
     , (prog31, [4,2], 2)      
     , (prog31, [4,1], 4)      
     , (prog31, [4,4], 1)      
-    , (prog31, [21,7], 3)      
+    , (prog31, [21,7], 3)
+
+    , (prog34, [], 0)            
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]
