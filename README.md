@@ -1,4 +1,4 @@
-# snårkl ("Snorkel")
+# TinyLam
 
 An Embedded DSL for Verifiable Computing
 
