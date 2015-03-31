@@ -119,20 +119,19 @@ is_taut :: Field a
         => Constraint a 
         -> State (SEnv a) Bool
 is_taut constr  
-  = do { constr' <- subst_constr constr
-       ; case constr' of
-           CAdd _ (CoeffList []) -> return True
-           CAdd _ (CoeffList (_ : _)) -> return False
-           CMult _ _ _ -> return False
-           CMagic _ xs mf -> mf xs
-       }
+  = case constr of
+      CAdd _ (CoeffList []) -> return True
+      CAdd _ (CoeffList (_ : _)) -> return False
+      CMult _ _ _ -> return False
+      CMagic _ xs mf -> mf xs
 
 -- | Remove tautologous constraints.
 remove_tauts :: Field a => [Constraint a] -> State (SEnv a) [Constraint a]
 remove_tauts sigma
   = do { sigma_taut <-
-            mapM (\t -> do { b <- is_taut t
-                           ; return (b,t) }) sigma
+            mapM (\t -> do { t' <- subst_constr t
+                           ; b <- is_taut t'
+                           ; return (b,t') }) sigma
        ; return $ map snd $ filter (not . fst) sigma_taut
        }
 
@@ -140,11 +139,7 @@ remove_tauts sigma
 learn :: Field a
       => Constraint a
       -> State (SEnv a) ()
-learn constr 
-  = do { constr' <- subst_constr constr
-       ; go constr'
-       }
-
+learn = go
   where go (CAdd a (CoeffList [(x,c)]))
           = if c == zero then return ()
             else case inv c of
@@ -261,11 +256,12 @@ simplify_rec sigma
         go ws us
           | otherwise
           = let (given,us') = choose us
-            in do { given_taut <- is_taut given
+            in do { given' <- subst_constr given
+                  ; given_taut <- is_taut given'
                   ; if given_taut then go ws us'
                     else do
-                      learn given
-                      let ws' = Set.insert given ws
+                      learn given'
+                      let ws' = Set.insert given' ws
                       go ws' us'
                   }
 
