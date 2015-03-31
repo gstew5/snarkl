@@ -261,24 +261,13 @@ cs_of_exp out e = case e of
               -- Otherwise, do the pairwise encoding.
               _ -> h labels
           }
-       
-  EIf b e1 e2 ->
-    do { b_out  <- fresh_var -- b
-       ; bn_out <- fresh_var -- (1-b)
-       ; e1_out <- fresh_var -- e1
-       ; e2_out <- fresh_var -- e2
-       ; b_e1   <- fresh_var -- b*e1
-       ; bn_e2  <- fresh_var -- (1-b)*e2
-         
-       ; cs_of_exp b_out b
-       ; cs_of_exp bn_out (EBinop Sub [EVal one,b])
-       ; cs_of_exp e1_out e1
-       ; cs_of_exp e2_out e2
 
-       ; encode_binop Mult (b_out,e1_out,b_e1)
-       ; encode_binop Mult (bn_out,e2_out,bn_e2)
-       ; encode_binop Or (b_e1,bn_e2,out)
-       }
+  -- Encoding: out = b*e1 \/ (1-b)e2 
+  EIf b e1 e2 -> cs_of_exp out e0
+    where e0 = EBinop Or
+               [ EBinop Mult [b,e1]
+               , EBinop Mult [EBinop Sub [EVal one,b],e2]
+               ]
     
   -- NOTE: when compiling assignments, the naive thing to do is
   -- to introduce a new var, e2_out, bound to result of e2 and
