@@ -30,7 +30,7 @@ prog1
        ; u <- ret $ y + 2.0
        ; v <- if z then y else y
        ; w <- if x then y else y
-       ; ret $ u*u - w*u*u*y*y*v
+       ; ret $ (u*u) - (w*u*u*y*y*v)
        }
 
 -- | 2. We can also mix Haskell code with R1CS expressions, by defining
@@ -313,7 +313,7 @@ prog34 = beta_test1
 
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
-  = [ (prog1, [1,0,1], 0)
+  = [ (prog1, [1,2,1], P.negate 240)
 
     , (prog2 4, [0], 10)
     , (prog2 4, [1], 15)

@@ -262,9 +262,9 @@ cs_of_exp out e = case e of
               _ -> h labels
           }
 
-  -- Encoding: out = b*e1 \/ (1-b)e2 
+  -- Encoding: out = b*e1 + (1-b)e2 
   EIf b e1 e2 -> cs_of_exp out e0
-    where e0 = EBinop Or
+    where e0 = EBinop Add
                [ EBinop Mult [b,e1]
                , EBinop Mult [EBinop Sub [EVal one,b],e2]
                ]
