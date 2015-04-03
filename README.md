@@ -1,10 +1,10 @@
-# TinyLam
+# Snårkl
 
 An Embedded DSL for Verifiable Computing
 
 ## Build
 
-TinyLam builds with GHC version >= 7.8.3. It may compile with earlier versions as well, but this hasn't been tested. First `cabal install` packages `mtl` and `parallel`. Then do:
+Snårkl builds with GHC version >= 7.8.3. It may compile with earlier versions as well, but this hasn't been tested. First `cabal install` packages `mtl` and `parallel`. Then do:
 
 ```
 > cd src
@@ -12,7 +12,7 @@ TinyLam builds with GHC version >= 7.8.3. It may compile with earlier versions a
 ```
 ## Examples
 
-[Main.hs](https://github.com/gstew5/tinylam/blob/master/src/Main.hs) contains some small TinyLam programs, used for testing purposes. [app/keccak/Main.hs](https://github.com/gstew5/tinylam/blob/master/src/app/keccak/Main.hs), which can be built by
+[Main.hs](https://github.com/gstew5/tinylam/blob/master/src/Main.hs) contains some small Snårkl programs, used for testing purposes. [app/keccak/Main.hs](https://github.com/gstew5/tinylam/blob/master/src/app/keccak/Main.hs), which can be built by
 
 ```
 > make keccak
@@ -26,7 +26,7 @@ contain programs that make use of inductive types.
 
 ## Limitations
 
-TinyLam is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to `libsnark` hasn't yet been implemented.
+Snårkl is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to `libsnark` hasn't yet been implemented.
 
 ## Overview of Main Files
 
