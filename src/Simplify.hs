@@ -167,9 +167,9 @@ do_simplify :: Field a
                 -- ^ Resulting assignment, simplified constraint set
 do_simplify in_solve_mode env cs
     -- NOTE: Pinned vars include:
-    -- * input vars
-    -- * output vars
-    -- * magic vars (those that appear in magic constraints, used to 
+    --   - input vars
+    --   - output vars
+    --   - magic vars (those that appear in magic constraints, used to 
     --   resolve nondeterministic inputs)   
     -- Pinned vars are never optimized away.
   = let pinned_vars = cs_in_vars cs ++ cs_out_vars cs ++ magic_vars (cs_constraints cs)

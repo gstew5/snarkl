@@ -11,7 +11,6 @@
 
 module Syntax
        ( Zippable
-       , zip_vals
        , rep_sum
 
          -- | Computation monad
