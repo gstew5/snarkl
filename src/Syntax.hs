@@ -122,6 +122,7 @@ import R1CS
 import TExpr
 import Compile
 import Serialize
+import Interp ( interp )
 
 ----------------------------------------------------
 --
@@ -921,7 +922,20 @@ check mf inputs
                   $ ErrMsg ("output variable " ++ show out_var
                             ++ "not mapped, in\n  " ++ show wit)
                 Just out_val -> out_val
-    in Result (sat_r1cs wit r1cs) nw ng out r1cs_string
+        out_interp
+          = case interp wit e of
+              Left err -> fail_with err
+              Right (_,Nothing) ->
+                fail_with
+                $ ErrMsg $ show e ++ " evaluated to bot"
+              Right (_,Just v) -> v
+        result
+          = case out_interp == out of
+              True -> sat_r1cs wit r1cs
+              False -> fail_with
+                       $ ErrMsg $ "interpreter result " ++ show out_interp
+                         ++ " differs from actual result " ++ show out
+    in Result result nw ng out r1cs_string
 
 -- | (1) Compile to R1CS.
 --   (2) Generate a satisfying assignment, w.

@@ -21,11 +21,17 @@ type Env a = IntMap (Maybe a)
 newtype InterpM a b
   = InterpM { runInterpM :: Env a -> Either ErrMsg (Env a,b) }
 
-instance Functor (InterpM a) where
-  fmap f mg = InterpM (\rho -> case runInterpM mg rho of
-                          Left err -> Left err
-                          Right (rho',a)  -> Right (rho',f a))
+instance Monad (InterpM a) where    
+  (>>=) mf mg
+    = InterpM (\rho -> case runInterpM mf rho of
+                  Left err -> Left err
+                  Right (rho',b) -> runInterpM (mg b) rho')
+  return b
+    = InterpM (\rho -> Right (rho,b))
 
+instance Functor (InterpM a) where
+  fmap f mg = return f `ap` mg
+    
 instance Applicative (InterpM a) where
   pure = return 
   mf <*> ma = ap mf ma
@@ -35,15 +41,6 @@ raise_err err
 
 add_binds binds
   = InterpM (\rho -> Right (IntMap.union (IntMap.fromList binds) rho,Nothing))
-
-instance Monad (InterpM a) where    
-  (>>=) mf mg
-    = InterpM (\rho -> case runInterpM mf rho of
-                  Left err -> Left err
-                  Right (rho',b) -> runInterpM (mg b) rho')
-  return b
-    = InterpM (\rho -> Right (rho,b))
-
 
 lookup_var x
   = InterpM (\rho -> case IntMap.lookup x rho of
@@ -62,8 +59,12 @@ case_of_field (Just v) f
     else if v == one then f $ Just True
          else raise_err $ ErrMsg $ "expected " ++ show v ++ " to be boolean"
 
-bool_of_field :: Field a => a -> InterpM a (Maybe Bool)
-bool_of_field = flip case_of_field return . Just
+bool_of_field :: Field a => a -> InterpM a Bool
+bool_of_field v
+  = case_of_field (Just v)
+    (\mb -> case mb of
+        Nothing -> raise_err $ ErrMsg "internal error in bool_of_field"
+        Just b -> return b)
 
 interp_unop :: Field a
             => TUnop ty1 ty2 -> TExp ty1 a -> InterpM a (Maybe a) 
@@ -84,36 +85,37 @@ interp_binop op e1 e2
        ; case (mv1,mv2) of
            (Nothing,_) -> return Nothing
            (_,Nothing) -> return Nothing
-           (Just v1,Just v2) -> 
-             case op of
-               TOp Add -> return $ Just $ v1 `add` v2
-               TOp Sub -> return $ Just $ v1 `add` (neg v2)
-               TOp Mult -> return $ Just $ v1 `mult` v2
-               TOp Div ->
-                 case inv v2 of
-                   Nothing -> raise_err $ ErrMsg $ show v2 ++ " not invertible"
-                   Just v2' -> return $ Just $ v1 `mult` v2'
-               TOp And -> interp_boolean_binop op v1 v2
-               TOp Or  -> interp_boolean_binop op v1 v2
-               TOp XOr -> interp_boolean_binop op v1 v2
-               TOp BEq -> interp_boolean_binop op v1 v2
-               TOp Eq  -> return $ Just $ field_of_bool $ v1 == v2
+           (Just v1,Just v2) ->
+             do { v <- interp_val_binop v1 v2
+                ; return $ Just v
+                }
        }
-  where interp_boolean_binop op0 v1 v2
-          = do { mb1 <- bool_of_field v1
-               ; mb2 <- bool_of_field v2
-               ; case (mb1,mb2) of
-                   (Nothing,_) -> return Nothing
-                   (_,Nothing) -> return Nothing
-                   (Just b1,Just b2) -> 
-                     let b = case op0 of
-                               TOp And -> b1 && b2
-                               TOp Or  -> b1 || b2 
-                               TOp XOr -> (b1 && not b2) || (b2 && not b1)
-                               TOp BEq -> b1 == b2
-                               _ -> fail_with $ ErrMsg "internal error in interp_binop"
-                     in return $ Just $ field_of_bool b
-               } 
+  where interp_val_binop v1 v2
+          = case op of
+              TOp Add -> return $ v1 `add` v2
+              TOp Sub -> return $ v1 `add` (neg v2)
+              TOp Mult -> return $ v1 `mult` v2
+              TOp Div ->
+                case inv v2 of
+                  Nothing -> raise_err $ ErrMsg $ show v2 ++ " not invertible"
+                  Just v2' -> return $ v1 `mult` v2'
+              TOp And -> interp_boolean_binop v1 v2
+              TOp Or  -> interp_boolean_binop v1 v2
+              TOp XOr -> interp_boolean_binop v1 v2
+              TOp BEq -> interp_boolean_binop v1 v2
+              TOp Eq  -> return $ field_of_bool $ v1 == v2
+
+        interp_boolean_binop v1 v2
+          = do { b1 <- bool_of_field v1
+               ; b2 <- bool_of_field v2
+               ; let b = case op of
+                           TOp And -> b1 && b2
+                           TOp Or  -> b1 || b2 
+                           TOp XOr -> (b1 && not b2) || (b2 && not b1)
+                           TOp BEq -> b1 == b2
+                           _ -> fail_with $ ErrMsg "internal error in interp_binop"
+                 in return $ field_of_bool b
+               }
 
 interp_val :: Field a => Val ty a -> InterpM a a
 interp_val v
