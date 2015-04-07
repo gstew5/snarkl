@@ -200,12 +200,12 @@ constraint_vars cs
 
 -- | Sequentially renumber term variables '0..max_var'.
 --   Return renumbered constraints, together with the total number of
---   variables in the (renumberd) constraint set and the
+--   variables in the (renumbered) constraint set and the
 --   (possibly renumbered) out variable (input vars. are always mapped
 --   by the identity function).
 renumber_constraints :: Field a
                       => ConstraintSystem a
-                      -> ( Var -> Var -- ^ The function used to renumber variables
+                      -> ( Var -> Var 
                          , ConstraintSystem a 
                          )
 renumber_constraints cs
