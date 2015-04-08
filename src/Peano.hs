@@ -17,6 +17,7 @@ import Prelude hiding
   , negate    
   )
 
+import SyntaxMonad
 import Syntax
 import TExpr
 

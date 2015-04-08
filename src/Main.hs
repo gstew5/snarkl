@@ -17,6 +17,8 @@ import Prelude hiding
 import qualified Prelude as P
 
 import Syntax
+import SyntaxMonad
+import Toplevel
 import TExpr
 import Peano
 import Lam

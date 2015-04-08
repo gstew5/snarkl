@@ -20,6 +20,7 @@ import Prelude hiding
 import Data.Typeable
 
 import Errors
+import SyntaxMonad
 import Syntax
 import TExpr
 

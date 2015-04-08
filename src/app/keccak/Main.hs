@@ -20,7 +20,9 @@ import Prelude hiding
   )
 import qualified Prelude as P
 
+import SyntaxMonad
 import Syntax
+import Toplevel
 import TExpr
 
 num_lanes :: Int

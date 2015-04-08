@@ -19,6 +19,7 @@ import Prelude hiding
 
 import Data.Typeable
 
+import SyntaxMonad
 import Syntax
 import TExpr
 
