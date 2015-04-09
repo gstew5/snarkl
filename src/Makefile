@@ -18,25 +18,17 @@ HADDOCK_OPTS=-o doc --html
 all:
 	$(GHC) $(GHC_OPTIONS) Main.hs
 
-test:   all keccak
-	./Main && time app/keccak/Main
+test:   all
+	./Main
 
-keccak:
-	$(GHC) $(GHC_OPTIONS) app/keccak/Main.hs
 doc:
 	$(HADDOCK) $(HADDOCK_OPTS) *.hs
 
 debug:
 	$(GHC) Main.hs
 
-keccak-debug:
-	$(GHC) app/keccak/Main.hs
-
 prof:
 	$(GHC) $(GHC_OPTIONS) $(GHC_PROF_OPTIONS) Main.hs
 
-keccak-prof:
-	$(GHC) $(GHC_OPTIONS) $(GHC_PROF_OPTIONS) app/keccak/Main.hs
-
 clean:
-	rm *.o *.hi *~ main.exe doc/* app/*/*.o app/*/*.hi app/*/main.exe
+	rm *.o *.hi *~ main.exe doc/*

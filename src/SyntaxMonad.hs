@@ -71,7 +71,6 @@ data Env = Env { next_var :: Int
                , obj_map :: ObjMap
                , bots :: Set.Set Var 
                , guards :: Map.Map Var Bool
-                 
                }
            deriving Show
 

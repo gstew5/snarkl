@@ -1,8 +1,9 @@
 {-# LANGUAGE RebindableSyntax,DataKinds #-}
 
-module Main where
+module Keccak where
 
 import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as IntMap
 import Data.Bits hiding (xor)
 
 import Prelude hiding 
@@ -22,14 +23,16 @@ import qualified Prelude as P
 
 import SyntaxMonad
 import Syntax
-import Toplevel
 import TExpr
+import Compile
+import R1CS
+import qualified Toplevel as Top
 
 num_lanes :: Int
 num_lanes = (P.*) 5 5
 
 ln_width :: Int
-ln_width = 64
+ln_width = 32
 
 round1 :: (Int -> TExp TBool Rational) -- | 'i'th bit of round constant
        -> TExp (TArr (TArr (TArr TBool))) Rational   -- | Array 'a'
@@ -145,10 +148,33 @@ keccak1 num_rounds
        ; get3 (a,0,0,0)
        }
 
-tests = [ ( keccak1 1
-          , take ((P.*) num_lanes ln_width)
-            $ repeat (0::Int), 1
-          )
-        ]
-  
-main = mapM_ test tests
+input_vals
+  = take ((P.*) num_lanes ln_width) $ repeat (0::Int)
+
+test_full n
+  = Top.test (keccak1 n, input_vals, (1::Integer))
+
+test_interp n
+  = Top.interpret (keccak1 n) (map fromIntegral input_vals)
+
+test_r1cs n
+  = let (nv,in_vars,e) = Top.texp_of_comp (keccak1 n)
+        r1cs           = r1cs_of_exp nv in_vars e
+    in putStrLn
+       $ show
+       $ last (r1cs_clauses r1cs) 
+
+-- First compile to R1CS, then generate witness.
+test_wit n
+  = let (nv,in_vars,e) = Top.texp_of_comp (keccak1 n)
+        r1cs           = r1cs_of_exp nv in_vars e
+        wit            = Top.wit_of_r1cs in_vars (map fromIntegral input_vals) r1cs
+    in case IntMap.lookup 1000000 wit of
+         Nothing -> putStr ""
+         Just v  -> putStr (show v)
+                 
+
+
+            
+
+

@@ -9,6 +9,7 @@ Snårkl builds with GHC version >= 7.8.3. It may compile with earlier versions a
 ``` 
 mtl
 parallel
+criterion
 ``` 
 
 Then do:

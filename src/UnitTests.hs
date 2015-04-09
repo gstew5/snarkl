@@ -2,7 +2,7 @@
            , DataKinds
   #-}
 
-module Tests where
+module UnitTests where
 
 import Prelude hiding 
   ( (>>)
