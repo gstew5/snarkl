@@ -5,6 +5,7 @@ module Toplevel
   , texp_of_comp
   , interpret
   , wit_of_r1cs
+  , result_of
   , test
   ) where
 
@@ -120,6 +121,10 @@ check mf inputs
                             $ ErrMsg $ "interpreter result " ++ show out_interp
                               ++ " differs from actual result " ++ show out
     in Result result nw ng out r1cs_string
+
+result_of :: Typeable ty => Comp ty -> [Int] -> Int
+result_of mf inputs
+  = truncate $ result_result $ check mf (map fromIntegral inputs)
 
 -- | IO wrapper around 'check'.
 do_test :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
