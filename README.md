@@ -52,7 +52,7 @@ snarkl/
       benchmarks/      -- microbenchmarks
 ```
 
-## Overview of Main Files in `src`
+## Compiler Overview
 
 ### Languages
 
