@@ -198,11 +198,10 @@ constraint_vars cs
         get_vars (CMagic _ xs _) = Set.fromList xs
 
 
--- | Sequentially renumber term variables '0..max_var'.
---   Return renumbered constraints, together with the total number of
---   variables in the (renumbered) constraint set and the
---   (possibly renumbered) out variable (input vars. are always mapped
---   by the identity function).
+-- | Sequentially renumber term variables '0..max_var'.  Return
+--   renumbered constraints, together with the total number of
+--   variables in the (renumbered) constraint set and the (possibly
+--   renumbered) in and out variables.
 renumber_constraints :: Field a
                       => ConstraintSystem a
                       -> ( Var -> Var 
@@ -216,8 +215,8 @@ renumber_constraints cs
 
         var_map
           = Map.fromList
-            $ zip (cs_in_vars cs ++ filter is_input all_vars) [0..]
-          where is_input = not . flip Set.member in_vars_set
+            $ zip (cs_in_vars cs ++ filter isnt_input all_vars) [0..]
+          where isnt_input = not . flip Set.member in_vars_set
                 in_vars_set = Set.fromList $ cs_in_vars cs
                 all_vars = constraint_vars $ cs_constraints cs
 

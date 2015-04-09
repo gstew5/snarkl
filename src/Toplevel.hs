@@ -81,8 +81,9 @@ interpret mf inputs
          Right (_,Just v) -> v
 
 -- | For a given R1CS and inputs, calculate a satisfying assignment.
-wit_of_r1cs in_vars inputs r1cs
-  = let f = r1cs_gen_witness r1cs . IntMap.fromList
+wit_of_r1cs inputs r1cs
+  = let in_vars = r1cs_in_vars r1cs
+        f = r1cs_gen_witness r1cs . IntMap.fromList
     in case length in_vars /= length inputs of
          True ->
            fail_with
@@ -104,7 +105,7 @@ check mf inputs
         nw        = r1cs_num_vars r1cs
         [out_var] = r1cs_out_vars r1cs
         ng        = num_constraints r1cs
-        wit       = wit_of_r1cs in_vars inputs r1cs
+        wit       = wit_of_r1cs inputs r1cs
         out = case IntMap.lookup out_var wit of
                 Nothing ->
                   fail_with

@@ -302,9 +302,14 @@ r1cs_of_constraints cs
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts.
-        (renumber_f,cs') = renumber_constraints cs_dataflow
-         -- 'f' is a function mapping input bindings to witnesses.    
-        f = solve cs' . Map.mapKeys renumber_f
+        (_,cs') = renumber_constraints cs_dataflow
+         -- 'f' is a function mapping input bindings to witnesses.
+         -- NOTE: we assume the initial variable assignment passed to
+         -- 'f' is the one derived by zipping the inputs together with
+         -- the (renamed) input vars. of the R1CS produced by this
+         -- function. Alternatively, we could 'Map.mapKeys renumber_f'
+         -- before applying 'solve cs''.
+        f = solve cs' 
     in r1cs_of_cs cs' f
 
 -- | Compile an expression to a constraint system.  Takes as input the
