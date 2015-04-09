@@ -42,8 +42,8 @@ snarkl/
   src/                 
     Toplevel.hs        -- compiler
     ... 
-    examples/          -- some example Snårkl programs that exercise 
-     Peano.hs          -- the support for inductive data
+    examples/          -- some example Snårkl programs that exercise inductive types
+     Peano.hs          
      List.hs
      Lam.hs   
      Keccak.hs
