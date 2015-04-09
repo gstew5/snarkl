@@ -27,7 +27,8 @@ source-repository head
 test-suite hspec
   type:             exitcode-stdio-1.0
   main-is:          Main.hs
-  hs-source-dirs:   src/testsuite/tests
+  hs-source-dirs:   src/testsuite/tests,
+                    src/examples
   default-language: Haskell2010
   build-depends:    
     base                >=4.7 && <4.8, 
@@ -42,7 +43,8 @@ test-suite hspec
 benchmark criterion
   type:             exitcode-stdio-1.0
   main-is:          Main.hs
-  hs-source-dirs:   src/testsuite/benchmarks
+  hs-source-dirs:   src/testsuite/benchmarks,
+                    src/examples
   default-language: Haskell2010
   build-depends:    
     base                >=4.7 && <4.8, 
@@ -68,15 +70,14 @@ library
     TExpr,
     SyntaxMonad, Syntax,
     Toplevel,
-    UnitTests,
     Compile,
-    R1CS
+    R1CS,
+    Errors
   
   -- Modules included in this library but not exported.
   other-modules:       
-    Constraints, Field, List, Interp, Lam, Peano, Poly, Errors,
-    SimplMonad, UnionFind, Expr, Solve, Simplify, Dataflow, Common,
-    Serialize
+    Constraints, Field, Interp, Poly, SimplMonad, UnionFind, Expr,
+    Solve, Simplify, Dataflow, Common, Serialize
   
   other-extensions: 
     GADTs, TypeSynonymInstances, FlexibleInstances, BangPatterns,

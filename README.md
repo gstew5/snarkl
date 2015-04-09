@@ -4,39 +4,47 @@ An Embedded DSL for Verifiable Computing
 
 ## Build
 
-Snårkl builds with GHC version >= 7.8.3. It may compile with earlier versions as well, but this hasn't been tested. First `cabal install` packages 
+Snårkl builds with GHC version >= 7.8.3 and Cabal version >= 1.22. It may compile with earlier versions as well, but this hasn't been tested. 
+
+To build, from the root directory do:
 
 ``` 
-mtl
-parallel
-criterion
+> cabal install
 ``` 
 
-Then do:
+To build the unit tests, do:
 
 ```
-> cd src
-> make
-```
-## Examples
-
-[Main.hs](https://github.com/gstew5/tinylam/blob/master/src/Main.hs) contains some small Snårkl programs, used for testing purposes. [app/keccak/Main.hs](https://github.com/gstew5/tinylam/blob/master/src/app/keccak/Main.hs), which can be built by
-
-```
-> make keccak
+> cabal test
 ```
 
-from the `src` directory, contains an implementation of the Keccak (SHA3) round function. 
-[List.hs](https://github.com/gstew5/tinylam/blob/master/src/List.hs), 
-[Peano.hs](https://github.com/gstew5/tinylam/blob/master/src/Peano.hs), 
-[Lam.hs](https://github.com/gstew5/tinylam/blob/master/src/Lam.hs)
-contain programs that make use of inductive types.
+To run the benchmarks, do: 
+
+```
+> cabal bench
+```
 
 ## Limitations
 
 Snårkl is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to `libsnark` hasn't yet been implemented.
 
-## Overview of Main Files
+## Directory Structure
+
+```
+snarkl/
+  src/                 
+    Toplevel.hs        -- compiler
+    ... 
+    examples/          -- some example Snårkl programs that exercise 
+     Peano.hs          -- the support for inductive data
+     List.hs
+     Lam.hs   
+     Keccak.hs
+    tests/
+      testsuite/       -- unit tests
+      benchmarks/      -- microbenchmarks
+
+## Overview of Main Files in `src`
 
 ### Languages
 
