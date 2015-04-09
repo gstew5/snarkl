@@ -9,13 +9,14 @@ Snårkl builds with GHC version >= 7.8.3 and Cabal version >= 1.22. It may compi
 To build, from the root directory do:
 
 ``` 
+> cabal sandbox init
 > cabal install
 ``` 
 
-If you don't want to install Snårkl system-wide, you can precede the previous command with:
+Or, if you prefer to install Snårkl system-wide, do just:
 
 ``` 
-> cabal sandbox init
+> cabal install
 ``` 
 
 To build the unit tests, do:
