@@ -43,7 +43,8 @@ test-suite hspec
 benchmark criterion
   type:             exitcode-stdio-1.0
   main-is:          Main.hs
-  hs-source-dirs:   src/testsuite/benchmarks,
+  hs-source-dirs:   src,
+                    src/testsuite/benchmarks,
                     src/examples
   default-language: Haskell2010
   build-depends:    
@@ -97,7 +98,8 @@ library
   
   hs-source-dirs:      src, 
                        src/testsuite/tests,
-                       src/testsuite/benchmarks
+                       src/testsuite/benchmarks,
+                       src/examples
 
   default-language:    Haskell2010
   

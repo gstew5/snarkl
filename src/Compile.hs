@@ -5,8 +5,8 @@ module Compile
   , fresh_var
   , cs_of_exp
   , get_constraints
-  , constraints_of_exp
-  , r1cs_of_exp
+  , constraints_of_texp
+  , r1cs_of_texp
   , exp_of_texp
   ) where
 
@@ -315,23 +315,30 @@ r1cs_of_constraints cs
 -- | Compile an expression to a constraint system.  Takes as input the
 -- expression, the expression's input variables, and the name of the
 -- output variable.
-constraints_of_exp :: Field a
-            => Var -- ^ Output variable
-            -> [Var] -- ^ Input variables
-            -> [Var] -- ^ Boolean input variables            
-            -> Exp a -- ^ Expression
-            -> ConstraintSystem a
-constraints_of_exp out in_vars boolean_in_vars e
+constraints_of_texp :: ( Field a
+                       , Typeable ty
+                       )
+                    => Var -- ^ Output variable
+                    -> [Var] -- ^ Input variables
+                    -> TExp ty a -- ^ Expression
+                    -> ConstraintSystem a
+constraints_of_texp out in_vars te
   = let cenv_init = CEnv Set.empty (out+1)
         (constrs,_) = runState go cenv_init
     in constrs
-  where go = do { -- Compile 'e' to constraints 'cs', with output wire 'out'.
-                  cs_of_exp out e
+  where go = do { let boolean_in_vars
+                        = Set.toList
+                          $ Set.fromList in_vars
+                            `Set.intersection`
+                            Set.fromList (boolean_vars_of_texp te)
+                      e = exp_of_texp te
+                  -- Compile 'e' to constraints 'cs', with output wire 'out'.
+                ; cs_of_exp out e
                   -- Add boolean constraints
                 ; mapM ensure_boolean boolean_in_vars
                 ; cs <- get_constraints
                 ; let constraint_set = Set.fromList cs
-                ; let num_constraint_vars
+                      num_constraint_vars
                         = length $ constraint_vars constraint_set
                 ; return
                   $ ConstraintSystem
@@ -339,7 +346,7 @@ constraints_of_exp out in_vars boolean_in_vars e
                 } 
 
 -- | Compile an expression 'e' to R1CS.
-r1cs_of_exp :: ( Field a
+r1cs_of_texp :: ( Field a
                , Typeable ty
                ) =>
                Var   -- ^ The next free variable (calculated by frontend)
@@ -347,13 +354,8 @@ r1cs_of_exp :: ( Field a
             -> TExp ty a -- ^ Expression to be compiled
             -- | The resulting rank-1 constraint system.
             -> R1CS a
-r1cs_of_exp out in_vars te
-  = let boolean_in_vars
-          = Set.toList
-            $ Set.fromList in_vars
-              `Set.intersection` Set.fromList (boolean_vars_of_texp te)
-        e = exp_of_texp te
-        constrs = constraints_of_exp out in_vars boolean_in_vars e
+r1cs_of_texp out in_vars te
+  = let constrs = constraints_of_texp out in_vars te
         r1cs = r1cs_of_constraints constrs
     in r1cs
 
