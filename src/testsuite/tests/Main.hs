@@ -2,8 +2,9 @@ module Main where
 
 import Test.Hspec
 
-import UnitTests
+import Keccak
 import Toplevel
+import UnitTests
        
 main :: IO ()
 main = hspec $ do
@@ -129,3 +130,8 @@ main = hspec $ do
       it "33-3" $ result_of bool_prog33 [-33,44] `shouldBe` 0
       it "33-3" $ result_of bool_prog33 [-1,-1] `shouldBe` 1
     
+  describe "Keccak Tests" $ do
+
+    describe "keccak" $ do 
+      it "keccak-2" $ result_of (keccak1 2) input_vals `shouldBe` 1
+      it "keccak-2" $ result_of (keccak1 5) input_vals `shouldBe` 0     
