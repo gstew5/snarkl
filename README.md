@@ -12,6 +12,12 @@ To build, from the root directory do:
 > cabal install
 ``` 
 
+If you don't want to install Snårkl system-wide, you can precede the previous command with:
+
+``` 
+> cabal sandbox init
+``` 
+
 To build the unit tests, do:
 
 ```
