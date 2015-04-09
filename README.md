@@ -1,10 +1,10 @@
-# Snårkl
+# Snårkl 
 
 An Embedded DSL for Verifiable Computing
 
 ## Build
 
-Snårkl builds with GHC version >= 7.8.3 and Cabal version >= 1.22. It may compile with earlier versions as well, but this hasn't been tested. 
+Snårkl ("Snorkel") builds with GHC version >= 7.8.3 and Cabal version >= 1.22. It may compile with earlier versions as well, but this hasn't been tested. 
 
 To build, from the root directory do:
 
@@ -50,6 +50,7 @@ snarkl/
     tests/
       testsuite/       -- unit tests
       benchmarks/      -- microbenchmarks
+```
 
 ## Overview of Main Files in `src`
 
