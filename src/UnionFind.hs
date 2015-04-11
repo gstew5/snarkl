@@ -6,15 +6,16 @@ module UnionFind
   , UnionFind(..)
   ) where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Lazy as Map
 import Data.Maybe
 
 import Common
+import Errors
 
 data UnionFind a =
-  UnionFind { ids :: Map.Map Var Var
-            , sizes :: Map.Map Var Int
-            , extras :: Map.Map Var a }
+  UnionFind { ids :: Map.IntMap Var
+            , sizes :: Map.IntMap Int
+            , extras :: Map.IntMap a }
   deriving Show
 
 new_uf :: UnionFind a
@@ -45,21 +46,37 @@ merge_extras uf x y
       (Just c,Nothing) -> uf { extras = Map.insert y c (extras uf) }
       (Just c,Just d) ->
         if c == d then uf
-        else error $ "in UnionFind, extra data doesn't match: "
-             ++ show (x,c) ++ " != " ++ show (y,d)
+        else fail_with
+             $ ErrMsg ("in UnionFind, extra data doesn't match:\n  "
+                       ++ show (x,c) ++ " != " ++ show (y,d))
 
--- | Unify x with y.
--- Left-based: if size x == size y, prefer x as root.
+-- | Unify x with y.  On ties, prefer smaller variables. This is just
+-- a heuristic that biases toward pinned variables, many of which are
+-- low-numbered input vars. This way, we avoid introducing pinned
+-- eqns. in some cases.
 unite :: (Show a,Eq a) => UnionFind a -> Var -> Var -> UnionFind a
 unite uf x y
-  = let (rx,uf2) = root uf x
-        (ry,uf') = root uf2 y
-        sz_rx = size_of uf' rx
-        sz_ry = size_of uf' ry
-    in if sz_rx >= sz_ry then
-         uf' { ids = Map.insert y rx (ids uf')
-             , sizes = Map.insert x (sz_rx + sz_ry) (sizes uf') }
-       else 
-         uf' { ids = Map.insert x ry (ids uf')
-             , sizes = Map.insert y (sz_rx + sz_ry) (sizes uf') }
+  | x < y
+  = go x y
+    
+  | x > y
+  = go y x
+
+  | otherwise
+  = uf    
+
+  -- Left-biased: if size x == size y, prefer x as root.
+  where go x0 y0
+          = let (rx,uf2) = root uf x0
+                (ry,uf') = root uf2 y0
+                sz_rx = size_of uf' rx
+                sz_ry = size_of uf' ry
+            in if sz_rx >= sz_ry then
+                 uf' { ids = Map.insert y0 rx (ids uf')
+                     , sizes = Map.insert x0 (sz_rx + sz_ry) (sizes uf')
+                     }
+               else 
+                 uf' { ids = Map.insert x0 ry (ids uf')
+                     , sizes = Map.insert y0 (sz_rx + sz_ry) (sizes uf')
+                     }
 

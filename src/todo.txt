@@ -1,0 +1,7 @@
+Stupid stuff:
+-General inequality
+  . inequality requires binary decomposition
+-Detect field overflow via static analysis on Expr language
+  . question: can this be done directly on rationals? or should
+    we first do the embedding into F_p?
+

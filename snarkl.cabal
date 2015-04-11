@@ -1,0 +1,105 @@
+name:                snarkl
+
+-- The package version.  See the Haskell package versioning policy (PVP) 
+-- for standards guiding when and how versions should be incremented.
+-- http://www.haskell.org/haskellwiki/Package_versioning_policy
+-- PVP summary:      +-+------- breaking API changes
+--                   | | +----- non-breaking API additions
+--                   | | | +--- code changes with no API change
+version:             0.1.0.0
+synopsis:            Snarkl: An Embedded DSL for Verifiable Computing
+description:         Snarkl: An Embedded DSL for Verifiable Computing
+homepage:            https://github.com/gstew5/snarkl
+license:             BSD3
+license-file:        LICENSE
+author:              Gordon Stewart
+maintainer:          gstew5@gmail.com
+category:            Language
+
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+source-repository head
+  type:     git
+  location: https://github.com/gstew5/snarkl
+
+test-suite hspec
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  hs-source-dirs:   src/testsuite/tests,
+                    src/examples
+  default-language: Haskell2010
+  build-depends:    
+    base                >=4.7 && <4.8, 
+    containers 		>=0.5 && <0.6, 
+    mtl 		>=2.2 && <2.3,
+    criterion 		>=1.0 && <1.1, 
+    parallel 		>=3.2 && <3.3,
+    hspec               >=2.0,
+    snarkl              >=0.1.0.0,
+    Cabal               >=1.22
+
+benchmark criterion
+  type:             exitcode-stdio-1.0
+  main-is:          Main.hs
+  hs-source-dirs:   src,
+                    src/testsuite/benchmarks,
+                    src/examples
+  default-language: Haskell2010
+  build-depends:    
+    base                >=4.7 && <4.8, 
+    containers 		>=0.5 && <0.6, 
+    mtl 		>=2.2 && <2.3,
+    criterion 		>=1.0 && <1.1, 
+    parallel 		>=3.2 && <3.3,
+    hspec               >=2.0,
+    snarkl              >=0.1.0.0,
+    Cabal               >=1.22
+
+library
+  ghc-options:
+    -Wall
+    -fno-warn-missing-signatures
+    -fno-warn-unused-do-bind
+    -funbox-strict-fields
+    -rtsopts
+    -- -threaded
+    -optc-O3
+
+  exposed-modules:
+    TExpr,
+    SyntaxMonad, Syntax,
+    Toplevel,
+    Compile,
+    R1CS,
+    Errors
+  
+  -- Modules included in this library but not exported.
+  other-modules:       
+    Constraints, Field, Interp, Poly, SimplMonad, UnionFind, Expr,
+    Solve, Simplify, Dataflow, Common, Serialize
+  
+  other-extensions: 
+    GADTs, TypeSynonymInstances, FlexibleInstances, BangPatterns,
+    RebindableSyntax, DataKinds, StandaloneDeriving, RankNTypes,
+    KindSignatures, ScopedTypeVariables, FlexibleContexts,
+    UndecidableInstances, PolyKinds, GeneralizedNewtypeDeriving,
+    DeriveDataTypeable, AutoDeriveTypeable, TypeFamilies
+  
+  build-depends: 
+    base                >=4.7 && <4.8, 
+    containers 		>=0.5 && <0.6, 
+    mtl 		>=2.2 && <2.3,
+    criterion 		>=1.0 && <1.1, 
+    parallel 		>=3.2 && <3.3,
+    hspec               >=2.0,
+    Cabal               >=1.22
+  
+  hs-source-dirs:      src, 
+                       src/testsuite/tests,
+                       src/testsuite/benchmarks,
+                       src/examples
+
+  default-language:    Haskell2010
+  
