@@ -6,7 +6,7 @@ module Compile
   , cs_of_exp
   , get_constraints
   , constraints_of_texp
-  , r1cs_of_texp
+  , r1cs_of_constraints
   , exp_of_texp
   ) where
 
@@ -345,17 +345,4 @@ constraints_of_texp out in_vars te
                     constraint_set num_constraint_vars in_vars [out]
                 } 
 
--- | Compile an expression 'e' to R1CS.
-r1cs_of_texp :: ( Field a
-               , Typeable ty
-               ) =>
-               Var   -- ^ The next free variable (calculated by frontend)
-            -> [Var] -- ^ Input variables (determined by frontend)
-            -> TExp ty a -- ^ Expression to be compiled
-            -- | The resulting rank-1 constraint system.
-            -> R1CS a
-r1cs_of_texp out in_vars te
-  = let constrs = constraints_of_texp out in_vars te
-        r1cs = r1cs_of_constraints constrs
-    in r1cs
 
