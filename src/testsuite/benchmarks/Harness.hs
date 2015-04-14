@@ -4,13 +4,10 @@ import qualified Data.IntMap.Lazy as IntMap
 import qualified Data.Set as Set
 import           Data.Typeable
 
-import           Constraints
-import           R1CS
-import           Simplify
-import           SyntaxMonad ( Comp )
 import           Toplevel
 
 -- Just interpret.
+test_interp :: Typeable ty => Comp ty -> [Int] -> Rational
 test_interp mf inputs
   = comp_interp mf (map fromIntegral inputs)
 
@@ -54,8 +51,9 @@ test_wit mf inputs
          Just v  -> putStr $ show v ++ (show $ last (r1cs_clauses r1cs))
 
 -- Do everything.
+test_full :: Typeable ty => Comp ty -> [Int] -> Rational -> IO ()
 test_full mf inputs result
-  = test_comp (mf, inputs, result)
+  = test_comp (mf, map fromIntegral inputs, result)
 
 
 

@@ -9,7 +9,7 @@ import qualified Keccak as Keccak
 
 mk_bgroup nm mf inputs result
   = bgroup nm 
-    [ bench (nm ++ "-interp")        $ nf   (test_interp mf) inputs
+    [ bench (nm ++ "-interp")        $ nf (test_interp mf) inputs
     , bench (nm ++ "-constraints")   $ nfIO $ test_constraints mf
     , bench (nm ++ "-simplify")      $ nfIO $ test_simplify mf            
     , bench (nm ++ "-r1cs")          $ nfIO $ test_r1cs mf

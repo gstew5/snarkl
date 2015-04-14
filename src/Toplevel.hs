@@ -1,42 +1,37 @@
 module Toplevel
-  ( -- | The result of compiling and executing an R1CS.
-    Result(..)
+  ( -- * Interpret Snarkl Computations
+    comp_interp
 
-    -- | Interpret Snarkl computations using the executable semantics.
-  , comp_interp
-
-    -- | The result of desugaring a Snarkl computation.
+    -- * Desugar
   , TExpPkg(..)
-    -- | Compile Snarkl computations to 'TExp's.
   , texp_of_comp
 
-    -- | Compile 'TExp's to constraint systems. 
+    -- * Generate Constraints    
   , constrs_of_texp
-    -- | Compile Snarkl computations to constraint systems.
-  , constrs_of_comp  
+  , constrs_of_comp
 
-    -- | Compile constraint systems to 'R1CS'.
+    -- * Generate R1CS
   , r1cs_of_constrs
-    -- | Compile 'TExp's to 'R1CS'.
   , r1cs_of_texp
-    -- | Compile Snarkl computations to 'R1CS'.
   , r1cs_of_comp
 
-    -- | Given an assignment to input variables, generate a satisfying
-    -- assignment for a 'R1CS'.
+    -- * Given arguments, construct a witness
   , wit_of_r1cs
 
-    ------------------------------------------------------
-    --
-    -- Convenience functions
-    --        
-    ------------------------------------------------------        
-    
-    -- | Compile a computation to R1CS, and run it on the provided inputs.    
-  , result_of_comp
+    -- * Serialize R1CS in 'libsnark' format
+  , serialize_r1cs
 
-    -- | Convenience function, for running testsuite.
+    -- * Convenience functions
+  , Result(..)
+  , result_of_comp
+  , int_of_comp    
   , test_comp
+
+    -- * Re-exported modules
+  , module SyntaxMonad
+  , module Constraints
+  , module Simplify
+  , module R1CS
   ) where
 
 import           System.IO
@@ -62,7 +57,8 @@ import           Constraints
 import           Errors
 import           Interp ( interp )
 import           R1CS
-import           Serialize
+import qualified Serialize as Serialize
+import           Simplify
 import           SyntaxMonad
 import           TExpr
 
@@ -72,23 +68,8 @@ import           TExpr
 --        
 ----------------------------------------------------        
 
-data Result a = 
-  Result { result_sat :: Bool
-         , result_vars :: Int
-         , result_constraints :: Int
-         , result_result :: a
-         , result_r1cs :: String
-         }
-
-instance Show a => Show (Result a) where
-  show (Result the_sat the_vars the_constraints the_result _)
-    = "sat = " ++ show the_sat
-      ++ ", vars = " ++ show the_vars
-      ++ ", constraints = " ++ show the_constraints
-      ++ ", result = " ++ show the_result
-
 -- | Using the executable semantics for the 'TExp' language, execute
--- the computation on the provided inputs, returning the result.
+-- the computation on the provided inputs, returning the 'Rational' result.
 comp_interp :: Typeable ty
             => Comp ty
             -> [Rational]
@@ -107,10 +88,11 @@ comp_interp mf inputs
 --        
 ------------------------------------------------------        
 
+-- | The result of desugaring a Snarkl computation.
 data TExpPkg ty
-  = TExpPkg { comp_num_vars :: Int
-            , comp_input_vars :: [Var]
-            , comp_texp :: TExp ty Rational
+  = TExpPkg { comp_num_vars :: Int -- ^ The number of free variables in the computation. 
+            , comp_input_vars :: [Var] -- ^ The variables marked as inputs.
+            , comp_texp :: TExp ty Rational -- ^ The resulting 'TExp'.
             }
 
 -- | Desugar a 'Comp'utation to a pair of:
@@ -136,7 +118,7 @@ texp_of_comp mf
 --        
 ------------------------------------------------------        
 
--- | Compile 'TExp's to constraint systems. Re-exported from 'Compile.hs'.
+-- | Compile 'TExp's to constraint systems. Re-exported from 'Compile.Compile'.
 constrs_of_texp :: Typeable ty
                 => TExpPkg ty
                 -> ConstraintSystem Rational
@@ -182,24 +164,48 @@ wit_of_r1cs inputs r1cs
          False ->
            f (zip in_vars inputs)
 
+serialize_r1cs = Serialize.serialize_r1cs           
+
 ------------------------------------------------------
 --
 -- Convenience functions
 --        
 ------------------------------------------------------        
 
+-- | The result of compiling and executing a Snarkl computation.
+data Result a = 
+  Result { result_sat :: Bool
+         , result_vars :: Int
+         , result_constraints :: Int
+         , result_result :: a
+         , result_r1cs :: String
+         }
+
+instance Show a => Show (Result a) where
+  show (Result the_sat the_vars the_constraints the_result _)
+    = "sat = " ++ show the_sat
+      ++ ", vars = " ++ show the_vars
+      ++ ", constraints = " ++ show the_constraints
+      ++ ", result = " ++ show the_result
+
 -- | Compile a computation to R1CS, and run it on the provided inputs.
 -- Also, interprets the computation using the executable semantics and
 -- checks that the results match.
-result_of_comp :: Typeable ty => Comp ty -> [Int] -> Int
+result_of_comp :: Typeable ty => Comp ty -> [Rational] -> Result Rational
 result_of_comp mf inputs
-  = truncate $ result_result $ check mf (map fromIntegral inputs)
+  = execute mf inputs
 
+-- | Same as 'result_of_comp', but specialized to integer arguments
+-- and results. Returns just the integer result.
+int_of_comp :: Typeable ty => Comp ty -> [Int] -> Int
+int_of_comp mf args
+  = truncate $ result_result $ result_of_comp mf (map fromIntegral args)
 
 -- | Convenience function, for running testsuites.
-test_comp :: Typeable ty => (Comp ty,[Int],Integer) -> IO ()
+test_comp :: Typeable ty => (Comp ty,[Rational],Rational) -> IO ()
 test_comp (prog,args,res)
-  = do_test (prog,map fromIntegral args,fromIntegral res)
+  = check_result (prog,args,res)
+
 
 --------------------------------------------------
 --
@@ -207,34 +213,13 @@ test_comp (prog,args,res)
 --
 --------------------------------------------------
 
--- | IO wrapper around 'check'.
-do_test :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
-do_test (prog,inputs,res) 
-  = let print_ln             = print_ln_to_file stdout
-        print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
-        print_to_file s
-          = withFile "test_cs_in.ppzksnark" WriteMode (flip print_ln_to_file s)
-    in case check prog inputs of
-         r@(Result True _ _ res' r1cs_string) ->
-           if res == res' then
-             do { print_to_file r1cs_string
-                ; print_ln $ show r
-                }
-           else 
-             print_ln
-             $ show
-             $ "error: results don't match: "
-               ++ "expected " ++ show res ++ " but got " ++ show res'
-         Result False _ _ _ _ ->
-           print_ln $ "error: witness failed to satisfy constraints"
-
 -- | (1) Compile to R1CS.
 --   (2) Generate a satisfying assignment, 'w'.
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
 --   (4) Check whether the R1CS result matches the interpreter result.         
 --   (5) Return the 'Result'.
-check :: Typeable ty => Comp ty -> [Rational] -> Result Rational
-check mf inputs
+execute :: Typeable ty => Comp ty -> [Rational] -> Result Rational
+execute mf inputs
   = let TExpPkg nv in_vars e  = texp_of_comp mf
         r1cs                  = r1cs_of_texp (TExpPkg nv in_vars e)
         r1cs_string           = serialize_r1cs r1cs        
@@ -258,4 +243,27 @@ check mf inputs
                             $ ErrMsg $ "interpreter result " ++ show out_interp
                               ++ " differs from actual result " ++ show out
     in Result result nw ng out r1cs_string
+
+-- | 'execute' computation, reporting error if result doesn't match
+-- the return value provided by the caller. Also, serializes the
+-- resulting 'R1CS'.
+check_result :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
+check_result (prog,inputs,res) 
+  = let print_ln             = print_ln_to_file stdout
+        print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
+        print_to_file s
+          = withFile "test_cs_in.ppzksnark" WriteMode (flip print_ln_to_file s)
+    in case execute prog inputs of
+         r@(Result True _ _ res' r1cs_string) ->
+           if res == res' then
+             do { print_to_file r1cs_string
+                ; print_ln $ show r
+                }
+           else 
+             print_ln
+             $ show
+             $ "error: results don't match: "
+               ++ "expected " ++ show res ++ " but got " ++ show res'
+         Result False _ _ _ _ ->
+           print_ln $ "error: witness failed to satisfy constraints"
 
