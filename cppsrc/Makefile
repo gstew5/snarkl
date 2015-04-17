@@ -11,7 +11,7 @@ DEPINST=~
 
 LDFLAGS += -L $(DEPINST)/lib -Wl,-rpath $(DEPINST)/lib
 LDLIBS += -lgmpxx -lgmp -lsnark -lzm
-CXXFLAGS += -I $(DEPINST)/include -I $(DEPINST)/include/libsnark -I src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g
+CXXFLAGS += -I $(DEPINST)/include/libsnark -I $(DEPINST)/include -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g
 
 # ifneq ($(NO_GTEST),1)
 # 	GTESTDIR=/usr/src/gtest
@@ -22,18 +22,10 @@ CXXFLAGS += -I $(DEPINST)/include -I $(DEPINST)/include/libsnark -I src -DUSE_AS
 # endif
 
 SRCS= \
-	prover_function.cpp \
-	accountable_gadgets.cpp \
-	util.cpp
+	snarky.cpp \
 
 EXECUTABLES= \
-	snarky \
-#	generator \
-	prover \
-	verifier \
-	basic_test \
-    simplest_test \
-	printer_integration_test
+	snarky
 
 # ifneq ($(NO_GTEST),1)
 # 	EXECUTABLES += \
