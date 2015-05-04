@@ -96,14 +96,6 @@ app t1 t2
        ; roll v
        }
 
--- \x y -> x
-term1 :: Comp TTerm
-term1
-  = do { x <- varN' 1
-       ; t <- lam x
-       ; lam t
-       }
-
 case_term :: ( Typeable ty
              , Zippable ty
              )
@@ -173,7 +165,6 @@ compose sigma1 sigma2
                       })
                }
              
-
 subst_term sigma t 
   = do { p <- pair sigma t :: Comp (TProd TSubst TTerm)
        ; fix go p
@@ -224,10 +215,41 @@ beta t1 t2
     -- App _ _
     (\_ _ -> fail_with $ ErrMsg "beta expects an abstraction")
 
+step :: TExp TTerm Rational -> Comp TTerm
+step t
+  = case_term t
+    (\_ -> return t)
+    (\_ -> return t)
+    (\t1 t2 -> beta t1 t2)
+
+whnf :: TExp TTerm Rational -> Comp TTerm
+whnf t = fix go t
+  where go self t0
+          = do { t' <- step t0
+               ; case_term t'
+                 (\_ -> fail_with $ ErrMsg "unbound variable")
+                 (\_ -> return t')
+                 (\_ _ -> self t')
+               }
+
+-- \x y -> x
+term_lam :: Comp TTerm
+term_lam
+  = do { x <- varN' 1
+       ; t <- lam x
+       ; lam t
+       }
+
+term_app :: Comp TTerm
+term_app
+  = do { t <- term_lam
+       ; app t t
+       }
+
 -- (\x y -> x) (\x1 y1 -> x1)
 -- ~~> (\y -> (\x1 y1 -> x1))
 beta_test1
-  = do { term1' <- term1
-       ; beta term1' term1'
+  = do { t <- term_app
+       ; whnf t
        ; ret 0.0
        }
