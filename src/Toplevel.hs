@@ -17,9 +17,19 @@ module Toplevel
 
     -- * Given arguments, construct a witness
   , wit_of_r1cs
+    -- * Serialize the resulting inputs assignment
+  , serialize_inputs
+    -- * Serialize the resulting witness assignment
+  , serialize_witnesses
 
     -- * Serialize R1CS in 'libsnark' format
   , serialize_r1cs
+
+    -- * For a given Snarkl computation, use 'libsnark' to test: (1)
+    -- key generation, (2) proof generation, and (3) proof
+    -- verification.  Currently assumes 'Toplevel' is loaded in working
+    -- directory 'base-of-snarkl-repo'.
+  , snarkify_comp
 
     -- * Convenience functions
   , Result(..)
@@ -37,10 +47,13 @@ module Toplevel
 import           System.IO
   ( hFlush
   , stdout
+  , hPutStr
   , hPutStrLn
   , withFile
   , IOMode( WriteMode )
   )
+
+import           System.Process
 
 import qualified Prelude as P
 import           Prelude
@@ -164,7 +177,56 @@ wit_of_r1cs inputs r1cs
          False ->
            f (zip in_vars inputs)
 
+-- | For a given R1CS and inputs, serialize the input variable assignment.
+serialize_inputs :: [Rational] -> R1CS Rational -> String
+serialize_inputs inputs r1cs
+  = let num_in_vars  = length $ r1cs_in_vars r1cs
+        assgn        = wit_of_r1cs inputs r1cs
+        inputs_assgn = IntMap.fromList $ take num_in_vars $ IntMap.toAscList assgn
+    in Serialize.serialize_assgn inputs_assgn
+
+-- | For a given R1CS and inputs, serialize the witness variable assignment.
+serialize_witnesses :: [Rational] -> R1CS Rational -> String
+serialize_witnesses inputs r1cs
+  = let num_in_vars  = length $ r1cs_in_vars r1cs
+        assgn        = wit_of_r1cs inputs r1cs
+        inputs_assgn = IntMap.fromList $ drop num_in_vars $ IntMap.toAscList assgn
+    in Serialize.serialize_assgn inputs_assgn
+
 serialize_r1cs = Serialize.serialize_r1cs           
+
+------------------------------------------------------
+--
+-- Libsnark hooks
+--        
+------------------------------------------------------        
+
+
+-- | [NOTE] The 'snarkify_comp' function assumes it's run in working
+-- directory 'base-of-snarkl-repo'. 
+snarkify_comp filePrefix c inputs
+  = do { let r1cs = r1cs_of_comp c
+             r1cs_file   = filePrefix ++ ".r1cs"
+             inputs_file = filePrefix ++ ".inputs"
+             wits_file   = filePrefix ++ ".wits"
+             run_r1cs    = "./run-r1cs.sh"
+             
+       ; withFile ("scripts/" ++ r1cs_file) WriteMode (\h ->
+             hPutStrLn h $ serialize_r1cs r1cs)
+
+       ; withFile ("scripts/" ++ inputs_file) WriteMode (\h ->
+             hPutStr h $ serialize_inputs inputs r1cs)
+
+       ; withFile ("scripts/" ++ wits_file) WriteMode (\h ->
+             hPutStr h $ serialize_witnesses inputs r1cs)
+
+       ; (_,_,_,hdl) <-
+            createProcess (proc run_r1cs [r1cs_file,inputs_file,wits_file])
+            { cwd = Just "scripts" }
+
+       ; waitForProcess hdl 
+       }
+
 
 ------------------------------------------------------
 --
