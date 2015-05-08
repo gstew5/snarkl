@@ -36,7 +36,8 @@ serialize_r1cs :: R1CS Rational -> String
 serialize_r1cs cs
   = let r1c_strings :: String
         r1c_strings = concat (map serialize_r1c (r1cs_clauses cs))
-    in show (length $ r1cs_in_vars cs) ++ "\n"
-       ++ show (r1cs_num_vars cs) ++ "\n"
+        num_in_vars = length $ r1cs_in_vars cs
+    in show num_in_vars ++ "\n"
+       ++ show (r1cs_num_vars cs - num_in_vars) ++ "\n"
        ++ show (length $ r1cs_clauses cs) ++ "\n"
        ++ r1c_strings
