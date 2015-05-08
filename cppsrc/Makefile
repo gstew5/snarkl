@@ -49,4 +49,13 @@ clean:
 clean-all: clean
 	rm -fr $(DEPSRC) $(DEPINST)
 
+test: bin/snarky
+	if [ -e vk.file ]; then rm vk.file; fi
+	if [ -e pk.file ]; then rm pk.file; fi
+	if [ -e proof.file ]; then rm proof.file; fi
+	touch vk.file pk.file proof.file
+	bin/snarky --generateKeys --csFile test.infile --verificationKeyFile vk.file --provingKeyFile pk.file
+	bin/snarky --prove --provingKeyFile pk.file --inputFile in.file --witnessFile wit.file --proofFile proof.file
+	bin/snarky --verify --verificationKeyFile vk.file --inputFile in.file --proofFile proof.file
+
 .PHONY: all clean clean-all
