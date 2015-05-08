@@ -3,6 +3,7 @@ module Serialize where
 import qualified Data.IntMap.Lazy as Map
 import Data.Ratio
 
+import Common
 import Errors
 import Field
 import Poly
@@ -16,7 +17,16 @@ flatten_rat r
          Nothing ->
            fail_with $ ErrMsg ("expected " ++ show b ++ " to be invertible")
          Just b_inv -> int_p (a * b_inv)
-    
+
+serialize_assgn :: Assgn Rational -> String
+serialize_assgn m
+  = let binds = Map.toAscList $ Map.mapKeys (+ 1) m
+    in reverse
+       $ drop 1
+       $ reverse
+       $ concat
+       $ map (\(_,v) -> show (flatten_rat v) ++ "\n") binds
+
 serialize_poly :: Poly Rational -> String
 serialize_poly p = case p of
   Poly m -> 
