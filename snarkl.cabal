@@ -37,6 +37,7 @@ test-suite hspec
     criterion 		>=1.0 && <1.1, 
     parallel 		>=3.2 && <3.3,
     hspec               >=2.0,
+    process		>=1.2,
     snarkl              >=0.1.0.0,
     Cabal               >=1.22
 
@@ -54,6 +55,7 @@ benchmark criterion
     criterion 		>=1.0 && <1.1, 
     parallel 		>=3.2 && <3.3,
     hspec               >=2.0,
+    process		>=1.2,
     snarkl              >=0.1.0.0,
     Cabal               >=1.22
 
@@ -94,6 +96,7 @@ library
     criterion 		>=1.0 && <1.1, 
     parallel 		>=3.2 && <3.3,
     hspec               >=2.0,
+    process		>=1.2,
     Cabal               >=1.22
   
   hs-source-dirs:      src, 
