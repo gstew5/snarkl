@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 #include <getopt.h>
 #include <stdio.h>
@@ -111,16 +112,15 @@ void readVariableAssignment(istream& stream, r1cs_variable_assignment<Fr<default
        ...
        <coeff_n>EOF
      */
-    while (!stream.eof()) 
+    for (string line; getline(stream, line);)
     {
         Fr<default_ec_pp> coeff; 
-        stream >> coeff;
+        stringstream(line) >> coeff;
         cout << "pushing " << coeff << "\n";
         assgn.push_back(coeff);
     }
 }
     
-
 void generateProof(istream& pkStream, istream& inpStream, istream& witStream, ostream& pfStream) 
 {
     //deserialize proving key
