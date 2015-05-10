@@ -45,9 +45,7 @@ module Toplevel
   ) where
 
 import           System.IO
-  ( hFlush
-  , stdout
-  , hPutStr
+  ( hPutStr
   , hPutStrLn
   , withFile
   , IOMode( WriteMode )

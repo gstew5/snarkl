@@ -6,7 +6,7 @@ snarky:
 	cd cppsrc; \
 	make
 
-test: toplevel snarky
+test: snarky toplevel
 	cabal test
 
 bench: toplevel
