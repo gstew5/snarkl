@@ -17,7 +17,7 @@ to download, build, and locally install the 'libsnark' library.
 Then do 
 
 ```
-make
+> make
 ```
 
 to build Snårkl in a cabal sandbox.
