@@ -36,6 +36,7 @@ module Toplevel
   , result_of_comp
   , int_of_comp
   , test_comp
+  , benchmark_comp
 
     -- * Re-exported modules
   , module SyntaxMonad
@@ -45,7 +46,9 @@ module Toplevel
   ) where
 
 import           System.IO
-  ( hPutStr
+  ( hFlush
+  , stdout
+  , hPutStr
   , hPutStrLn
   , withFile
   , IOMode( WriteMode )
@@ -53,6 +56,7 @@ import           System.IO
 
 import           System.Exit
 import           System.Process
+import qualified Prelude as P
 import           Prelude
 import           Data.Typeable
 import qualified Data.Set as Set
@@ -309,3 +313,25 @@ execute mf inputs
                               ++ " differs from actual result " ++ show out
     in Result result nw ng out r1cs_string
 
+-- | 'execute' computation, reporting error if result doesn't match
+-- the return value provided by the caller. Also, serializes the
+-- resulting 'R1CS'.
+benchmark_comp :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
+benchmark_comp (prog,inputs,res)
+  = let print_ln = print_ln_to_file stdout
+        print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
+        print_to_file s
+          = withFile "test_cs_in.ppzksnark" WriteMode (flip print_ln_to_file s)
+    in case execute prog inputs of
+      r@(Result True _ _ res' r1cs_string) ->
+        if res == res' then
+          do { print_to_file r1cs_string
+             ; print_ln $ show r
+             }
+        else
+          print_ln
+          $ show
+          $ "error: results don't match: "
+          ++ "expected " ++ show res ++ " but got " ++ show res'
+      Result False _ _ _ _ ->
+        print_ln $ "error: witness failed to satisfy constraints"

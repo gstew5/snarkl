@@ -53,7 +53,7 @@ test_wit mf inputs
 -- Do everything.
 test_full :: Typeable ty => Comp ty -> [Int] -> Rational -> IO ()
 test_full mf inputs result
-  = test_comp (mf, map fromIntegral inputs, result)
+  = benchmark_comp (mf, map fromIntegral inputs, result)
 
 
 
