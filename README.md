@@ -44,7 +44,7 @@ Snårkl is a preliminary research prototype undergoing active development.
 
 ```
 snarkl/
-  cppsrc/              -- a C++ wrapper around [libsnark](https://github.com/scipr-lab/libsnark)
+  cppsrc/              -- a C++ wrapper around 'libsnark'
   scripts/             -- shell scripts
   src/                 
     Toplevel.hs        -- compiler
