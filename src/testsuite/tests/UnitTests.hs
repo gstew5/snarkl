@@ -4,7 +4,7 @@
 
 module UnitTests where
 
-import Prelude hiding 
+import           Prelude hiding
   ( (>>)
   , (>>=)
   , (+)
@@ -18,12 +18,12 @@ import Prelude hiding
   )
 import qualified Prelude as P
 
-import Syntax
-import SyntaxMonad
-import TExpr
-import Peano
-import Lam
-import List
+import           Lam
+import           List
+import           Peano
+import           Syntax
+import           SyntaxMonad
+import           TExpr
 
 -- | 1. A standalone "program" in the expression language
 prog1 

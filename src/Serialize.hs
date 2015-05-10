@@ -21,10 +21,7 @@ flatten_rat r
 serialize_assgn :: Assgn Rational -> String
 serialize_assgn m
   = let binds = Map.toAscList $ Map.mapKeys (+ 1) m
-    in reverse
-       $ drop 1
-       $ reverse
-       $ concat
+    in concat
        $ map (\(_,v) -> show (flatten_rat v) ++ "\n") binds
 
 serialize_poly :: Poly Rational -> String

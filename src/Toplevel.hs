@@ -34,7 +34,7 @@ module Toplevel
     -- * Convenience functions
   , Result(..)
   , result_of_comp
-  , int_of_comp    
+  , int_of_comp
   , test_comp
 
     -- * Re-exported modules
@@ -53,13 +53,10 @@ import           System.IO
   , IOMode( WriteMode )
   )
 
+import           System.Exit
 import           System.Process
-
-import qualified Prelude as P
 import           Prelude
-
 import           Data.Typeable
-
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as Map
 import qualified Data.IntMap.Lazy as IntMap
@@ -201,9 +198,10 @@ serialize_r1cs = Serialize.serialize_r1cs
 --        
 ------------------------------------------------------        
 
-
--- | [NOTE] The 'snarkify_comp' function assumes it's run in working
--- directory 'base-of-snarkl-repo'. 
+-- |                       *** WARNING ***
+-- This function creates/overwrites files prefixed with 'filePrefix',
+-- within the scripts/ subdirectory. 'snarkify_comp' also
+-- assumes that it's run in working directory 'base-of-snarkl-repo'.
 snarkify_comp filePrefix c inputs
   = do { let r1cs = r1cs_of_comp c
              r1cs_file   = filePrefix ++ ".r1cs"
@@ -263,10 +261,17 @@ int_of_comp :: Typeable ty => Comp ty -> [Int] -> Int
 int_of_comp mf args
   = truncate $ result_result $ result_of_comp mf (map fromIntegral args)
 
--- | Convenience function, for running testsuites.
-test_comp :: Typeable ty => (Comp ty,[Rational],Rational) -> IO ()
-test_comp (prog,args,res)
-  = check_result (prog,args,res)
+-- | Same as 'int_of_comp', but additionally runs resulting R1CS
+-- through key generation, proof generation, and verification stages
+-- of 'libsnark'.  TODO: This function does duplicate R1CS generation,
+-- once for 'libsnark' and a second time for 'int_of_comp'.
+test_comp :: Typeable ty => Comp ty -> [Int] -> IO (Either ExitCode Int)
+test_comp mf args
+  = do { exit_code <- snarkify_comp "hspec" mf (map fromIntegral args)
+       ; case exit_code of
+           ExitFailure _ -> Prelude.return $ Left exit_code
+           ExitSuccess   -> Prelude.return $ Right (int_of_comp mf args)
+       }
 
 
 --------------------------------------------------
@@ -305,27 +310,4 @@ execute mf inputs
                             $ ErrMsg $ "interpreter result " ++ show out_interp
                               ++ " differs from actual result " ++ show out
     in Result result nw ng out r1cs_string
-
--- | 'execute' computation, reporting error if result doesn't match
--- the return value provided by the caller. Also, serializes the
--- resulting 'R1CS'.
-check_result :: Typeable ty => (Comp ty, [Rational], Rational) -> IO ()
-check_result (prog,inputs,res) 
-  = let print_ln             = print_ln_to_file stdout
-        print_ln_to_file h s = (P.>>) (hPutStrLn h s) (hFlush h)
-        print_to_file s
-          = withFile "test_cs_in.ppzksnark" WriteMode (flip print_ln_to_file s)
-    in case execute prog inputs of
-         r@(Result True _ _ res' r1cs_string) ->
-           if res == res' then
-             do { print_to_file r1cs_string
-                ; print_ln $ show r
-                }
-           else 
-             print_ln
-             $ show
-             $ "error: results don't match: "
-               ++ "expected " ++ show res ++ " but got " ++ show res'
-         Result False _ _ _ _ ->
-           print_ln $ "error: witness failed to satisfy constraints"
 
