@@ -38,7 +38,7 @@ The benchmarks target is known not to run on `cygwin`.
 
 ## Limitations
 
-Snårkl is a preliminary research prototype undergoing active development. Although the compiler generates rank-1 constraint systems suitable as input to systems like [scipr-lab/libsnark](https://github.com/scipr-lab/libsnark), the connection to `libsnark` hasn't yet been implemented.
+Snårkl is a preliminary research prototype undergoing active development.
 
 ## Directory Structure
 
