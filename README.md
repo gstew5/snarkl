@@ -9,26 +9,29 @@ Snårkl ("Snorkel") builds with GHC version >= 7.8.3 and Cabal version >= 1.22. 
 To build, from the root directory do:
 
 ``` 
-> cabal sandbox init
-> cabal install
+> ./prepare-depends.sh
 ``` 
 
-Or, if you prefer to install Snårkl system-wide, do just:
+to download, build, and locally install the 'libsnark' library.
 
-``` 
-> cabal install
-``` 
-
-To build the unit tests, do:
+Then do 
 
 ```
-> cabal test
+make
+```
+
+to build Snårkl in a cabal sandbox.
+
+To run the unit tests, do:
+
+```
+> make test
 ```
 
 To run the benchmarks, do: 
 
 ```
-> cabal bench
+> make bench
 ```
 
 The benchmarks target is known not to run on `cygwin`.

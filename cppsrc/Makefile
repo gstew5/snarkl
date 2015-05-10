@@ -7,11 +7,11 @@
 
 CXXFLAGS += -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG
 
-DEPINST=/usr
+DEPINST=../depinst
 
-LDFLAGS += -L $(DEPINST)/lib -Wl,-rpath $(DEPINST)/lib
+LDFLAGS += -L $(DEPINST)/libsnark/src -Wl,-rpath $(DEPINST)/libsnark/src
 LDLIBS += -lgmpxx -lgmp -lsnark -lzm
-CXXFLAGS += -I $(DEPINST)/include -I $(DEPINST)/include/libsnark -I src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g
+CXXFLAGS += -I $(DEPINST)/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g
 
 SRCS= \
 	snarky.cpp
