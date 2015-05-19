@@ -62,9 +62,10 @@ void read_cs_decimal(istream& constraintStream, r1cs_constraint_system<Fr<defaul
          <primary_input_size> //num. input variables 
          <auxiliary_input_size> //num. add'l witness variables
          <num_constraints> 
-	 <serialization-of-A-polynomial>
-	 <serialization-of-B-polynomial>
-	 <serialization-of-C-polynomial>
+	 for each constraint in [0..<num_constraints>-1]:
+  	   <serialization-of-A-polynomial>
+	   <serialization-of-B-polynomial>
+	   <serialization-of-C-polynomial>
      */
     constraintStream >> primary_input_size; 
     cout << "primary input size: " << primary_input_size << "\n";
@@ -114,10 +115,15 @@ void readVariableAssignment(istream& stream, r1cs_variable_assignment<Fr<default
      */
     for (string line; getline(stream, line);)
     {
-        Fr<default_ec_pp> coeff; 
-        stringstream(line) >> coeff;
-        cout << "pushing " << coeff << "\n";
-        assgn.push_back(coeff);
+        linear_term<Fr<default_ec_pp> > lt;
+        stringstream(line) >> lt.coeff.mont_repr;
+	cout << "coeff. before reduction: " << lt.coeff.mont_repr << "\n";
+
+        // Reduce to Montgomery Space, as per method in algebra/fields/fp.tcc
+        lt.coeff.mul_reduce(Fr<default_ec_pp>::Rsquared);
+
+        cout << "pushing " << lt.coeff.mont_repr << "\n";
+        assgn.push_back(lt.coeff);
     }
 }
     
