@@ -14,7 +14,7 @@ cd $DEPSRC
 [ ! -d libsnark ] && git clone git://github.com/jkroll/libsnark
 cd libsnark
 ./prepare-depends.sh
-make -j
+make
 cd ..
 cd ..
 cp -rv $DEPSRC/libsnark $DEPINST/
