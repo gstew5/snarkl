@@ -2,14 +2,14 @@ toplevel:
 	cabal sandbox init; \
 	cabal install
 
-snarky:
+snarky: 
 	cd cppsrc; \
 	make
 
-test: snarky toplevel
+test: toplevel snarky
 	cabal test
 
-bench: toplevel
+bench: toplevel snarky
 	cabal bench
 
 clean:
@@ -22,3 +22,5 @@ clean-all: clean
 	rm -rf depsrc; \
 	rm -rf depinst; \
 	cabal sandbox delete
+
+.PHONY: toplevel snarky test bench clean clean-all
