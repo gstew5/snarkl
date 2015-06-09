@@ -52,11 +52,11 @@ data Ty where
   deriving Typeable
 
 type family Rep (f :: TFunct) (x :: Ty) :: Ty
-type instance Rep (TFConst ty) x = ty
-type instance Rep TFId x = x
-type instance Rep (TFProd f g) x = TProd (Rep f x) (Rep g x)
-type instance Rep (TFSum f g) x = TSum (Rep f x) (Rep g x)
-type instance Rep (TFComp f g) x = Rep f (Rep g x)
+type instance Rep ('TFConst ty) x = ty
+type instance Rep 'TFId x = x
+type instance Rep ('TFProd f g) x = 'TProd (Rep f x) (Rep g x)
+type instance Rep ('TFSum f g) x = 'TSum (Rep f x) (Rep g x)
+type instance Rep ('TFComp f g) x = Rep f (Rep g x)
 
 newtype TVar (ty :: Ty) = TVar Var
   
@@ -79,10 +79,10 @@ data TOp :: Ty -> Ty -> Ty -> * where
   deriving Eq  
 
 data Val :: Ty -> * -> * where
-  VField :: Field a => a -> Val TField a
-  VTrue  :: Val TBool a
-  VFalse :: Val TBool a
-  VUnit  :: Val TUnit a
+  VField :: Field a => a -> Val 'TField a
+  VTrue  :: Val 'TBool a
+  VFalse :: Val 'TBool a
+  VUnit  :: Val 'TUnit a
 
 data TExp :: Ty -> * -> * where
   TEVar    :: TVar ty -> TExp ty a
@@ -94,8 +94,8 @@ data TExp :: Ty -> * -> * where
               , Typeable ty2 
               ) 
              => TOp ty1 ty2 ty -> TExp ty1 a -> TExp ty2 a -> TExp ty a
-  TEIf     :: TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
-  TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp TUnit a
+  TEIf     :: TExp 'TBool a -> TExp ty a -> TExp ty a -> TExp ty a
+  TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp 'TUnit a
   TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
   TEBot    :: Typeable ty => TExp ty a
 

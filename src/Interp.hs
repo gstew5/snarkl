@@ -8,7 +8,6 @@ module Interp
 
 import Data.IntMap ( IntMap )
 import qualified Data.IntMap as IntMap
-import Control.Applicative
 import Control.Monad
 
 import Errors
