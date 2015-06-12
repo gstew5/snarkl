@@ -23,6 +23,7 @@ module TExpr
   , TLoc(..)
   , boolean_vars_of_texp
   , var_of_texp
+  , loc_of_texp    
   , te_seq
   , last_seq
   , exp_of_texp
@@ -174,8 +175,12 @@ boolean_vars_of_texp = go []
 var_of_texp :: Show a => TExp ty a -> Var
 var_of_texp te = case last_seq te of
   TEVar (TVar x) -> x
-  _ -> fail_with $ ErrMsg ("var_of_texp: expected array or var: "
-                           ++ show te)
+  _ -> fail_with $ ErrMsg ("var_of_texp: expected var: " ++ show te)
+
+loc_of_texp :: Show a => TExp ty a -> Var
+loc_of_texp te = case last_seq te of
+  TEVal (VLoc (TLoc l)) -> l
+  _ -> fail_with $ ErrMsg ("loc_of_texp: expected loc: " ++ show te)
 
 last_seq :: TExp ty a -> TExp ty a
 last_seq te = case te of

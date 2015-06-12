@@ -120,9 +120,10 @@ interp_val :: Field a => Val ty a -> InterpM a a
 interp_val v
   = case v of
       VField v' -> return v'
-      VTrue -> return $ field_of_bool True
+      VTrue  -> return $ field_of_bool True
       VFalse -> return $ field_of_bool False
-      VUnit -> return one
+      VUnit  -> return one
+      VLoc _ -> raise_err $ ErrMsg "location in source program"
 
 interp_texp :: ( Eq a
                , Show a

@@ -17,8 +17,12 @@ module SyntaxMonad
   , Env(..)    
   , State(..)
 
-    -- | Declare a fresh input variable.
+    -- | Return a fresh input variable.
   , fresh_input
+    -- | Return a fresh variable.
+  , fresh_var
+    -- | Return a fresh location.
+  , fresh_loc
     
     -- | Basic values
   , unit
@@ -30,7 +34,12 @@ module SyntaxMonad
   , input_arr
   , get
   , set
-    
+
+    -- | Pairs
+  , pair
+  , fst_pair
+  , snd_pair
+
     -- | Basic static analysis
   , is_true
   , is_false
@@ -39,6 +48,13 @@ module SyntaxMonad
 
   , is_bot
   , assert_bot
+
+    -- | Show the current state.
+  , debug_state
+
+    -- | Misc. functions imported by 'Syntax.hs'
+  , get_addr
+  , add_objects
   ) where
 
 import           Prelude hiding
@@ -64,11 +80,9 @@ import           Common
 import           Errors
 import           TExpr
 
-----------------------------------------------------
---
--- State Monad
---        
-----------------------------------------------------        
+{-----------------------------------------------
+ State Monad
+------------------------------------------------}
 
 type CompResult s a = Either ErrMsg (a,s)
 
@@ -107,9 +121,9 @@ return :: a -> State s a
 return e = State (\s -> Right (e,s))
 
 -- | At elaboration time, we maintain an environment containing
---    (i) next_var: the next free variable
---
---    (ii) obj_map: a symbol table mapping (obj_loc,integer index) to
+--    (i) next_var:  the next free variable
+--    (ii) next_loc: the next fresh location
+--    (iii) obj_map: a symbol table mapping (obj_loc,integer index) to
 --    the constraint variable associated with that object, at that
 --    field index. A given (obj_loc,integer index) pair may also
 --    resolve to a constant rational, boolean, or the bottom value,
@@ -140,6 +154,7 @@ type ObjMap
             ObjBind   -- maps to result r
 
 data Env = Env { next_var   :: Int
+               , next_loc   :: Int
                , input_vars :: [Int]
                , obj_map    :: ObjMap
                , anal_map   :: Map.Map Var AnalBind -- supporting simple constprop analyses
@@ -168,8 +183,12 @@ true = TEVal VTrue
 arr :: Typeable ty => Int -> Comp ('TArr ty)
 arr 0 = raise_err $ ErrMsg "array must have size > 0"
 arr len
-  = State (\s -> Right ( TEVal (VLoc (TLoc $ next_var s))
+  = State (\s -> Right ( TEVal (VLoc (TLoc $ next_loc s))
+                         -- allocate:
+                         -- (1) a new location (next_loc s)
+                         -- (2) 'len' new variables [(next_var s)..(next_var s+len-1)]
                        , s { next_var = (P.+) (next_var s) len
+                           , next_loc = (P.+) (next_loc s) 1
                            , obj_map  = new_binds s `Map.union` obj_map s
                            }
                        )
@@ -177,25 +196,31 @@ arr len
   where new_binds :: Env -> ObjMap
         new_binds s
           = Map.fromList
-            (zip (zip [next_var s..] [0..((P.-) len 1)])
+            (zip (zip (repeat (next_loc s)) [0..((P.-) len 1)])
                  (map ObjVar [next_var s..((P.+) (next_var s) ((P.-) len 1))]))
 
 -- Like 'arr', but declare fresh array variables as inputs.
 input_arr :: Typeable ty => Int -> Comp ('TArr ty)
 input_arr 0 = raise_err $ ErrMsg "array must have size > 0"
 input_arr len
-  = do { a <- arr len
-       ; case a of
-           TEVal (VLoc (TLoc l)) -> assert_inputs [l..(P.+) l ((P.-) len 1)]
-           _ -> raise_err $ ErrMsg "internal error in input_arr"
-       ; return a
-       }
-  where assert_inputs inputs
-          = State (\s -> Right ( unit
-                               , s { input_vars = inputs ++ input_vars s
-                                   }
-                               )
-                  )
+  = State (\s -> Right ( TEVal (VLoc (TLoc $ next_loc s))
+                         -- allocate:
+                         -- (1) a new location (next_loc s)
+                         -- (2) 'len' new variables [(next_var s)..(next_var s+len-1)]
+                         -- (3) mark new vars. as inputs
+                       , s { next_var   = (P.+) (next_var s) len
+                           , next_loc   = (P.+) (next_loc s) 1
+                           , input_vars = new_vars s ++ input_vars s 
+                           , obj_map    = new_binds s `Map.union` obj_map s
+                           }
+                       )
+          )
+  where new_binds :: Env -> ObjMap
+        new_binds s
+          = Map.fromList
+            (zip (zip (repeat (next_loc s)) [0..((P.-) len 1)]) (map ObjVar $ new_vars s))
+            
+        new_vars s = [next_var s..((P.+) (next_var s) ((P.-) len 1))]           
 
 get_addr :: Typeable ty => (Loc,Int) -> Comp ty
 get_addr (l,i)
@@ -207,7 +232,7 @@ get_addr (l,i)
           )
 
 get :: Typeable ty => (TExp ('TArr ty) Rational,Int) -> Comp ty
-get (a,i) = get_addr (var_of_texp a,i)
+get (a,i) = get_addr (loc_of_texp a,i)
 
 -- | Update array 'a' at position 'i' to expression 'e'. We special-case
 -- variable and location expressions, because they're representable untyped
@@ -231,8 +256,61 @@ set_addr (e1,_) _
 set (a,i) e = set_addr (a,i) e
 
 {-----------------------------------------------
+ Products
+------------------------------------------------}
+
+pair :: ( Typeable ty1
+        , Typeable ty2
+        )
+     => TExp ty1 Rational
+     -> TExp ty2 Rational
+     -> Comp ('TProd ty1 ty2)
+pair te1 te2
+  = do { l <- fresh_loc
+       ; add_binds (loc_of_texp l) (last_seq te1) (last_seq te2)
+       ; return l
+       }
+  where add_binds l (TEVal (VLoc (TLoc l1))) (TEVal (VLoc (TLoc l2)))
+          = add_objects [((l,0),ObjLoc l1), ((l,1),ObjLoc l2)]
+        add_binds l (TEVal (VLoc (TLoc l1))) e2
+          = do { x2 <- fresh_var
+               ; add_objects [((l,0),ObjLoc l1), ((l,1),ObjVar $ var_of_texp x2)]
+               ; return $ TEAssert x2 e2
+               }
+        add_binds l e1 (TEVal (VLoc (TLoc l2)))
+          = do { x1 <- fresh_var
+               ; add_objects [((l,0),ObjVar $ var_of_texp x1), ((l,1),ObjLoc l2)]
+               ; return $ TEAssert x1 e1
+               }
+        add_binds l e1 e2
+          = do { x1 <- fresh_var
+               ; x2 <- fresh_var
+               ; add_objects [((l,0),ObjVar $ var_of_texp x1),
+                              ((l,1),ObjVar $ var_of_texp x2)]
+               ; return $ te_seq (TEAssert x1 e1) (TEAssert x2 e2)
+               }
+
+fst_pair :: ( Typeable ty1
+            , Typeable ty2
+            )
+         => TExp ('TProd ty1 ty2) Rational
+         -> Comp ty1
+fst_pair e = get_addr (loc_of_texp e,0)
+
+snd_pair :: ( Typeable ty1
+            , Typeable ty2
+            )
+         => TExp ('TProd ty1 ty2) Rational
+         -> Comp ty2
+snd_pair e = get_addr (loc_of_texp e,1)
+
+{-----------------------------------------------
  Auxiliary functions
 ------------------------------------------------}
+
+debug_state :: State Env (TExp 'TUnit a)
+debug_state
+  = State (\s -> Left $ ErrMsg $ show s)
 
 fresh_var :: State Env (TExp ty a)
 fresh_var
@@ -247,6 +325,14 @@ fresh_input
   = State (\s -> Right ( TEVar (TVar $ next_var s)
                        , s { next_var   = (P.+) (next_var s) 1
                            , input_vars = next_var s : input_vars s 
+                           }
+                       )
+          )
+
+fresh_loc :: State Env (TExp ty a)
+fresh_loc
+  = State (\s -> Right ( TEVal (VLoc (TLoc $ next_loc s))
+                       , s { next_loc = (P.+) (next_loc s) 1
                            }
                        )
           )
@@ -302,14 +388,15 @@ assert_true :: TExp ty Rational -> Comp 'TUnit
 assert_true  = flip assert_bool True
 
 is_bot :: TExp ty Rational -> Comp 'TBool
-is_bot x
-  = State (\s -> Right ( case Map.lookup (var_of_texp x) (anal_map s) of
+is_bot e@(TEVar (TVar _))
+  = State (\s -> Right ( case Map.lookup (var_of_texp e) (anal_map s) of
                             Nothing      -> false
                             Just AnalBot -> true
                             Just _       -> false
                        , s
                        )
           )
+is_bot _ = return false    
    
 assert_bot :: TExp ty Rational -> Comp 'TUnit
 assert_bot (TEVar (TVar x)) = add_statics [(x,AnalBot)]

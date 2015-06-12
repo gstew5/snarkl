@@ -27,13 +27,13 @@ import           TExpr
 
 -- | 1. A standalone "program" in the expression language
 prog1 
-  = do { x <- input -- bool
-       ; y <- input -- int
-       ; z <- input -- bool
-       ; u <- ret $ y + 2.0
+  = do { x <- fresh_input -- bool
+       ; y <- fresh_input -- int
+       ; z <- fresh_input -- bool
+       ; u <- return $ y + 2.0
        ; v <- if z then y else y
        ; w <- if x then y else y
-       ; ret $ (u*u) - (w*u*u*y*y*v)
+       ; return $ (u*u) - (w*u*u*y*y*v)
        }
 
 -- | 2. We can also mix Haskell code with R1CS expressions, by defining
@@ -41,34 +41,34 @@ prog1
 -- 
 -- For example, the following code calculates the R1CS expression
 --   (n+e) + (n-1+e) + (n-2+e) + ... + (n-(n-1)+e)
--- with e an input expression.
+-- with e an fresh_input expression.
 prog2 n
-  = do { e <- input
+  = do { e <- fresh_input
        ; let f i = exp_of_int i + e
-       ; ret $ bigsum n f
+       ; return $ bigsum n f
        }
 
 -- | 3. Declare 'a' an array of size 5. initialize slot 3 to e.
 -- initialize slot 4 to e*e. return a[3]*a[4]. 
 prog3 
-  = do { e <- input
+  = do { e <- fresh_input
        ; a <- arr 5
        ; set (a,3) e
        ; set (a,4) (e*e)         
        ; x <- get (a,3)
        ; y <- get (a,4)
-       ; ret (x*y)
+       ; return (x*y)
        }
 
 -- | 4. Identical to 3, except allocates larger array
 prog4 
-  = do { e <- input
+  = do { e <- fresh_input
        ; a <- arr 1000
        ; set (a,3) e
        ; set (a,4) (e*e)         
        ; x <- get (a,3)
        ; y <- get (a,4)
-       ; ret (x*y)
+       ; return (x*y)
        }
 
 -- | 5. Identical to 4, except with more constraints
@@ -77,22 +77,22 @@ pow 0 _ = 1.0
 pow n e = e*(pow (dec n) e)
 
 prog5 
-  = do { e <- input
+  = do { e <- fresh_input
        ; a <- arr 1000
        ; set (a,3) e
        ; set (a,4) (pow 100 e)         
        ; x <- get (a,3)
        ; y <- get (a,4)
-       ; ret (x*y)
+       ; return (x*y)
        }
 
 -- | 6. 'times' test
 prog6 
-  = do { e <- input
+  = do { e <- fresh_input
        ; a <- arr 100
        ; times 1 (set (a,3) e)
        ; x <- get (a,3)
-       ; ret x
+       ; return x
        }
 
 -- | 7. 'forall' test
@@ -102,7 +102,7 @@ prog7
        ; forall [0..99] (\i -> set (a,i) (exp_of_int i))
        ; x <- get (a,49)
        ; y <- get (a,51)              
-       ; ret $ x + y
+       ; return $ x + y
        }
 
 -- | 8. 'forall2' test
@@ -114,62 +114,62 @@ prog8
            set (a,index i j) (exp_of_int $ index i j))
        ; x <- get (a,5)  -- 5
        ; y <- get (a,24) -- 24
-       ; ret $ x + y
+       ; return $ x + y
        }
 
 -- | 9. 'and' test
 bool_prog9 
-  = do { e1 <- input
-       ; e2 <- input
-       ; ret (e1 && e2)
+  = do { e1 <- fresh_input
+       ; e2 <- fresh_input
+       ; return (e1 && e2)
        }
 
 -- | 10. 'xor' test
 bool_prog10 
-  = do { e1 <- input
-       ; e2 <- input
-       ; ret (e1 `xor` e2)
+  = do { e1 <- fresh_input
+       ; e2 <- fresh_input
+       ; return (e1 `xor` e2)
        }
 
--- | 11. are unused input variables treated properly?
+-- | 11. are unused fresh_input variables treated properly?
 prog11
-  = do { _ <- input :: Comp ('TArr 'TField)
-       ; b <- input
-       ; ret b
+  = do { _ <- fresh_input :: Comp ('TArr 'TField)
+       ; b <- fresh_input
+       ; return b
        }
 
 -- | 12. does boolean 'a' equal boolean 'b'?
 bool_prog12
-  = do { a <- input
-       ; b <- input
-       ; ret (a `beq` b)
+  = do { a <- fresh_input
+       ; b <- fresh_input
+       ; return (a `beq` b)
        }
 
 -- | 13. multiplicative identity
 prog13
-  = do { a <- input
-       ; ret $ 1.0 * a
+  = do { a <- fresh_input
+       ; return $ 1.0 * a
        }
 
 -- | 14. opt: 0x * 3y = out ~~> out=0
 prog14
-  = do { x <- input
-       ; y <- input
-       ; ret $ (0.0*x) * (3.0*y)
+  = do { x <- fresh_input
+       ; y <- fresh_input
+       ; return $ (0.0*x) * (3.0*y)
        }
 
 -- | 15. exp_binop smart constructor: 3 - (2 - 1) = 2
 prog15
-  = do { ret $ 3.0 - (2.0 - 1.0)
+  = do { return $ 3.0 - (2.0 - 1.0)
        }
 
--- | 16. bool inputs test
+-- | 16. bool fresh_inputs test
 bool_prog16
   = do { a <- input_arr 100
        ; forall [0..99] (\i ->
            do b <- get (a,i)
               set (a,i) (b && true))
-       ; ret false
+       ; return false
        }
 
 -- | 17. array test
@@ -181,7 +181,7 @@ bool_prog17
        ; get2 (a,0,0) 
        }
 
--- | 18. input array test
+-- | 18. fresh_input array test
 bool_prog18
   = do { a  <- input_arr3 2 2 2
        ; get3 (a,0,0,1) 
@@ -189,53 +189,53 @@ bool_prog18
 
 -- | 19. products test
 bool_prog19
-  = do { x <- input
-       ; y <- input
+  = do { x <- fresh_input
+       ; y <- fresh_input
        ; p <- pair x y
        ; c <- fst_pair p
        ; d <- snd_pair p
-       ; ret $ c && d
+       ; return $ c && d
        }
 
 -- | 20. products test 2: snd (fst ((x,y),x)) && x == y && x 
 bool_prog20
-  = do { x <- input
-       ; y <- input
+  = do { x <- fresh_input
+       ; y <- fresh_input
        ; p <- pair x y
        ; q <- pair p x
        ; c <- fst_pair q
        ; d <- snd_pair c
-       ; ret $ d && x
+       ; return $ d && x
        }
 
 -- | 21. products test 3: snd (fst ((x,y),(y,x))) && x == y && x 
 bool_prog21
-  = do { x <- input
-       ; y <- input
+  = do { x <- fresh_input
+       ; y <- fresh_input
        ; p <- pair x y
        ; q <- pair y x              
        ; u <- pair p q
        ; c <- fst_pair u
        ; d <- snd_pair c
-       ; ret $ d && x
+       ; return $ d && x
        }
 
 -- | 22. sums test
 bool_prog22
-  = do { x1 <- input
-       ; x2 <- input
+  = do { x1 <- fresh_input
+       ; x2 <- fresh_input
        ; x <- pair x1 x2
        ; y <- (inl x :: Comp (TSum (TProd TBool TBool) TBool))
        ; case_sum
            (\e1 -> snd_pair e1)
-           (\e2 -> ret e2)
+           (\e2 -> return e2)
            y
        }
 
 -- | 23. sums test 2
 bool_prog23
-  = do { x1 <- input
-       ; x2 <- input
+  = do { x1 <- fresh_input
+       ; x2 <- fresh_input
        ; x <- pair x1 x2
        ; y <- (inr x :: Comp (TSum (TProd TBool TBool)
                                    (TProd TBool TBool)))
@@ -293,22 +293,22 @@ prog30
 
 -- | 31. div test
 prog31
-  = do { x <- input
-       ; y <- input
-       ; ret $ x / y
+  = do { x <- fresh_input
+       ; y <- fresh_input
+       ; return $ x / y
        }
 
 -- | 32. zeq test
 bool_prog32
-  = do { x <- input
-       ; ret $ zeq x
+  = do { x <- fresh_input
+       ; return $ zeq x
        }
 
 -- | 33. eq test
 bool_prog33
-  = do { x <- input :: Comp TField
-       ; y <- input       
-       ; ret $ x `eq` y
+  = do { x <- fresh_input :: Comp TField
+       ; y <- fresh_input       
+       ; return $ x `eq` y
        }
 
 -- | 34. beta test

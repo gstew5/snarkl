@@ -54,14 +54,14 @@ import           System.IO
   , IOMode( WriteMode )
   )
 
+import qualified Data.IntMap.Lazy as IntMap
+import           Data.List (sort)
+import qualified Data.Map.Strict as Map
+import           Data.Typeable
+import           Prelude
+import qualified Prelude as P
 import           System.Exit
 import           System.Process
-import qualified Prelude as P
-import           Prelude
-import           Data.Typeable
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
-import qualified Data.IntMap.Lazy as IntMap
 
 import           Common
 import           Compile
@@ -119,10 +119,11 @@ texp_of_comp mf
       Left err -> fail_with err
       Right (e,rho) ->
         let nv = next_var rho
-            in_vars = reverse $ input_vars rho
+            in_vars = sort $ input_vars rho
         in TExpPkg nv in_vars e
   where run :: State Env a -> CompResult Env a
-        run mf0 = runState mf0 (Env (fromInteger 0) [] Map.empty Set.empty Map.empty)
+        run mf0 = runState mf0 (Env (fromInteger 0) (fromInteger 0)
+                                [] Map.empty Map.empty)
 
 ------------------------------------------------------
 --

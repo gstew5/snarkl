@@ -59,14 +59,14 @@ case_list t f_nil f_cons
 head_list :: TExp TField Rational -> TExp TList Rational -> Comp TField
 head_list def l
   = case_list l
-      (ret def)
-      (\hd _ -> ret hd)
+      (return def)
+      (\hd _ -> return hd)
 
 tail_list :: TExp TList Rational -> Comp TList
 tail_list l
   = case_list l
       nil
-      (\_ tl -> ret tl)
+      (\_ tl -> return tl)
 
 map_list :: (TExp TField Rational -> Comp TField)
          -> TExp TList Rational
@@ -89,10 +89,10 @@ last_list def l
   = fix go l
   where go self l0
           = case_list l0
-            (ret def)
+            (return def)
             (\hd tl ->
               case_list tl
-              (ret hd)
+              (return hd)
               (\_ _ -> self tl))
 
 list1
@@ -101,7 +101,7 @@ list1
        ; cons (exp_of_int 33) tl'
        }
 
-inc_elem e = ret $ exp_of_int 1 + e
+inc_elem e = return $ exp_of_int 1 + e
 
 list2 
   = do { l <- list1
@@ -109,7 +109,7 @@ list2
        }
 
 list_comp3
-  = do { b <- input
+  = do { b <- fresh_input
        ; l <- nil
        ; l' <- cons 23.0 l
        ; l'' <- cons 33.0 l'

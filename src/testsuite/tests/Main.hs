@@ -135,3 +135,4 @@ main = hspec $ do
     describe "keccak" $ do 
       it "keccak-2" $ test_comp (keccak1 2) input_vals `shouldReturn` Right 1
       it "keccak-2" $ test_comp (keccak1 5) input_vals `shouldReturn` Right 0     
+

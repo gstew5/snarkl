@@ -13,14 +13,7 @@ module Syntax
        ( Zippable
        , rep_sum
 
-         -- | Variable declaration
-       , input
-       , var
-
-         -- | Booleans, unit, sums, products, recursive types
-       , true
-       , false
-       , unit
+         -- | Sums, products, recursive types
        , inl
        , inr
        , case_sum
@@ -94,9 +87,6 @@ import Data.Typeable
 
 import Unsafe.Coerce
 
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
-
 import Common
 import Errors
 import R1CS
@@ -159,13 +149,13 @@ input_arr3 len width height
        ; return a
        }
 
-set2 (a,i,j) e   = do { a' <- get (a,i); set (a',j) e }
-set3 (a,i,j,k) e = do { a' <- get2 (a,i,j); set (a',k) e }
+set2 (a,i,j) e     = do { a' <- get (a,i); set (a',j) e }
+set3 (a,i,j,k) e   = do { a' <- get2 (a,i,j); set (a',k) e }
 set4 (a,i,j,k,l) e = do { a' <- get3 (a,i,j,k); set (a',l) e }
 
-get2 (a,i,j)     = do { a' <- get (a,i); get (a',j) }
-get3 (a,i,j,k)   = do { a' <- get2 (a,i,j); get (a',k) }
-get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
+get2 (a,i,j)       = do { a' <- get (a,i); get (a',j) }
+get3 (a,i,j,k)     = do { a' <- get2 (a,i,j); get (a',k) }
+get4 (a,i,j,k,l)   = do { a' <- get3 (a,i,j,k); get (a',l) }
 
 ----------------------------------------------------
 --
@@ -191,7 +181,7 @@ inl te1
   = do { let v2 = TEBot
        ; y <- pair te1 v2
        ; v2_var <- snd_pair y
-       ; mark_bot v2_var
+       ; assert_bot v2_var
        ; z <- pair (TEVal VFalse) y
        ; z_fst <- fst_pair z
        ; assert_false z_fst
@@ -208,7 +198,7 @@ inr te2
   = do { let v1 = TEBot
        ; y <- pair v1 te2
        ; v1_var <- fst_pair y
-       ; mark_bot v1_var
+       ; assert_bot v1_var
        ; z <- pair (TEVal VTrue) y
        ; z_fst <- fst_pair z
        ; assert_true z_fst
@@ -299,8 +289,8 @@ instance ( Typeable f
          }
 
     | otherwise
-    = do { x <- var
-         ; mark_bot x
+    = do { x <- fresh_var
+         ; assert_bot x
          ; return x
          } 
 
@@ -387,67 +377,6 @@ instance ( Typeable f
                  ; x <- zip_vals b e1' e2'
                  ; roll x
                  }
-
-
-----------------------------------------------------
---
--- Products
---        
-----------------------------------------------------        
-
-pair :: ( Typeable ty1
-        , Typeable ty2
-        )
-     => TExp ty1 Rational
-     -> TExp ty2 Rational
-     -> Comp ('TProd ty1 ty2)
-pair te1 te2 = go (last_seq te1) (last_seq te2)
-  where go e1@(TEVar _) e2@(TEVar _)
-          = do { x <- var
-               ; let x1 = var_of_texp e1
-               ; let x2 = var_of_texp e2             
-               ; add_bindings [((var_of_texp x,0),x1)
-                              ,((var_of_texp x,1),x2)]
-               ; return x
-               }
-        go e1@(TEVar _) e2@(_)
-          = do { x <- var
-               ; let x1 = var_of_texp e1
-               ; x2 <- var      
-               ; add_bindings [((var_of_texp x,0),x1)
-                              ,((var_of_texp x,1),var_of_texp x2)]
-               ; return $ te_seq (TEAssert x2 e2) x
-               }    
-        go e1@(_) e2@(TEVar _)
-          = do { x <- var
-               ; x1 <- var                    
-               ; let x2 = var_of_texp e2
-               ; add_bindings [((var_of_texp x,0),var_of_texp x1)
-                              ,((var_of_texp x,1),x2)]
-               ; return $ te_seq (TEAssert x1 e1) x
-               }    
-        go e1@(_) e2@(_)
-          = do { x1 <- var
-               ; x2 <- var
-               ; x <- var
-               ; add_bindings [((var_of_texp x,0),var_of_texp x1)
-                              ,((var_of_texp x,1),var_of_texp x2)]
-               ; return $ te_seq (te_seq (TEAssert x1 e1) (TEAssert x2 e2)) x
-               }
-
-fst_pair :: ( Typeable ty1
-            , Typeable ty2
-            )
-         => TExp ('TProd ty1 ty2) Rational
-         -> Comp ty1
-fst_pair e = get_addr (var_of_texp e,0)
-
-snd_pair :: ( Typeable ty1
-            , Typeable ty2
-            )
-         => TExp ('TProd ty1 ty2) Rational
-         -> Comp ty2
-snd_pair e = get_addr (var_of_texp e,1)
 
 
 ----------------------------------------------------

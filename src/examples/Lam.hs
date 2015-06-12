@@ -117,9 +117,9 @@ case_term t f_var f_lam f_app
 is_lam :: TExp TTerm Rational -> Comp TBool
 is_lam t
   = case_term t
-     (const $ ret false)
-     (const $ ret true)
-     (\_ _ -> ret false)
+     (const $ return false)
+     (const $ return true)
+     (\_ _ -> return false)
 
 shift :: TExp TField Rational
       -> TExp TTerm Rational
@@ -251,5 +251,5 @@ term_app
 beta_test1
   = do { t <- term_app
        ; whnf t
-       ; ret 0.0
+       ; return 0.0
        }

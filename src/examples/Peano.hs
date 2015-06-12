@@ -46,9 +46,9 @@ nat_eq level n m
   = do { n' <- unroll n
        ; m' <- unroll m
        ; case_sum
-         (const $ case_sum (const $ ret true) (const $ ret false) m')
+         (const $ case_sum (const $ return true) (const $ return false) m')
          (\n'' -> case_sum
-                  (const $ ret false)
+                  (const $ return false)
                   (\m'' -> nat_eq (dec level) n'' m'')
                   m')
          n' 
