@@ -130,8 +130,8 @@ input
 
 -- | Does boolean expression 'e' resolve statically to 'b'?
 is_bool :: TExp ty Rational -> Bool -> Comp 'TBool
-is_bool (TEVal VTrue) False = ret true
-is_bool (TEVal VTrue) True = ret true
+is_bool (TEVal VFalse) False = ret true
+is_bool (TEVal VTrue) True   = ret true
 is_bool e@(TEVar _) b
   = State (\s -> Right ( case Map.lookup (var_of_texp e) (guards s) of
                             Nothing -> false
