@@ -19,6 +19,8 @@ module TExpr
   , TUnop(..)
   , TOp(..)
   , TVar(..)
+  , Loc
+  , TLoc(..)
   , boolean_vars_of_texp
   , var_of_texp
   , te_seq
@@ -70,6 +72,16 @@ instance Eq (TVar ty) where
 instance Show (TVar ty) where
   show (TVar x) = show x
 
+type Loc = Int
+
+newtype TLoc (ty :: Ty) = TLoc Loc
+
+instance Eq (TLoc ty) where
+  TLoc x==TLoc y = x==y
+
+instance Show (TLoc ty) where
+  show (TLoc x) = "loc_" ++ show x
+
 data TUnop :: Ty -> Ty -> * where
   TUnop :: forall ty1 ty. UnOp -> TUnop ty1 ty
   deriving Eq  
@@ -83,6 +95,7 @@ data Val :: Ty -> * -> * where
   VTrue  :: Val 'TBool a
   VFalse :: Val 'TBool a
   VUnit  :: Val 'TUnit a
+  VLoc   :: TLoc ty -> Val ty a
 
 data TExp :: Ty -> * -> * where
   TEVar    :: TVar ty -> TExp ty a
@@ -102,9 +115,10 @@ data TExp :: Ty -> * -> * where
 exp_of_val :: Field a => Val ty a -> Exp a
 exp_of_val v = case v of
   VField c -> EVal c
-  VTrue -> EVal one
-  VFalse -> EVal zero
-  VUnit -> EUnit
+  VTrue    -> EVal one
+  VFalse   -> EVal zero
+  VUnit    -> EUnit
+  VLoc l   -> fail_with $ ErrMsg $ "unresolved location " ++ show l
 
 instance ( Field a
          , Eq a
@@ -176,9 +190,10 @@ instance Show (TOp ty1 ty2 ty) where
 
 instance Show a => Show (Val ty a) where
   show (VField c) = show c
-  show VTrue = "true"
-  show VFalse = "false"  
-  show VUnit = "()"
+  show VTrue      = "true"
+  show VFalse     = "false"  
+  show VUnit      = "()"
+  show (VLoc l)   = "loc_" ++ show l
 
 instance Show a => Show (TExp ty a) where
   show (TEVar x) = "var " ++ show x

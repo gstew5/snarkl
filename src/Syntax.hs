@@ -109,131 +109,11 @@ inc n = (P.+) n 1
 dec :: Int -> Int
 dec n = (P.-) n 1
 
--- | Allocate a new internal variable (not instantiated by user)
-var :: Comp ty
-var = State (\s ->
-              Right ( TEVar (TVar (next_var s))
-                    , s { next_var = inc (next_var s)
-                        }
-                    )
-            )
-
--- | Allocate a new input variable (instantiated by user)
-input :: Comp ty
-input
-  = State (\s -> Right ( TEVar (TVar (next_var s))
-                       , s { next_var = inc (next_var s)
-                           , input_vars = next_var s : input_vars s
-                           }
-                       )
-          )
-
--- | Does boolean expression 'e' resolve statically to 'b'?
-is_bool :: TExp ty Rational -> Bool -> Comp 'TBool
-is_bool (TEVal VFalse) False = ret true
-is_bool (TEVal VTrue) True   = ret true
-is_bool e@(TEVar _) b
-  = State (\s -> Right ( case Map.lookup (var_of_texp e) (guards s) of
-                            Nothing -> false
-                            Just b'| b==b' -> true
-                            Just _ | otherwise -> false
-                       , s
-                       )
-          )
-is_bool _ _ = ret false
-
-is_true :: TExp ty Rational -> Comp 'TBool
-is_true = flip is_bool True
-
-is_false :: TExp ty Rational -> Comp 'TBool
-is_false = flip is_bool False
-
--- | Add binding 'e = b'.
-assert_bool :: TExp ty Rational -> Bool -> Comp 'TUnit
-assert_bool e@(TEVar _) b
-  = State (\s ->
-            Right ( unit
-                  , s { guards = Map.insert (var_of_texp e) b (guards s) }
-                  )
-          )
-assert_bool e _
-  = raise_err
-    $ ErrMsg $ "expected " ++ show e ++ " to be a variable"     
-
-assert_true = flip assert_bool True
-
-assert_false = flip assert_bool False
-
-mark_bot :: TExp ty Rational -> Comp 'TUnit
-mark_bot x
-  = State (\s -> Right ( unit
-                       , s { bots = Set.insert (var_of_texp x) $ bots s }
-                       )
-          )
-
-is_bot :: TExp ty Rational -> Comp 'TBool
-is_bot x
-  = State (\s -> Right ( case Set.member (var_of_texp x) (bots s) of
-                            True -> true
-                            False -> false
-                       , s
-                       )
-          )
-
-iter_comp :: Typeable ty
-          => Comp ty
-          -> Int
-          -> Comp ty
-iter_comp _ 0 = raise_err $ ErrMsg "must declare >= 1 vars"
-iter_comp f n =
-  do { x <- f
-     ; _ <- g (dec n)
-     ; ret x
-     }
-  where g 0 = ret (TEVal VUnit)
-        g m = f >> g (dec m)
-
-
 ----------------------------------------------------
 --
 -- Arrays
 --        
 ----------------------------------------------------        
-
--- | Arrays: uninitialized field elements
-declare_vars :: Typeable ty => Int -> Comp ty
-declare_vars = iter_comp (var :: Comp ty)
-
--- | Like declare_vars, except vars. are marked explicitly as inputs
-declare_inputs :: Typeable ty => Int -> Comp ty
-declare_inputs = iter_comp (input :: Comp ty)
-
-add_bindings :: [((Var,Int),Var)] -> Comp 'TUnit
-add_bindings bindings
-  = State (\s -> Right ( unit
-                       , s { obj_map = Map.fromList bindings
-                               `Map.union` (obj_map s)
-                           }
-                       )
-          )
-
-add_arr_mapping :: Var -> Int -> Comp 'TUnit
-add_arr_mapping x len
-  = do { let indices  = take len $ [(0::Int)..]
-       ; let arr_vars = map ((P.+) x) indices
-       ; add_bindings $ zip (zip (repeat x) indices) arr_vars
-       }
-
--- | 1-d arrays. 
-arr :: Typeable ty => Int -> Comp ('TArr ty)
-arr 0 = raise_err $ ErrMsg "array must have size > 0"
-arr len
-  = do { a <- declare_vars len
-       ; let x = var_of_texp a
-       ; _ <- add_arr_mapping x len
-       ; ret $ last_seq a
-       }
-
 
 -- | 2-d arrays. 'width' is the size, in "bits" (#field elements), of
 -- each array element.
@@ -244,7 +124,7 @@ arr2 len width
            do { ai <- arr width
               ; set (a,i) ai
               })
-       ; ret a
+       ; return a
        }
 
 -- | 3-d arrays.
@@ -255,16 +135,7 @@ arr3 len width height
            do { aij <- arr height
               ; set2 (a,i,j) aij
               })
-       ; ret a
-       }
-
--- | Like 'arr', but declare array vars. as inputs.
-input_arr :: Typeable ty => Int -> Comp ('TArr ty)
-input_arr len
-  = do { a <- declare_inputs len
-       ; let x = var_of_texp a
-       ; _ <- add_arr_mapping x len
-       ; ret $ last_seq a
+       ; return a
        }
 
 input_arr2 :: Typeable ty => Int -> Int -> Comp ('TArr ('TArr ty))
@@ -275,7 +146,7 @@ input_arr2 len width
            do { ai <- input_arr width
               ; set (a,i) ai
               })
-       ; ret a
+       ; return a
        }
 
 input_arr3 :: Typeable ty => Int -> Int -> Int -> Comp ('TArr ('TArr ('TArr ty)))
@@ -285,50 +156,13 @@ input_arr3 len width height
            do { aij <- input_arr height
               ; set2 (a,i,j) aij
               })
-       ; ret a
+       ; return a
        }
 
--- | Update array 'a' at position 'i' to expression 'e'.
-set_addr :: Typeable ty
-         => (TExp ('TArr ty) Rational, Int)        
-         -> TExp ty Rational   
-         -> Comp 'TUnit
-set_addr (a,i) e
-  = let x = var_of_texp a
-    in case last_seq e of
-         scrut@(TEVar _) -> 
-           do { let y = var_of_texp scrut
-              ; _ <- add_bindings [((x,i),y)]
-              ; ret unit
-              }
-           
-         _ ->  
-           do { le <- var
-              ; let y = var_of_texp le
-              ; _ <- add_bindings [((x,i),y)]
-              ; ret $ TEAssert le e
-              }
-
-set (a,i) e      = set_addr (a,i) e
 set2 (a,i,j) e   = do { a' <- get (a,i); set (a',j) e }
 set3 (a,i,j,k) e = do { a' <- get2 (a,i,j); set (a',k) e }
 set4 (a,i,j,k,l) e = do { a' <- get3 (a,i,j,k); set (a',l) e }
 
-
-get_addr :: Typeable ty => (Var,Int) -> Comp ty
-get_addr (x,i)
-  = State (\s -> case Map.lookup (x,i) (obj_map s) of
-                   Nothing ->
-                     Left
-                     $ ErrMsg ("unbound var " ++ show (x,i)
-                               ++ " in map " ++ show (obj_map s)
-                               ++ " in bots " ++ show (bots s))
-                   Just y  ->
-                     Right (TEVar (TVar y), s)
-          )
-
-get :: Typeable ty => (TExp ('TArr ty) Rational,Int) -> Comp ty
-get (a,i)        = get_addr (var_of_texp a,i)
 get2 (a,i,j)     = do { a' <- get (a,i); get (a',j) }
 get3 (a,i,j,k)   = do { a' <- get2 (a,i,j); get (a',k) }
 get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
@@ -361,7 +195,7 @@ inl te1
        ; z <- pair (TEVal VFalse) y
        ; z_fst <- fst_pair z
        ; assert_false z_fst
-       ; ret $ unrep_sum z
+       ; return $ unrep_sum z
        }
 
 inr :: forall ty1 ty2.
@@ -378,7 +212,7 @@ inr te2
        ; z <- pair (TEVal VTrue) y
        ; z_fst <- fst_pair z
        ; assert_true z_fst
-       ; ret $ unrep_sum z
+       ; return $ unrep_sum z
        }
 
 case_sum :: forall ty1 ty2 ty.
@@ -414,20 +248,20 @@ class Derive ty where
   derive :: Int -> Comp ty
 
 instance Derive 'TUnit where
-  derive _ = ret $ TEVal VUnit
+  derive _ = return $ TEVal VUnit
 
 instance Derive 'TBool where
-  derive _ = ret $ TEVal VFalse
+  derive _ = return $ TEVal VFalse
 
 instance Derive 'TField where
-  derive _ = ret $ TEVal (VField 0)
+  derive _ = return $ TEVal (VField 0)
 
 instance (Typeable ty,Derive ty) => Derive ('TArr ty) where
   derive n
     = do { a <- arr 1
          ; v <- derive n
          ; set (a,0) v
-         ; ret a
+         ; return a
          }
 
 instance ( Typeable ty1
@@ -467,7 +301,7 @@ instance ( Typeable f
     | otherwise
     = do { x <- var
          ; mark_bot x
-         ; ret x
+         ; return x
          } 
 
 -- | Types for which conditional branches can be pushed to the leaves
@@ -479,13 +313,13 @@ class Zippable ty where
            -> Comp ty
 
 instance Zippable 'TUnit where
-  zip_vals _ _ _ = ret unit
+  zip_vals _ _ _ = return unit
 
 instance Zippable 'TBool where
-  zip_vals b b1 b2 = ret $ ifThenElse_aux b b1 b2
+  zip_vals b b1 b2 = return $ ifThenElse_aux b b1 b2
 
 instance Zippable 'TField where
-  zip_vals b e1 e2 = ret $ ifThenElse_aux b e1 e2
+  zip_vals b e1 e2 = return $ ifThenElse_aux b e1 e2
 
 fuel :: Int
 fuel = 1
@@ -502,8 +336,8 @@ check_bots f e1 e2
        ; e2_bot <- is_bot e2
        ; case (e1_bot,e2_bot) of
            (TEVal VTrue,TEVal VTrue) -> derive fuel
-           (TEVal VTrue,TEVal VFalse) -> ret e2
-           (TEVal VFalse,TEVal VTrue) -> ret e1
+           (TEVal VTrue,TEVal VFalse) -> return e2
+           (TEVal VFalse,TEVal VTrue) -> return e1
            (TEVal VFalse,TEVal VFalse) -> f
            (_,_) -> raise_err $ ErrMsg "internal error in check_bots"
        }
@@ -538,7 +372,7 @@ instance ( Zippable ty1
     where f = do { let p1 = rep_sum e1 
                  ; let p2 = rep_sum e2 
                  ; p' <- zip_vals b p1 p2
-                 ; ret $ unrep_sum p'
+                 ; return $ unrep_sum p'
                  }
 
 instance ( Typeable f
@@ -574,7 +408,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; let x2 = var_of_texp e2             
                ; add_bindings [((var_of_texp x,0),x1)
                               ,((var_of_texp x,1),x2)]
-               ; ret x
+               ; return x
                }
         go e1@(TEVar _) e2@(_)
           = do { x <- var
@@ -582,7 +416,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; x2 <- var      
                ; add_bindings [((var_of_texp x,0),x1)
                               ,((var_of_texp x,1),var_of_texp x2)]
-               ; ret $ te_seq (TEAssert x2 e2) x
+               ; return $ te_seq (TEAssert x2 e2) x
                }    
         go e1@(_) e2@(TEVar _)
           = do { x <- var
@@ -590,7 +424,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; let x2 = var_of_texp e2
                ; add_bindings [((var_of_texp x,0),var_of_texp x1)
                               ,((var_of_texp x,1),x2)]
-               ; ret $ te_seq (TEAssert x1 e1) x
+               ; return $ te_seq (TEAssert x1 e1) x
                }    
         go e1@(_) e2@(_)
           = do { x1 <- var
@@ -598,7 +432,7 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
                ; x <- var
                ; add_bindings [((var_of_texp x,0),var_of_texp x1)
                               ,((var_of_texp x,1),var_of_texp x2)]
-               ; ret $ te_seq (te_seq (TEAssert x1 e1) (TEAssert x2 e2)) x
+               ; return $ te_seq (te_seq (TEAssert x1 e1) (TEAssert x2 e2)) x
                }
 
 fst_pair :: ( Typeable ty1
@@ -629,14 +463,14 @@ unroll :: ( Typeable (Rep f ('TMu f))
           )  
        => TExp ('TMu f) Rational
        -> Comp (Rep f ('TMu f))
-unroll te = ret $ unsafe_cast te
+unroll te = return $ unsafe_cast te
 
 roll :: ( Typeable f
         , Typeable (Rep f ('TMu f))
         )
      => TExp (Rep f ('TMu f)) Rational
      -> Comp ('TMu f)
-roll te = ret $ unsafe_cast te
+roll te = return $ unsafe_cast te
              
 fix :: Typeable ty2
     => ((TExp ty1 Rational -> Comp ty2)
@@ -664,15 +498,6 @@ fix f e = go depth e
 -- Operators, Values
 --        
 ----------------------------------------------------        
-
-unit :: TExp 'TUnit Rational
-unit = TEVal VUnit 
-
-true :: TExp 'TBool Rational
-true = TEVal VTrue
-
-false :: TExp 'TBool Rational
-false = TEVal VFalse
 
 (+) :: TExp 'TField Rational -> TExp 'TField Rational -> TExp 'TField Rational
 (+) e1 e2 = TEBinop (TOp Add) e1 e2
@@ -762,7 +587,7 @@ forall :: [a]
        -> (a -> Comp 'TUnit)
        -> Comp 'TUnit
 forall as mf = g as mf
-  where g [] _ = ret unit
+  where g [] _ = return unit
         g (a : as') mf'
           = do { _ <- mf' a; g as' mf' }
 
