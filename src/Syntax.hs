@@ -129,7 +129,7 @@ input
           )
 
 -- | Does boolean expression 'e' resolve statically to 'b'?
-is_bool :: TExp ty Rational -> Bool -> Comp TBool
+is_bool :: TExp ty Rational -> Bool -> Comp 'TBool
 is_bool (TEVal VTrue) False = ret true
 is_bool (TEVal VTrue) True = ret true
 is_bool e@(TEVar _) b
@@ -142,14 +142,14 @@ is_bool e@(TEVar _) b
           )
 is_bool _ _ = ret false
 
-is_true :: TExp ty Rational -> Comp TBool
+is_true :: TExp ty Rational -> Comp 'TBool
 is_true = flip is_bool True
 
-is_false :: TExp ty Rational -> Comp TBool
+is_false :: TExp ty Rational -> Comp 'TBool
 is_false = flip is_bool False
 
 -- | Add binding 'e = b'.
-assert_bool :: TExp ty Rational -> Bool -> Comp TUnit
+assert_bool :: TExp ty Rational -> Bool -> Comp 'TUnit
 assert_bool e@(TEVar _) b
   = State (\s ->
             Right ( unit
@@ -164,14 +164,14 @@ assert_true = flip assert_bool True
 
 assert_false = flip assert_bool False
 
-mark_bot :: TExp ty Rational -> Comp TUnit
+mark_bot :: TExp ty Rational -> Comp 'TUnit
 mark_bot x
   = State (\s -> Right ( unit
                        , s { bots = Set.insert (var_of_texp x) $ bots s }
                        )
           )
 
-is_bot :: TExp ty Rational -> Comp TBool
+is_bot :: TExp ty Rational -> Comp 'TBool
 is_bot x
   = State (\s -> Right ( case Set.member (var_of_texp x) (bots s) of
                             True -> true
@@ -208,7 +208,7 @@ declare_vars = iter_comp (var :: Comp ty)
 declare_inputs :: Typeable ty => Int -> Comp ty
 declare_inputs = iter_comp (input :: Comp ty)
 
-add_bindings :: [((Var,Int),Var)] -> Comp TUnit
+add_bindings :: [((Var,Int),Var)] -> Comp 'TUnit
 add_bindings bindings
   = State (\s -> Right ( unit
                        , s { obj_map = Map.fromList bindings
@@ -217,7 +217,7 @@ add_bindings bindings
                        )
           )
 
-add_arr_mapping :: Var -> Int -> Comp TUnit
+add_arr_mapping :: Var -> Int -> Comp 'TUnit
 add_arr_mapping x len
   = do { let indices  = take len $ [(0::Int)..]
        ; let arr_vars = map ((P.+) x) indices
@@ -225,7 +225,7 @@ add_arr_mapping x len
        }
 
 -- | 1-d arrays. 
-arr :: Typeable ty => Int -> Comp (TArr ty)
+arr :: Typeable ty => Int -> Comp ('TArr ty)
 arr 0 = raise_err $ ErrMsg "array must have size > 0"
 arr len
   = do { a <- declare_vars len
@@ -237,7 +237,7 @@ arr len
 
 -- | 2-d arrays. 'width' is the size, in "bits" (#field elements), of
 -- each array element.
-arr2 :: Typeable ty => Int -> Int -> Comp (TArr (TArr ty))
+arr2 :: Typeable ty => Int -> Int -> Comp ('TArr ('TArr ty))
 arr2 len width
   = do { a <- arr len
        ; forall [0..dec len] (\i ->
@@ -248,7 +248,7 @@ arr2 len width
        }
 
 -- | 3-d arrays.
-arr3 :: Typeable ty => Int -> Int -> Int -> Comp (TArr (TArr (TArr ty)))
+arr3 :: Typeable ty => Int -> Int -> Int -> Comp ('TArr ('TArr ('TArr ty)))
 arr3 len width height
   = do { a <- arr2 len width
        ; forall2 ([0..dec len],[0..dec width]) (\i j ->
@@ -259,7 +259,7 @@ arr3 len width height
        }
 
 -- | Like 'arr', but declare array vars. as inputs.
-input_arr :: Typeable ty => Int -> Comp (TArr ty)
+input_arr :: Typeable ty => Int -> Comp ('TArr ty)
 input_arr len
   = do { a <- declare_inputs len
        ; let x = var_of_texp a
@@ -267,7 +267,7 @@ input_arr len
        ; ret $ last_seq a
        }
 
-input_arr2 :: Typeable ty => Int -> Int -> Comp (TArr (TArr ty))
+input_arr2 :: Typeable ty => Int -> Int -> Comp ('TArr ('TArr ty))
 input_arr2 0 _ = raise_err $ ErrMsg "array must have size > 0"
 input_arr2 len width
   = do { a <- arr len
@@ -278,7 +278,7 @@ input_arr2 len width
        ; ret a
        }
 
-input_arr3 :: Typeable ty => Int -> Int -> Int -> Comp (TArr (TArr (TArr ty)))
+input_arr3 :: Typeable ty => Int -> Int -> Int -> Comp ('TArr ('TArr ('TArr ty)))
 input_arr3 len width height
   = do { a <- arr2 len width
        ; forall2 ([0..dec len],[0..dec width]) (\i j ->
@@ -290,9 +290,9 @@ input_arr3 len width height
 
 -- | Update array 'a' at position 'i' to expression 'e'.
 set_addr :: Typeable ty
-         => (TExp (TArr ty) Rational, Int)        
+         => (TExp ('TArr ty) Rational, Int)        
          -> TExp ty Rational   
-         -> Comp TUnit
+         -> Comp 'TUnit
 set_addr (a,i) e
   = let x = var_of_texp a
     in case last_seq e of
@@ -327,7 +327,7 @@ get_addr (x,i)
                      Right (TEVar (TVar y), s)
           )
 
-get :: Typeable ty => (TExp (TArr ty) Rational,Int) -> Comp ty
+get :: Typeable ty => (TExp ('TArr ty) Rational,Int) -> Comp ty
 get (a,i)        = get_addr (var_of_texp a,i)
 get2 (a,i,j)     = do { a' <- get (a,i); get (a',j) }
 get3 (a,i,j,k)   = do { a' <- get2 (a,i,j); get (a',k) }
@@ -339,12 +339,12 @@ get4 (a,i,j,k,l) = do { a' <- get3 (a,i,j,k); get (a',l) }
 --        
 ----------------------------------------------------        
 
-rep_sum :: TExp (TSum ty1 ty2) Rational
-        -> TExp (TProd TBool (TProd ty1 ty2)) Rational
+rep_sum :: TExp ('TSum ty1 ty2) Rational
+        -> TExp ('TProd 'TBool ('TProd ty1 ty2)) Rational
 rep_sum = unsafe_cast
 
-unrep_sum :: TExp (TProd TBool (TProd ty1 ty2)) Rational
-          -> TExp (TSum ty1 ty2) Rational
+unrep_sum :: TExp ('TProd 'TBool ('TProd ty1 ty2)) Rational
+          -> TExp ('TSum ty1 ty2) Rational
 unrep_sum = unsafe_cast
 
 inl :: forall ty1 ty2.
@@ -352,7 +352,7 @@ inl :: forall ty1 ty2.
        , Typeable ty2
        )
     => TExp ty1 Rational
-    -> Comp (TSum ty1 ty2)
+    -> Comp ('TSum ty1 ty2)
 inl te1
   = do { let v2 = TEBot
        ; y <- pair te1 v2
@@ -369,7 +369,7 @@ inr :: forall ty1 ty2.
        , Typeable ty2
        )
     => TExp ty2 Rational
-    -> Comp (TSum ty1 ty2)
+    -> Comp ('TSum ty1 ty2)
 inr te2
   = do { let v1 = TEBot
        ; y <- pair v1 te2
@@ -389,7 +389,7 @@ case_sum :: forall ty1 ty2 ty.
             )
          => (TExp ty1 Rational -> Comp ty)
          -> (TExp ty2 Rational -> Comp ty)
-         -> TExp (TSum ty1 ty2) Rational
+         -> TExp ('TSum ty1 ty2) Rational
          -> Comp ty
 case_sum f1 f2 e
   = do { let p = rep_sum e
@@ -413,16 +413,16 @@ case_sum f1 f2 e
 class Derive ty where
   derive :: Int -> Comp ty
 
-instance Derive TUnit where
+instance Derive 'TUnit where
   derive _ = ret $ TEVal VUnit
 
-instance Derive TBool where
+instance Derive 'TBool where
   derive _ = ret $ TEVal VFalse
 
-instance Derive TField where
+instance Derive 'TField where
   derive _ = ret $ TEVal (VField 0)
 
-instance (Typeable ty,Derive ty) => Derive (TArr ty) where
+instance (Typeable ty,Derive ty) => Derive ('TArr ty) where
   derive n
     = do { a <- arr 1
          ; v <- derive n
@@ -435,7 +435,7 @@ instance ( Typeable ty1
          , Typeable ty2
          , Derive ty2
          )
-      => Derive (TProd ty1 ty2) where
+      => Derive ('TProd ty1 ty2) where
   derive n
     = do { v1 <- derive n
          ; v2 <- derive n
@@ -447,17 +447,17 @@ instance ( Typeable ty1
          , Typeable ty2
          , Derive ty2
          )
-      => Derive (TSum ty1 ty2) where
+      => Derive ('TSum ty1 ty2) where
   derive n
     = do { v1 <- derive n
          ; inl v1
          }
 
 instance ( Typeable f
-         , Typeable (Rep f (TMu f))   
-         , Derive (Rep f (TMu f))
+         , Typeable (Rep f ('TMu f))   
+         , Derive (Rep f ('TMu f))
          )
-      => Derive (TMu f) where
+      => Derive ('TMu f) where
   derive n
     | n > 0
     = do { v1 <- derive (dec n)
@@ -473,18 +473,18 @@ instance ( Typeable f
 -- | Types for which conditional branches can be pushed to the leaves
 -- of two values.
 class Zippable ty where
-  zip_vals :: TExp TBool Rational
+  zip_vals :: TExp 'TBool Rational
            -> TExp ty Rational
            -> TExp ty Rational
            -> Comp ty
 
-instance Zippable TUnit where
+instance Zippable 'TUnit where
   zip_vals _ _ _ = ret unit
 
-instance Zippable TBool where
+instance Zippable 'TBool where
   zip_vals b b1 b2 = ret $ ifThenElse_aux b b1 b2
 
-instance Zippable TField where
+instance Zippable 'TField where
   zip_vals b e1 e2 = ret $ ifThenElse_aux b e1 e2
 
 fuel :: Int
@@ -515,7 +515,7 @@ instance ( Zippable ty1
          , Typeable ty2
          , Derive ty2
          )
-      => Zippable (TProd ty1 ty2) where
+      => Zippable ('TProd ty1 ty2) where
   zip_vals b e1 e2 = check_bots f e1 e2
     where f = do { e11 <- fst_pair e1
                  ; e12 <- snd_pair e1
@@ -533,7 +533,7 @@ instance ( Zippable ty1
          , Typeable ty2
          , Derive ty2
          )
-      => Zippable (TSum ty1 ty2) where
+      => Zippable ('TSum ty1 ty2) where
   zip_vals b e1 e2 = check_bots f e1 e2
     where f = do { let p1 = rep_sum e1 
                  ; let p2 = rep_sum e2 
@@ -542,11 +542,11 @@ instance ( Zippable ty1
                  }
 
 instance ( Typeable f
-         , Typeable (Rep f (TMu f))
-         , Zippable (Rep f (TMu f))
-         , Derive (Rep f (TMu f))
+         , Typeable (Rep f ('TMu f))
+         , Zippable (Rep f ('TMu f))
+         , Derive (Rep f ('TMu f))
          )
-      => Zippable (TMu f) where
+      => Zippable ('TMu f) where
   zip_vals b e1 e2 = check_bots f e1 e2
     where f = do { e1' <- unroll e1
                  ; e2' <- unroll e2
@@ -566,7 +566,7 @@ pair :: ( Typeable ty1
         )
      => TExp ty1 Rational
      -> TExp ty2 Rational
-     -> Comp (TProd ty1 ty2)
+     -> Comp ('TProd ty1 ty2)
 pair te1 te2 = go (last_seq te1) (last_seq te2)
   where go e1@(TEVar _) e2@(TEVar _)
           = do { x <- var
@@ -604,14 +604,14 @@ pair te1 te2 = go (last_seq te1) (last_seq te2)
 fst_pair :: ( Typeable ty1
             , Typeable ty2
             )
-         => TExp (TProd ty1 ty2) Rational
+         => TExp ('TProd ty1 ty2) Rational
          -> Comp ty1
 fst_pair e = get_addr (var_of_texp e,0)
 
 snd_pair :: ( Typeable ty1
             , Typeable ty2
             )
-         => TExp (TProd ty1 ty2) Rational
+         => TExp ('TProd ty1 ty2) Rational
          -> Comp ty2
 snd_pair e = get_addr (var_of_texp e,1)
 
@@ -625,17 +625,17 @@ snd_pair e = get_addr (var_of_texp e,1)
 unsafe_cast :: TExp ty1 Rational -> TExp ty2 Rational
 unsafe_cast = unsafeCoerce
 
-unroll :: ( Typeable (Rep f (TMu f))
+unroll :: ( Typeable (Rep f ('TMu f))
           )  
-       => TExp (TMu f) Rational
-       -> Comp (Rep f (TMu f))
+       => TExp ('TMu f) Rational
+       -> Comp (Rep f ('TMu f))
 unroll te = ret $ unsafe_cast te
 
 roll :: ( Typeable f
-        , Typeable (Rep f (TMu f))
+        , Typeable (Rep f ('TMu f))
         )
-     => TExp (Rep f (TMu f)) Rational
-     -> Comp (TMu f)
+     => TExp (Rep f ('TMu f)) Rational
+     -> Comp ('TMu f)
 roll te = ret $ unsafe_cast te
              
 fix :: Typeable ty2
@@ -665,58 +665,58 @@ fix f e = go depth e
 --        
 ----------------------------------------------------        
 
-unit :: TExp TUnit Rational
+unit :: TExp 'TUnit Rational
 unit = TEVal VUnit 
 
-true :: TExp TBool Rational
+true :: TExp 'TBool Rational
 true = TEVal VTrue
 
-false :: TExp TBool Rational
+false :: TExp 'TBool Rational
 false = TEVal VFalse
 
-(+) :: TExp TField Rational -> TExp TField Rational -> TExp TField Rational
+(+) :: TExp 'TField Rational -> TExp 'TField Rational -> TExp 'TField Rational
 (+) e1 e2 = TEBinop (TOp Add) e1 e2
 
-(-) :: TExp TField Rational -> TExp TField Rational -> TExp TField Rational
+(-) :: TExp 'TField Rational -> TExp 'TField Rational -> TExp 'TField Rational
 (-) e1 e2 = TEBinop (TOp Sub) e1 e2
 
-(*) :: TExp TField Rational -> TExp TField Rational -> TExp TField Rational
+(*) :: TExp 'TField Rational -> TExp 'TField Rational -> TExp 'TField Rational
 (*) e1 e2 = TEBinop (TOp Mult) e1 e2
 
-(/) :: TExp TField Rational -> TExp TField Rational -> TExp TField Rational
+(/) :: TExp 'TField Rational -> TExp 'TField Rational -> TExp 'TField Rational
 (/) e1 e2 = TEBinop (TOp Div) e1 e2
 
-(&&) :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
+(&&) :: TExp 'TBool Rational -> TExp 'TBool Rational -> TExp 'TBool Rational
 (&&) e1 e2 = TEBinop (TOp And) e1 e2
 
-zeq :: TExp TField Rational -> TExp TBool Rational
+zeq :: TExp 'TField Rational -> TExp 'TBool Rational
 zeq e = TEUnop (TUnop ZEq) e
 
-not :: TExp TBool Rational -> TExp TBool Rational
+not :: TExp 'TBool Rational -> TExp 'TBool Rational
 not e = ifThenElse_aux e false true
 
-xor :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
+xor :: TExp 'TBool Rational -> TExp 'TBool Rational -> TExp 'TBool Rational
 xor e1 e2 = TEBinop (TOp XOr) e1 e2
 
-beq :: TExp TBool Rational -> TExp TBool Rational -> TExp TBool Rational
+beq :: TExp 'TBool Rational -> TExp 'TBool Rational -> TExp 'TBool Rational
 beq e1 e2 = TEBinop (TOp BEq) e1 e2
 
-eq :: Typeable ty => TExp ty Rational -> TExp ty Rational -> TExp TBool Rational
+eq :: Typeable ty => TExp ty Rational -> TExp ty Rational -> TExp 'TBool Rational
 eq e1 e2 = TEBinop (TOp Eq) e1 e2
 
-fromRational :: Rational -> TExp TField Rational
+fromRational :: Rational -> TExp 'TField Rational
 fromRational r = TEVal (VField (r :: Rational))
 
-exp_of_int :: Int -> TExp TField Rational
+exp_of_int :: Int -> TExp 'TField Rational
 exp_of_int i = TEVal (VField $ fromIntegral i)
 
-int_of_exp :: TExp TField Rational -> Int
+int_of_exp :: TExp 'TField Rational -> Int
 int_of_exp e = case e of
   TEVal (VField r) -> truncate r
   _ -> fail_with $ ErrMsg $ "expected field elem " ++ show e
 
 ifThenElse_aux :: Field a
-               => TExp TBool a -> TExp ty a -> TExp ty a -> TExp ty a
+               => TExp 'TBool a -> TExp ty a -> TExp ty a -> TExp ty a
 ifThenElse_aux b e1 e2
   | e1 == e2
   = e1    
@@ -728,14 +728,14 @@ ifThenElse_aux b e1 e2
       _ -> TEIf b e1 e2
 
 ifThenElse :: Zippable ty
-           => TExp TBool Rational
+           => TExp 'TBool Rational
            -> TExp ty Rational
            -> TExp ty Rational
            -> Comp ty
 ifThenElse b e1 e2
   = zip_vals b e1 e2
 
-negate :: TExp TField Rational -> TExp TField Rational
+negate :: TExp 'TField Rational -> TExp 'TField Rational
 negate e = -1.0 * e
 
 ----------------------------------------------------
@@ -754,13 +754,13 @@ iter n f e = g n f e
         g m f' e' = f' m $ g (dec m) f' e'
 
 bigsum :: Int
-       -> (Int -> TExp TField Rational)
-       -> TExp TField Rational
+       -> (Int -> TExp 'TField Rational)
+       -> TExp 'TField Rational
 bigsum n f = iter n (\n' e -> f n' + e) 0.0
 
 forall :: [a]
-       -> (a -> Comp TUnit)
-       -> Comp TUnit
+       -> (a -> Comp 'TUnit)
+       -> Comp 'TUnit
 forall as mf = g as mf
   where g [] _ = ret unit
         g (a : as') mf'
@@ -772,8 +772,8 @@ forall3 (as1,as2,as3) mf
   = forall2 (as1,as2) (\a1 a2 -> forall as3 (\a3 -> mf a1 a2 a3))
 
 times :: Int
-      -> Comp TUnit
-      -> Comp TUnit
+      -> Comp 'TUnit
+      -> Comp 'TUnit
 times n mf = forall [0..dec n] (const mf)
 
 
