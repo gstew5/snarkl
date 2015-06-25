@@ -241,15 +241,29 @@ set_addr :: Typeable ty
          => (TExp ('TArr ty) Rational, Int)        
          -> TExp ty Rational   
          -> Comp 'TUnit
+
+-- The following specialization (to variable expressions) is an
+-- optimization: we avoid introducing a fresh variable.
 set_addr (TEVal (VLoc (TLoc l)),i) (TEVar (TVar x))
   = add_objects [((l,i),ObjVar x)] >> return unit
+
+-- The following specialization (to location values) is necessary to
+-- satisfy [INVARIANT]: All expressions of compound types (sums,
+-- products, arrays, ...) have the form (TEVal (VLoc (TLoc l))), for
+-- some location l.
 set_addr (TEVal (VLoc (TLoc l)),i) (TEVal (VLoc (TLoc l')))
-  = add_objects [((l,i),ObjLoc l')] >> return unit
+  = do { add_objects [((l,i),ObjLoc l')]
+       ; return unit
+       }
+    
+-- Default:
 set_addr (TEVal (VLoc (TLoc l)),i) e
   = do { x <- fresh_var
        ; add_objects [((l,i),ObjVar (var_of_texp x))]
        ; return $ TEAssert x e
        }
+    
+-- Err: expression does not satisfy [INVARIANT].     
 set_addr (e1,_) _
   = raise_err $ ErrMsg ("expected " ++ show e1 ++ " a loc")
 
