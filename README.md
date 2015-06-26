@@ -38,7 +38,7 @@ The benchmarks target is known not to run on `cygwin`.
 
 ## Limitations
 
-Snårkl is a preliminary research prototype undergoing active development.
+Snårkl is a preliminary research prototype undergoing active development. Don't use it in production. Pull requests are very welcome!
 
 ## Directory Structure
 
@@ -52,6 +52,7 @@ snarkl/
     examples/          -- some example Snårkl programs that exercise inductive types
      Peano.hs          
      List.hs
+     Tree.hs
      Lam.hs   
      Keccak.hs
     tests/
