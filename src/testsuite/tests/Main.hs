@@ -73,6 +73,9 @@ main = hspec $ do
     describe "beta" $ do 
       it "34-1" $ test_comp prog34 [] `shouldReturn` Right 0
 
+    describe "list" $ do 
+      it "35-1" $ test_comp prog35 [] `shouldReturn` Right 77
+
   describe "Boolean Tests" $ do
 
     describe "and" $ do 

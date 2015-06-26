@@ -20,6 +20,7 @@ import qualified Prelude as P
 
 import           Lam
 import           List
+import           Tree
 import           Peano
 import           Syntax
 import           SyntaxMonad
@@ -314,6 +315,9 @@ bool_prog33
 -- | 34. beta test
 prog34 = beta_test1
 
+-- | 35. tree test
+prog35 = tree_test1
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,2,1], P.negate 240)
@@ -367,7 +371,9 @@ tests
     , (prog31, [4,4], 1)      
     , (prog31, [21,7], 3)
 
-    , (prog34, [], 0)            
+    , (prog34, [], 0)
+
+    , (prog35, [], 77)                  
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

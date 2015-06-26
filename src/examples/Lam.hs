@@ -29,9 +29,9 @@ import TExpr
 -- \sigma ::= Shift n + (Term * \sigma)
 ----------------------------------------------------------
 
-type TFSubst = TFSum (TFConst TField) (TFProd (TFConst TTerm) TFId)
+type TFSubst = 'TFSum ('TFConst 'TField) ('TFProd ('TFConst TTerm) 'TFId)
     
-type TSubst = TMu TFSubst
+type TSubst = 'TMu TFSubst
 
 subst_nil n
   = do { n' <- inl n
@@ -60,11 +60,11 @@ case_subst sigma f_shift f_cons
 -- t ::= Field + t + (t * t)
 ----------------------------------------------------------
 
-type TF = TFSum (TFConst TField) (TFSum TFId (TFProd TFId TFId))
+type TF = 'TFSum ('TFConst 'TField) ('TFSum 'TFId ('TFProd 'TFId 'TFId))
 
-type TTerm = TMu TF
+type TTerm = 'TMu TF
 
-varN :: TExp TField Rational
+varN :: TExp 'TField Rational
      -> Comp TTerm
 varN e
   = do { v <- inl e
@@ -100,7 +100,7 @@ case_term :: ( Typeable ty
              , Zippable ty
              )
           => TExp TTerm Rational
-          -> (TExp TField Rational -> Comp ty)
+          -> (TExp 'TField Rational -> Comp ty)
           -> (TExp TTerm Rational -> Comp ty)
           -> (TExp TTerm Rational -> TExp TTerm Rational -> Comp ty)
           -> Comp ty
@@ -114,14 +114,14 @@ case_term t f_var f_lam f_app
                ; f_app e1 e2
                }
 
-is_lam :: TExp TTerm Rational -> Comp TBool
+is_lam :: TExp TTerm Rational -> Comp 'TBool
 is_lam t
   = case_term t
      (const $ return false)
      (const $ return true)
      (\_ _ -> return false)
 
-shift :: TExp TField Rational
+shift :: TExp 'TField Rational
       -> TExp TTerm Rational
       -> Comp TTerm
 shift n t = fix go t
@@ -139,7 +139,7 @@ shift n t = fix go t
                  })
 
 compose sigma1 sigma2
-  = do { p <- pair sigma1 sigma2 :: Comp (TProd TSubst TSubst)
+  = do { p <- pair sigma1 sigma2 :: Comp ('TProd TSubst TSubst)
        ; fix go p
        }
   where go self p0
@@ -166,7 +166,7 @@ compose sigma1 sigma2
                }
              
 subst_term sigma t 
-  = do { p <- pair sigma t :: Comp (TProd TSubst TTerm)
+  = do { p <- pair sigma t :: Comp ('TProd TSubst TTerm)
        ; fix go p
        }
   where go self p0

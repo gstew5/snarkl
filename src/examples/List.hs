@@ -23,28 +23,31 @@ import SyntaxMonad
 import Syntax
 import TExpr
 
-type TF = TFSum (TFConst TUnit) (TFProd (TFConst TField) TFId)
+type TF a = 'TFSum ('TFConst 'TUnit) ('TFProd ('TFConst a) 'TFId)
 
-type TList = TMu TF
+type TList a = 'TMu (TF a)
 
-nil :: Comp TList
+type List a = TExp (TList a) Rational
+
+nil :: Typeable a => Comp (TList a)
 nil = do { t <- inl unit
          ; roll t
          }
 
-cons :: TExp TField Rational -> TExp TList Rational -> Comp TList
+cons :: Typeable a => TExp a Rational -> List a -> Comp (TList a)
 cons f t
   = do { p <- pair f t
        ; t' <- inr p
        ; roll t'
        }
 
-case_list :: ( Typeable ty
+case_list :: ( Typeable a
+             , Typeable ty
              , Zippable ty
              )
-          => TExp TList Rational
+          => List a
           -> Comp ty
-          -> (TExp TField Rational -> TExp TList Rational -> Comp ty)
+          -> (TExp a Rational -> List a -> Comp ty)
           -> Comp ty
 case_list t f_nil f_cons
   = do { t' <- unroll t
@@ -56,21 +59,33 @@ case_list t f_nil f_cons
                ; f_cons e1 e2
                }
 
-head_list :: TExp TField Rational -> TExp TList Rational -> Comp TField
+head_list :: ( Typeable a
+             , Zippable a
+             , Derive a
+             )
+          => TExp a Rational -> List a -> Comp a
 head_list def l
   = case_list l
       (return def)
       (\hd _ -> return hd)
 
-tail_list :: TExp TList Rational -> Comp TList
+tail_list :: ( Typeable a
+             , Zippable a
+             , Derive a
+             )
+          => List a -> Comp (TList a)
 tail_list l
   = case_list l
       nil
       (\_ tl -> return tl)
 
-map_list :: (TExp TField Rational -> Comp TField)
-         -> TExp TList Rational
-         -> Comp TList
+
+map_list :: ( Typeable a, Zippable a, Derive a
+            , Typeable b, Zippable b, Derive b
+            )
+         => (TExp a Rational -> Comp b)
+         -> List a
+         -> Comp (TList b)
 map_list f l
   = fix go l
   where go self l0
@@ -82,9 +97,10 @@ map_list f l
                  ; cons hd' tl'
                  })
 
-last_list :: TExp TField Rational
-          -> TExp TList Rational
-          -> Comp TField
+last_list :: ( Typeable a, Zippable a, Derive a )
+          => TExp a Rational
+          -> List a
+          -> Comp a
 last_list def l
   = fix go l
   where go self l0
@@ -94,6 +110,10 @@ last_list def l
               case_list tl
               (return hd)
               (\_ _ -> self tl))
+
+{------------------------------------------------
+ A couple (very simple) test cases
+ ------------------------------------------------}
 
 list1
   = do { tl <- nil
@@ -123,3 +143,4 @@ list_comp4
   = do { l <- list2
        ; last_list 0.0 l
        }
+
