@@ -106,6 +106,7 @@ data TExpPkg ty
             , comp_input_vars :: [Var] -- ^ The variables marked as inputs.
             , comp_texp :: TExp ty Rational -- ^ The resulting 'TExp'.
             }
+    deriving Show
 
 -- | Desugar a 'Comp'utation to a pair of:
 --   the total number of vars,
