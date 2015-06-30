@@ -2,6 +2,10 @@
 
 An Embedded DSL for Verifiable Computing
 
+## Quickstart
+
+https://github.com/gstew5/snarkl/wiki/Sn%C3%A5rkl-Quickstart
+
 ## Build
 
 Snårkl ("Snorkel") builds with GHC version >= 7.8.3 and Cabal version >= 1.22. It may compile with earlier versions as well, but this hasn't been tested. 
@@ -38,7 +42,7 @@ The benchmarks target is known not to run on `cygwin`.
 
 ## Limitations
 
-Snårkl is a preliminary research prototype undergoing active development.
+Snårkl is a preliminary research prototype undergoing active development. Don't use it in production. Pull requests are very welcome!
 
 ## Directory Structure
 
@@ -52,6 +56,7 @@ snarkl/
     examples/          -- some example Snårkl programs that exercise inductive types
      Peano.hs          
      List.hs
+     Tree.hs
      Lam.hs   
      Keccak.hs
     tests/
