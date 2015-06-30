@@ -2,6 +2,10 @@
 
 An Embedded DSL for Verifiable Computing
 
+## Quickstart
+
+https://github.com/gstew5/snarkl/wiki/Sn%C3%A5rkl-Quickstart
+
 ## Build
 
 Snårkl ("Snorkel") builds with GHC version >= 7.8.3 and Cabal version >= 1.22. It may compile with earlier versions as well, but this hasn't been tested. 
