@@ -23,11 +23,11 @@ Dependencies:
 
 Things may work with earlier versions, but this hasn't been tested.
 
-## Limitations
+# Limitations
 
 Snårkl is a preliminary research prototype undergoing active development. Pull requests welcome!
 
-## Directory Structure
+# Directory Structure
 
 ```
 snarkl/
@@ -47,7 +47,7 @@ snarkl/
       benchmarks/      -- microbenchmarks
 ```
 
-## Compiler Overview
+# Compiler Overview
 
 ### Languages
 
