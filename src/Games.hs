@@ -35,13 +35,20 @@ data ISO (t :: Ty) (s :: Ty) =
       }
 
 data Game :: Ty -> * where
-  Single :: forall (t :: Ty).
-            Typeable t => ISO t t -> Game t
+  Single :: forall (s :: Ty) (t :: Ty).
+            ( Typeable s
+            , Typeable t
+            )
+         => ISO t s -> Game t
   Split  :: forall (t1 :: Ty) (t2 :: Ty) (t :: Ty).
             ( Typeable t1
             , Typeable t2
             , Typeable t
+            , Zippable t1
+            , Zippable t2              
             , Zippable t
+            , Derive t1
+            , Derive t2              
             )
          => ISO t ('TSum t1 t2) -> Game t1 -> Game t2 -> Game t
 
@@ -88,3 +95,110 @@ basic_test
 
 t1 = comp_interp basic_test [0,23,88] -- 23
 t2 = comp_interp basic_test [1,23,88] -- 88
+
+(+>) :: ( Typeable t
+        , Typeable s
+        , Zippable t
+        , Zippable s
+        )
+     => Game t -> ISO s t -> Game s
+(Single j) +> i      = Single (i `seqI` j)
+(Split j g1 g2) +> i = Split  (i `seqI` j) g1 g2
+
+idI :: ISO a a
+idI = Iso return return
+
+prodI :: ( Typeable a
+         , Typeable b
+         , Typeable c
+         , Typeable d )
+      => ISO a b
+      -> ISO c d
+      -> ISO ('TProd a c) ('TProd b d)
+prodI (Iso f g) (Iso f' g')
+  = Iso (\p -> do
+            x1 <- fst_pair p
+            x2 <- snd_pair p
+            y1 <- f x1
+            y2 <- f' x2
+            pair y1 y2)
+        (\p -> do
+            x1 <- fst_pair p
+            x2 <- snd_pair p
+            y1 <- g x1
+            y2 <- g' x2
+            pair y1 y2)
+
+seqI :: Typeable b => ISO a b -> ISO b c -> ISO a c
+seqI (Iso f g) (Iso f' g') = Iso (\a -> f a >>= f') (\c -> g' c >>= g)
+
+prodLInputI :: ( Typeable a
+               , Typeable b
+               )
+            => ISO ('TProd a b) b
+prodLInputI
+  = Iso snd_pair
+        (\b -> do
+            a <- fresh_input
+            pair a b)
+
+prodLSumI :: ( Typeable a
+             , Typeable b
+             , Typeable c
+             , Zippable a
+             , Zippable b
+             , Zippable c
+             , Derive a
+             , Derive b
+             , Derive c
+             )
+          => ISO ('TProd ('TSum b c) a) ('TSum ('TProd b a) ('TProd c a))
+prodLSumI 
+  = Iso (\p -> do
+            xbc <- fst_pair p
+            xa  <- snd_pair p
+            case_sum
+              (\xb -> do
+                  p' <- pair xb xa
+                  inl p')
+              (\xc -> do
+                  p' <- pair xc xa
+                  inr p')
+              xbc)
+        (\s -> do
+            case_sum
+              (\pba -> do
+                  a  <- snd_pair pba
+                  b  <- fst_pair pba
+                  sb <- inl b
+                  pair sb a)
+              (\pca -> do
+                  a  <- snd_pair pca
+                  c  <- fst_pair pca
+                  sc <- inr c
+                  pair sc a)
+              s)
+
+prod_game :: ( Typeable b
+              , Zippable a
+              , Zippable b
+              , Derive a
+              , Derive b
+              )
+           => Game a -> Game b -> Game ('TProd a b)
+prod_game (Single iso) g2 = g2 +> iso'
+  where iso' = prodI iso idI `seqI` prodLInputI
+prod_game (Split iso g1a g1b) g2
+  = Split iso' (prod_game g1a g2) (prod_game g1b g2)
+  where iso' = prodI iso idI `seqI` prodLSumI
+
+basic_game2 :: Game ('TProd 'TField 'TField)
+basic_game2 = prod_game field_game field_game
+
+basic_test2 :: Comp 'TField
+basic_test2
+  = do { p <- decode basic_game2
+       ; fst_pair p
+       }
+
+t3 = comp_interp basic_test2 [88,23] -- fst (23, 88) = 23
