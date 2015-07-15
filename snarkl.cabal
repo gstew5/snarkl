@@ -80,7 +80,7 @@ library
   -- Modules included in this library but not exported.
   other-modules:       
     Constraints, Field, Interp, Poly, SimplMonad, UnionFind, Expr,
-    Solve, Simplify, Dataflow, Common, Serialize
+    Solve, Simplify, Dataflow, Common, Serialize, Games
   
   other-extensions: 
     GADTs, TypeSynonymInstances, FlexibleInstances, BangPatterns,
