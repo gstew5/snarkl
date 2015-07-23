@@ -3,6 +3,7 @@
            , GADTs
            , KindSignatures
            , RankNTypes
+           , ScopedTypeVariables
   #-}
 
 module Games where
@@ -22,12 +23,16 @@ import Prelude hiding
 
 import Data.Typeable
 
+import Errors
 import Syntax
 import SyntaxMonad
 import TExpr
 import Toplevel
 
-{- See Vytiniotis & Kennedy, "Functional Pearl: Every Bit Counts", ICFP 2010 -}
+{---------------------------------------------------------
+  See Vytiniotis & Kennedy,
+  "Functional Pearl: Every Bit Counts", ICFP 2010
+ ---------------------------------------------------------}
 
 data ISO (t :: Ty) (s :: Ty) =
   Iso { to   :: TExp t Rational -> Comp s
@@ -71,6 +76,18 @@ decode (Split (Iso _ bld) g1 g2)
 field_game :: Game 'TField
 field_game = Single (Iso return return)
 
+bool_game :: Game 'TBool
+bool_game = Single (Iso (\be -> if be then 1.0 else 0.0)
+                        (\te -> if zeq te then false else true))
+
+unit_game :: Game 'TUnit
+unit_game = Single (Iso (\_ -> return 1.0) (\_ -> return unit))
+
+fail_game :: Typeable ty => Game ty
+fail_game = Single (Iso (\_ -> fail_with $ ErrMsg "fail-games can't encode")
+                        (\(_ :: TExp 'TField Rational) ->
+                                fail_with $ ErrMsg "fail-games can't decode"))
+
 sum_game :: ( Typeable t1
             , Typeable t2
             , Zippable t1
@@ -83,7 +100,7 @@ sum_game :: ( Typeable t1
          -> Game ('TSum t1 t2)
 sum_game g1 g2
   = Split (Iso return return) g1 g2
-
+    
 basic_game :: Game ('TSum 'TField 'TField)
 basic_game = sum_game field_game field_game
 
@@ -180,12 +197,12 @@ prodLSumI
               s)
 
 prod_game :: ( Typeable b
-              , Zippable a
-              , Zippable b
-              , Derive a
-              , Derive b
-              )
-           => Game a -> Game b -> Game ('TProd a b)
+             , Zippable a
+             , Zippable b
+             , Derive a
+             , Derive b
+             )
+          => Game a -> Game b -> Game ('TProd a b)
 prod_game (Single iso) g2 = g2 +> iso'
   where iso' = prodI iso idI `seqI` prodLInputI
 prod_game (Split iso g1a g1b) g2
@@ -202,3 +219,66 @@ basic_test2
        }
 
 t3 = comp_interp basic_test2 [88,23] -- fst (23, 88) = 23
+
+basic_game3 :: Game ('TProd ('TProd 'TField 'TField) 'TField)
+basic_game3
+  = prod_game (prod_game field_game field_game)
+              field_game
+
+basic_test3 :: Comp 'TField
+basic_test3
+  = do { p <- decode basic_game3
+       ; p2 <- fst_pair p
+       ; snd_pair p2
+       }
+
+t4 = comp_interp basic_test3 [0,1,2]
+  
+{---------------------------------------------------------
+  Generic Games
+ ---------------------------------------------------------}
+
+class Gameable (a :: Ty) where
+  mkGame :: Game a
+
+instance Gameable 'TField where
+  mkGame = field_game
+
+instance Gameable 'TBool where
+  mkGame = bool_game
+
+instance Gameable 'TUnit where
+  mkGame = unit_game
+
+instance ( Typeable a
+         , Typeable b
+         , Zippable a
+         , Zippable b
+         , Derive a
+         , Derive b
+         , Gameable a
+         , Gameable b
+         )
+      => Gameable ('TProd a b) where
+  mkGame = prod_game mkGame mkGame
+     
+instance ( Typeable a
+         , Typeable b
+         , Zippable a
+         , Zippable b
+         , Derive a
+         , Derive b
+         , Gameable a
+         , Gameable b
+         )
+      => Gameable ('TSum a b) where
+  mkGame = sum_game mkGame mkGame
+
+gdecode :: Gameable t => Comp t
+gdecode = decode mkGame
+
+
+  
+     
+
+
