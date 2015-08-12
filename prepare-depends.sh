@@ -5,9 +5,8 @@
 set -x -e
 
 DEPSRC=./depsrc
-DEPINST=./depinst
+DEPINST=/usr
 
-mkdir -p $DEPINST
 mkdir -p $DEPSRC
 
 cd $DEPSRC
@@ -15,7 +14,6 @@ cd $DEPSRC
 cd libsnark
 ./prepare-depends.sh
 make
-cd ..
-cd ..
-cp -rv $DEPSRC/libsnark $DEPINST/
+sudo make install PREFIX=$DEPINST
+
 

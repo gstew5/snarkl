@@ -7,11 +7,11 @@
 
 CXXFLAGS += -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG
 
-DEPINST=../depinst
+DEPSRC=../depsrc
 
-LDFLAGS += -L $(DEPINST)/libsnark/src -Wl,-rpath $(DEPINST)/libsnark/src
+LDFLAGS += -L $(DEPSRC)/libsnark/src -Wl,-rpath $(DEPSRC)/libsnark/src
 LDLIBS += -lgmpxx -lgmp -lsnark -lzm
-CXXFLAGS += -I $(DEPINST)/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g
+CXXFLAGS += -I $(DEPSRC)/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g
 
 SRCS= \
 	snarky.cpp
@@ -47,7 +47,7 @@ clean:
 
 # Clean all, including locally-compiled dependencies
 clean-all: clean
-	rm -fr $(DEPSRC) $(DEPINST)
+	rm -fr $(DEPSRC) 
 
 test: bin/snarky
 	if [ -e vk.file ]; then rm vk.file; fi

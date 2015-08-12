@@ -16,6 +16,9 @@ cd snarkl
 make
 ```
 
+The `./prepare-depends.sh` script installs `libsnark` in `/usr`. If you don't want this,
+modify `./prepare-depends.sh` and `cppsrc/Makefile` to use an alternate installation site.
+
 Dependencies: 
 
 * GHC version >= 7.10.1;
@@ -26,7 +29,7 @@ Things may work with earlier versions, but this hasn't been tested.
 To build `libsnark` (dependency), you'll need the following packages (Ubuntu):
 
 ```
-sudo apt-get install build-essential git libgmp3-dev libprocps3-dev libgtest-dev python-markdown
+sudo apt-get install build-essential git libgmp3-dev libprocps3-dev libgtest-dev libboost-all-dev libssl-dev python-markdown
 ```
 
 # Limitations
