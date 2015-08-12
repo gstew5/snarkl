@@ -23,6 +23,12 @@ Dependencies:
 
 Things may work with earlier versions, but this hasn't been tested.
 
+To build `libsnark` (dependency), you'll need the following packages (Ubuntu):
+
+```
+sudo apt-get install build-essential git libgmp3-dev libprocps3-dev libgtest-dev python-markdown
+```
+
 # Limitations
 
 Snårkl is a preliminary research prototype undergoing active development. Pull requests welcome!
