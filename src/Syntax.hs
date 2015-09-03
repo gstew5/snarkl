@@ -12,7 +12,6 @@
 module Syntax
        ( Zippable
        , Derive
-       , rep_sum
 
          -- | Sums, products, recursive types
        , inl
