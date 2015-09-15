@@ -26,6 +26,8 @@ import           Syntax
 import           SyntaxMonad
 import           TExpr
 
+
+
 -- | 1. A standalone "program" in the expression language
 prog1 
   = do { x <- fresh_input -- bool
@@ -318,6 +320,15 @@ prog34 = beta_test1
 -- | 35. tree test
 prog35 = tree_test1
 
+-- | 36. sums test (ISSUE#7)
+prog36 :: Comp 'TField
+prog36 = do
+  b1 <- fresh_input
+  r1 <- inl 2.0
+  r2 <- inr 3.0
+  x <- if b1 then r1 else r2
+  case_sum (\n -> return $ n + 5.0) (\m -> return $ m + 7.0) x
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,2,1], P.negate 240)
@@ -373,7 +384,10 @@ tests
 
     , (prog34, [], 0)
 
-    , (prog35, [], 77)                  
+    , (prog35, [], 77)
+
+    , (prog36, [0], 10)
+    , (prog36, [1], 7)                  
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

@@ -132,6 +132,10 @@ main = hspec $ do
       it "33-3" $ test_comp bool_prog33 [100,100] `shouldReturn` Right 1
       it "33-3" $ test_comp bool_prog33 [-33,44] `shouldReturn` Right 0
       it "33-3" $ test_comp bool_prog33 [-1,-1] `shouldReturn` Right 1
+
+    describe "sum" $ do
+      it "36-1" $ test_comp prog36 [0] `shouldReturn` Right 10
+      it "36-2" $ test_comp prog36 [1] `shouldReturn` Right 7
     
   describe "Keccak Tests" $ do
 

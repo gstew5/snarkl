@@ -32,7 +32,7 @@ solve cs env =
              ++ show (unassigned all_vars assgn) ++ ",\n"
              ++ "in assignment context\n  " ++ show assgn ++ ",\n"
              ++ "in pinned-variable context\n  " ++ show pinned_vars ++ ",\n"
-             ++ "in optimized-constraint context\n  " ++ show cs' ++ ",\n"
+             ++ "in reduced-constraint context\n  " ++ show cs' ++ ",\n"
              ++ "in constraint context\n  " ++ show cs)
 
   where all_assigned vars0 assgn = all id $ map (is_mapped assgn) vars0

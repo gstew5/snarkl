@@ -281,13 +281,14 @@ cs_of_exp out e = case e of
   ESeq le -> go le 
     where go []   = fail_with $ ErrMsg "internal error: empty ESeq"
           go [e1] = cs_of_exp out e1
-          go (e1 : le')  
-            = do { e1_out <- fresh_var
+          go (e1 : le')
+            = do { e1_out <- fresh_var -- garbage
                  ; cs_of_exp e1_out e1
                  ; go le'
                  }
   EUnit ->
-    do { return () }
+    -- NOTE: [[ EUnit ]]_{out} = [[ EVal zero ]]_{out}.
+    do { cs_of_exp out (EVal zero) }
 
 -- | Compile a list of arithmetic constraints to a rank-1 constraint
 -- system.  Takes as input the constraints, the input variables, and
@@ -301,7 +302,7 @@ r1cs_of_constraints cs
         cs_dataflow  = remove_unreachable cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
-         -- their renumbered counterparts.
+         -- their renumbered counterparts. 
         (_,cs') = renumber_constraints cs_dataflow
          -- 'f' is a function mapping input bindings to witnesses.
          -- NOTE: we assume the initial variable assignment passed to
@@ -309,7 +310,7 @@ r1cs_of_constraints cs
          -- the (renamed) input vars. of the R1CS produced by this
          -- function. Alternatively, we could 'Map.mapKeys renumber_f'
          -- before applying 'solve cs''.
-        f = solve cs' 
+        f = solve cs'
     in r1cs_of_cs cs' f
 
 -- | Compile an expression to a constraint system.  Takes as input the
