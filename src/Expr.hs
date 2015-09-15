@@ -68,13 +68,10 @@ exp_binop op e1 e2
 exp_seq :: Exp a -> Exp a -> Exp a
 exp_seq e1 e2
   = case (e1,e2) of
-      (ESeq l1,ESeq l2) -> go (l1++l2)
-      (ESeq l1,_) -> go (l1 ++ [e2])
-      (_,ESeq l2) -> go (e1 : l2)
-      (_,_) -> go [e1,e2]
-  where go [] = fail_with $ ErrMsg "empty sequence in 'exp_seq'"
-        go [e] = e
-        go (e : l) = if is_pure e then go l else ESeq [e,go l]
+      (ESeq l1,ESeq l2) -> ESeq (l1 ++ l2)
+      (ESeq l1,_) -> ESeq (l1 ++ [e2])
+      (_,ESeq l2) -> ESeq (e1 : l2)
+      (_,_) -> ESeq [e1, e2]
 
 is_pure :: Exp a -> Bool
 is_pure e
