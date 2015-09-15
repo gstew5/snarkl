@@ -108,7 +108,7 @@ raise_err msg = State (\_ -> Left msg)
     Left err -> Left err
     Right (e,s') -> case runState (g e) s' of
       Left err -> Left err
-      Right (e',s'') -> Right (te_seq e e',s''))
+      Right (e',s'') -> Right (e `te_seq` e',s''))
 
 (>>) :: forall (ty1 :: Ty) (ty2 :: Ty) s a.
         Typeable ty1
@@ -117,8 +117,8 @@ raise_err msg = State (\_ -> Left msg)
      -> State s (TExp ty2 a)
 (>>) mf g = do { _ <- mf; g }    
 
-return :: a -> State s a
-return e = State (\s -> Right (e,s))
+return :: TExp ty a -> State s (TExp ty a)
+return e = State (\s -> Right (last_seq e,s))
 
 -- | At elaboration time, we maintain an environment containing
 --    (i) next_var:  the next free variable
@@ -301,7 +301,11 @@ pair te1 te2
                ; x2 <- fresh_var
                ; add_objects [((l,0),ObjVar $ var_of_texp x1),
                               ((l,1),ObjVar $ var_of_texp x2)]
-               ; return $ te_seq (TEAssert x1 e1) (TEAssert x2 e2)
+                 -- NOTE: return e ~~> return (last_seq e). So we rely on the
+                 -- slightly weird semantics of (>>=) to do the sequencing of
+                 -- the two assertions for us.
+               ; return $ TEAssert x1 e1
+               ; return $ TEAssert x2 e2
                }
 
 fst_pair :: ( Typeable ty1
