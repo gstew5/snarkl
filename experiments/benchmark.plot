@@ -10,8 +10,9 @@ set style data histograms
 set xtics border in scale 0,0 nomirror rotate by -45  autojustify
 set xtics  norangelimit
 set xtics   ()
-set title "SHA3 Keccak-f"
+set title "SHA3 Keccak-f(200)"
 set yrange [ 0 : 3500 ] noreverse nowriteback
+set ylabel "ms"
 x = 0.0
 i = 22
 plot 'benchmark-data-9182015.dat' using 2:xtic(1), for [i=3:22] '' using i
