@@ -28,11 +28,11 @@ num_lanes :: Int
 num_lanes = (P.*) 5 5
 
 ln_width :: Int
-ln_width = 32
+ln_width = 8
 
-round1 :: (Int -> TExp TBool Rational) -- | 'i'th bit of round constant
-       -> TExp (TArr (TArr (TArr TBool))) Rational   -- | Array 'a'
-       -> Comp TUnit
+round1 :: (Int -> TExp 'TBool Rational) -- | 'i'th bit of round constant
+       -> TExp ('TArr ('TArr ('TArr 'TBool))) Rational   -- | Array 'a'
+       -> Comp 'TUnit
 round1 rc a
   = do { -- Allocate local array variables [b], [c], [d].
          b <- arr3 5 21 ln_width
@@ -126,7 +126,7 @@ trunc rc
   = fromIntegral rc
     .&. dec (truncate (2**fromIntegral ln_width :: Double) :: Int)
 
-get_round_bit :: Int -> Int -> TExp TBool Rational
+get_round_bit :: Int -> Int -> TExp 'TBool Rational
 get_round_bit round_i bit_i
   = let the_bit = round_consts !! round_i
                   .&. truncate (2**fromIntegral bit_i :: Double)
@@ -141,11 +141,20 @@ keccak_f1 num_rounds a
 keccak1 num_rounds
   = do { a <- input_arr3 5 5 ln_width
        ; keccak_f1 num_rounds a
-       ; get3 (a,0,0,0)
+       ; b <- arr 1
+       ; set (b, 0) false
+       ; forall3 ([0..4], [0..4], [0..dec ln_width]) (\i j k -> do
+           a_val <- get3 (a, i, j, k)                                                          
+           b_val <- get (b, 0)
+           set (b, 0) (a_val `xor` b_val))
+       ; get (b, 0)
        }
 
-input_vals
-  = take ((P.*) num_lanes ln_width) $ repeat (0::Int)
+input_vals = go ((P.*) num_lanes ln_width)
+  where go :: Int -> [Int]
+        go 0 = []
+        go n | odd n     = 0 : go (dec n)
+        go n | otherwise = 1 : go (dec n)
 
 -- test_full n
 --   = Top.test (keccak1 n, input_vals, (1::Integer))

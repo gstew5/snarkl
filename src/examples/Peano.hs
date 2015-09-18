@@ -21,9 +21,9 @@ import SyntaxMonad
 import Syntax
 import TExpr
 
-type TF = TFSum (TFConst TUnit) TFId 
+type TF = 'TFSum ('TFConst 'TUnit) 'TFId 
 
-type TNat = TMu TF
+type TNat = 'TMu TF
 
 nat_zero :: Comp TNat
 nat_zero 
@@ -40,7 +40,7 @@ nat_succ n
 nat_eq :: Int
        -> TExp TNat Rational
        -> TExp TNat Rational
-       -> Comp TBool
+       -> Comp 'TBool
 nat_eq level n m
   | level > 0
   = do { n' <- unroll n

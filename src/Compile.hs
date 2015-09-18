@@ -2,6 +2,7 @@
 
 module Compile 
   ( CEnv(CEnv)
+  , SimplParam(..)
   , fresh_var
   , cs_of_exp
   , get_constraints
@@ -290,16 +291,23 @@ cs_of_exp out e = case e of
     -- NOTE: [[ EUnit ]]_{out} = [[ EVal zero ]]_{out}.
     do { cs_of_exp out (EVal zero) }
 
+data SimplParam = Simplify | NoSimplify
+
+must_simplify Simplify   = True
+must_simplify NoSimplify = False
+
 -- | Compile a list of arithmetic constraints to a rank-1 constraint
 -- system.  Takes as input the constraints, the input variables, and
 -- the output variables, and return the corresponding R1CS.
 r1cs_of_constraints :: Field a
-                    => ConstraintSystem a 
+                    => SimplParam
+                    -> ConstraintSystem a 
                     -> R1CS a
-r1cs_of_constraints cs
+r1cs_of_constraints simpl cs
   = let  -- Simplify resulting constraints.
-        (_,cs_simpl) = do_simplify False Map.empty cs
-        cs_dataflow  = remove_unreachable cs_simpl
+        (_,cs_simpl) = if must_simplify simpl then do_simplify False Map.empty cs
+                       else (undefined,cs)
+        cs_dataflow  = if must_simplify simpl then remove_unreachable cs_simpl else cs
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts. 

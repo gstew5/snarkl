@@ -2,25 +2,41 @@ module Main where
 
 import Criterion.Main
 
+import Compile (SimplParam(..))
 import Harness
 
-import qualified Lam as Lam
+-- import qualified List as List
+-- import qualified Tree as Tree
+-- import qualified Lam as Lam
 import qualified Keccak as Keccak
 
 mk_bgroup nm mf inputs result
   = bgroup nm 
-    [ bench (nm ++ "-interp")        $ nf (test_interp mf) inputs
-    , bench (nm ++ "-constraints")   $ nfIO $ test_constraints mf
-    , bench (nm ++ "-simplify")      $ nfIO $ test_simplify mf            
-    , bench (nm ++ "-r1cs")          $ nfIO $ test_r1cs mf
-    , bench (nm ++ "-wit")           $ nfIO $ test_wit mf inputs
-    , bench (nm ++ "-full")          $ nfIO $ test_full mf inputs result
+    [ bench (nm ++ "-interp")              $ nf (test_interp mf) inputs
+    , bench (nm ++ "-elaborate")           $ nfIO $ test_texp mf
+    , bench (nm ++ "-constraints")         $ nfIO $ test_constraints mf
+    , bench (nm ++ "-simplify")            $ nfIO $ test_simplify mf
+
+    , bench (nm ++ "-simpl-r1cs")          $ nfIO $ test_r1cs Simplify mf
+    , bench (nm ++ "-simpl-wit")           $ nfIO $ test_wit Simplify mf inputs
+    , bench (nm ++ "-simpl-full")          $ nfIO $ test_full Simplify mf inputs result
+
+      -- last three as above, but don't simplify
+    , bench (nm ++ "-nosimpl-r1cs")        $ nfIO $ test_r1cs NoSimplify mf
+    , bench (nm ++ "-nosimpl-wit")         $ nfIO $ test_wit NoSimplify mf inputs
+    , bench (nm ++ "-nosimpl-full")        $ nfIO $ test_full NoSimplify mf inputs result
     ]
 
 the_benchmarks
-  = [ mk_bgroup "lambda" Lam.beta_test1 [] 0
-    , mk_bgroup "keccak" (Keccak.keccak1 2) Keccak.input_vals 1
+  = [ mk_bgroup "keccak" (Keccak.keccak1 18) Keccak.input_vals 1
     ] 
+
+-- the_benchmarks
+--   = [ mk_bgroup "list" List.list_comp3 [1] 24
+--     , mk_bgroup "tree" Tree.tree_test1 [1] 77
+--     , mk_bgroup "lambda" Lam.beta_test1 [] 0
+--     , mk_bgroup "keccak" (Keccak.keccak1 18) Keccak.input_vals 1
+--     ] 
 
 run_benchmarks
   = defaultMain the_benchmarks

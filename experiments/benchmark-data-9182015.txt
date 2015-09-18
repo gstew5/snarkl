@@ -1,0 +1,136 @@
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+[22 of 22] Compiling Main             ( src/testsuite/benchmarks/Main.hs, dist/build/criterion/criterion-tmp/Main.o )
+Linking dist/build/criterion/criterion ...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking keccak/keccak-interp
+time                 125.2 ms   (120.9 ms .. 130.2 ms)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 119.9 ms   (118.1 ms .. 122.2 ms)
+std dev              2.996 ms   (1.949 ms .. 4.749 ms)
+variance introduced by outliers: 11% (moderately inflated)
+
+benchmarking keccak/keccak-elaborate
+time                 98.36 ms   (89.27 ms .. 118.4 ms)
+                     0.963 R²   (0.869 R² .. 1.000 R²)
+mean                 100.9 ms   (95.89 ms .. 110.3 ms)
+std dev              9.624 ms   (434.5 μs .. 13.50 ms)
+variance introduced by outliers: 31% (moderately inflated)
+
+benchmarking keccak/keccak-constraints
+time                 590.8 ms   (555.7 ms .. 619.0 ms)
+                     1.000 R²   (0.999 R² .. NaN R²)
+mean                 591.5 ms   (587.8 ms .. 595.0 ms)
+std dev              6.048 ms   (0.0 s .. 6.169 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simplify
+time                 1.689 s    (1.526 s .. 1.879 s)
+                     0.999 R²   (0.995 R² .. 1.000 R²)
+mean                 1.619 s    (1.551 s .. 1.655 s)
+std dev              59.23 ms   (0.0 s .. 63.12 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-r1cs
+time                 1.723 s    (1.498 s .. 1.964 s)
+                     0.998 R²   (0.991 R² .. 1.000 R²)
+mean                 1.690 s    (1.638 s .. 1.726 s)
+std dev              54.51 ms   (0.0 s .. 62.72 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-wit
+time                 2.009 s    (1.933 s .. 2.082 s)
+                     1.000 R²   (0.999 R² .. NaN R²)
+mean                 1.993 s    (1.969 s .. 2.005 s)
+std dev              20.37 ms   (0.0 s .. 21.63 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-full
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+sat = True, vars = 5822, constraints = 5822, result = 1 % 1
+time                 2.185 s    (2.118 s .. 2.240 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 2.166 s    (2.151 s .. 2.175 s)
+std dev              14.82 ms   (0.0 s .. 17.10 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-r1cs
+time                 964.4 ms   (876.8 ms .. 1.015 s)
+                     0.999 R²   (0.997 R² .. 1.000 R²)
+mean                 977.4 ms   (962.4 ms .. 986.9 ms)
+std dev              14.33 ms   (0.0 s .. 16.47 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-wit
+time                 2.440 s    (2.391 s .. 2.508 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 2.420 s    (2.399 s .. 2.432 s)
+std dev              18.65 ms   (0.0 s .. 21.02 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-full
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+sat = True, vars = 95178, constraints = 95178, result = 1 % 1
+time                 3.211 s    (3.000 s .. 3.495 s)
+                     0.999 R²   (0.997 R² .. 1.000 R²)
+mean                 3.308 s    (3.253 s .. 3.357 s)
+std dev              81.92 ms   (0.0 s .. 85.83 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+Benchmark criterion: FINISH

@@ -4,6 +4,8 @@
            , RankNTypes
            , DeriveDataTypeable
            , AutoDeriveTypeable
+           , DeriveGeneric
+           , DeriveAnyClass
            , TypeFamilies
            , UndecidableInstances
            , FlexibleContexts

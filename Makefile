@@ -10,7 +10,7 @@ test: toplevel snarky
 	cabal test
 
 bench: toplevel snarky
-	cabal bench
+	cabal bench 2> /dev/null
 
 clean:
 	cd cppsrc; \
