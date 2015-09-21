@@ -1,4 +1,4 @@
 Phase	Interp Elaborate	Constraints	Simplify	R1CS	Witness	Libsnark
-Simplify       -		98.36		492.44		1098.2	34	286	176
-NoSimplify     -		98.36		492.44		-	373.6	1475.6	771
-Interp	       125.2	
+Simp	-	98.36		492.44		1098.2		34	286	176
+NoSimp	-	98.36		492.44		-		373.6	1475.6	771
+Interp	125.2	
