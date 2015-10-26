@@ -19,6 +19,7 @@ import Prelude hiding
 import Syntax
 import SyntaxMonad
 import TExpr
+import Compile
 import Toplevel
 
 mult_ex ::
@@ -50,8 +51,8 @@ desugar2 = texp_of_comp p2
 interp2  = comp_interp p2 []
 interp2' = comp_interp p2 [256]
 
-compile1 = r1cs_of_comp p1
+compile1 = r1cs_of_comp Simplify p1
 
-run1 = snarkify_comp "example" p1 []
+run1 = snarkify_comp "example" Simplify p1 []
 
   
