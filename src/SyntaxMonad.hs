@@ -231,8 +231,30 @@ get_addr (l,i)
                                              ++ " in heap " ++ show (obj_map s))
           )
 
+guard :: Typeable ty2 => (TExp ty Rational -> State Env (TExp ty2 Rational))
+      -> TExp ty Rational -> State Env (TExp ty2 Rational)
+guard f e
+  = do { b <- is_bot e
+       ; case b of
+           TEVal VTrue -> return TEBot
+           TEVal VFalse -> f e
+           _ -> fail_with $ ErrMsg "internal error in guard"
+       }
+
+guarded_get_addr :: Typeable ty2 => TExp ty Rational
+                    -> Int -> State Env (TExp ty2 Rational)
+guarded_get_addr e i = guard (\e0 -> get_addr (loc_of_texp e0,i)) e
+         
 get :: Typeable ty => (TExp ('TArr ty) Rational,Int) -> Comp ty
-get (a,i) = get_addr (loc_of_texp a,i)
+get (TEBot,_) = return TEBot                             
+get (a,i) = guarded_get_addr a i
+
+-- | Smart constructor for TEAssert
+te_assert x TEBot
+  = do { assert_bot x
+       ; return $ TEAssert x TEBot
+       }
+te_assert x e = return $ TEAssert x e
 
 -- | Update array 'a' at position 'i' to expression 'e'. We special-case
 -- variable and location expressions, because they're representable untyped
@@ -260,7 +282,7 @@ set_addr (TEVal (VLoc (TLoc l)),i) (TEVal (VLoc (TLoc l')))
 set_addr (TEVal (VLoc (TLoc l)),i) e
   = do { x <- fresh_var
        ; add_objects [((l,i),ObjVar (var_of_texp x))]
-       ; return $ TEAssert x e
+       ; te_assert x e
        }
     
 -- Err: expression does not satisfy [INVARIANT].     
@@ -289,12 +311,12 @@ pair te1 te2
         add_binds l (TEVal (VLoc (TLoc l1))) e2
           = do { x2 <- fresh_var
                ; add_objects [((l,0),ObjLoc l1), ((l,1),ObjVar $ var_of_texp x2)]
-               ; return $ TEAssert x2 e2
+               ; te_assert x2 e2
                }
         add_binds l e1 (TEVal (VLoc (TLoc l2)))
           = do { x1 <- fresh_var
                ; add_objects [((l,0),ObjVar $ var_of_texp x1), ((l,1),ObjLoc l2)]
-               ; return $ TEAssert x1 e1
+               ; te_assert x1 e1
                }
         add_binds l e1 e2
           = do { x1 <- fresh_var
@@ -304,8 +326,8 @@ pair te1 te2
                  -- NOTE: return e ~~> return (last_seq e). So we rely on the
                  -- slightly weird semantics of (>>=) to do the sequencing of
                  -- the two assertions for us.
-               ; return $ TEAssert x1 e1
-               ; return $ TEAssert x2 e2
+               ; te_assert x1 e1
+               ; te_assert x2 e2
                }
 
 fst_pair :: ( Typeable ty1
@@ -313,14 +335,16 @@ fst_pair :: ( Typeable ty1
             )
          => TExp ('TProd ty1 ty2) Rational
          -> Comp ty1
-fst_pair e = get_addr (loc_of_texp e,0)
+fst_pair TEBot = return TEBot                  
+fst_pair e = guarded_get_addr e 0
 
 snd_pair :: ( Typeable ty1
             , Typeable ty2
             )
          => TExp ('TProd ty1 ty2) Rational
          -> Comp ty2
-snd_pair e = get_addr (loc_of_texp e,1)
+snd_pair TEBot = return TEBot                                    
+snd_pair e = guarded_get_addr e 1
 
 {-----------------------------------------------
  Auxiliary functions
