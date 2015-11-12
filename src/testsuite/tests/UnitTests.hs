@@ -329,6 +329,9 @@ prog36 = do
   x <- if b1 then r1 else r2
   case_sum (\n -> return $ n + 5.0) (\m -> return $ m + 7.0) x
 
+-- | 37. build and modify a list of user-specified length, up to size 50
+prog37 = test_listN
+
 tests :: [(Comp 'TField,[Int],Integer)]
 tests
   = [ (prog1, [1,2,1], P.negate 240)
@@ -387,7 +390,9 @@ tests
     , (prog35, [], 77)
 
     , (prog36, [0], 10)
-    , (prog36, [1], 7)                  
+    , (prog36, [1], 7)
+
+    , (prog37, 30 : (take 50 [0..]), 30)
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

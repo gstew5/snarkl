@@ -22,6 +22,7 @@ import Data.Typeable
 import SyntaxMonad
 import Syntax
 import TExpr
+import Toplevel
 
 type TF a = 'TFSum ('TFConst 'TUnit) ('TFProd ('TFConst a) 'TFId)
 
@@ -144,3 +145,16 @@ list_comp4
        ; last_list 0.0 l
        }
 
+listN n = fixN 50 go n
+  where go self n0 = do
+          l0 <- nil
+          x  <- fresh_input
+          tl <- self (n0-1.0)
+          l1 <- cons x tl
+          if eq n0 0.0 then l0 else l1
+
+test_listN = do
+  n  <-fresh_input
+  l1 <- listN n
+  l2 <- map_list inc_elem l1
+  last_list 99.0 l2

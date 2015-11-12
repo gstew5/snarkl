@@ -64,6 +64,7 @@ main = hspec $ do
       it "28-1" $ test_comp Simplify prog28 [] `shouldReturn` Right 24
       it "29-1" $ test_comp Simplify prog29 [1] `shouldReturn` Right 24
       it "30-1" $ test_comp Simplify prog30 [] `shouldReturn` Right 24
+      it "37-1" $ test_comp Simplify prog37 (30 : (take 50 [0..])) `shouldReturn` Right 30
       
     describe "div" $ do
       it "31-1" $ test_comp Simplify prog31 [4,2] `shouldReturn` Right 2
