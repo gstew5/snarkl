@@ -392,7 +392,7 @@ tests
     , (prog36, [0], 10)
     , (prog36, [1], 7)
 
-    , (prog37, 30 : (take 50 [0..]), 30)
+    , (prog37, 30 : (take 100 [0..]), 30)
     ]
 
 bool_tests :: [(Comp 'TBool,[Int],Integer)]

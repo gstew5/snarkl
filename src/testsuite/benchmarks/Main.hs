@@ -5,7 +5,7 @@ import Criterion.Main
 import Compile (SimplParam(..))
 import Harness
 
--- import qualified List as List
+import qualified List as List
 -- import qualified Tree as Tree
 -- import qualified Lam as Lam
 import qualified Keccak as Keccak
@@ -29,6 +29,7 @@ mk_bgroup nm mf inputs result
 
 the_benchmarks
   = [ mk_bgroup "keccak" (Keccak.keccak1 18) Keccak.input_vals 1
+    , mk_bgroup "list"    List.test_listN    (30 : (take 100 $ [0..])) 30
     ] 
 
 -- the_benchmarks
