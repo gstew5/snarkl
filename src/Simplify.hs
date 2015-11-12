@@ -173,7 +173,8 @@ do_simplify in_solve_mode env cs
     --   resolve nondeterministic inputs)   
     -- Pinned vars are never optimized away.
   = let pinned_vars = cs_in_vars cs ++ cs_out_vars cs ++ magic_vars (cs_constraints cs)
-        new_state   = SEnv (new_uf { extras = env }) in_solve_mode
+        do_solve    = if in_solve_mode then UseMagic else JustSimplify 
+        new_state   = SEnv (new_uf { extras = env }) do_solve
     in fst $ runState (go pinned_vars) new_state
   where go pinned_vars
           = do { sigma' <- simplify pinned_vars $ cs_constraints cs

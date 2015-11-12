@@ -5,6 +5,7 @@ module SimplMonad
   , root_of_var
   , bind_of_var
   , assgn_of_vars
+  , SolveMode(..)
   , solve_mode_flag
   ) where
 
@@ -19,14 +20,17 @@ import UnionFind
 --                  Simplifier State Monad                    --
 ----------------------------------------------------------------
 
+data SolveMode = UseMagic | JustSimplify
+  deriving Show
+
 data SEnv a =
   SEnv { eqs :: UnionFind a   -- ^ Equalities among variables,
                               -- together with a partial map from variables
                               -- to constants (hidden inside the "UnionFind"
                               -- data structure).
-       , solve_mode :: Bool   -- ^ Use Magic only in 'solve_mode'.
-                              -- In simplify mode, only forced equalities 
-                              -- should be propagated.
+       , solve_mode :: SolveMode   -- ^ Use Magic only in 'solve_mode'.
+                                   -- In simplify mode, only forced equalities 
+                                   -- should be propagated.
        }
   deriving Show
 
@@ -80,5 +84,7 @@ assgn_of_vars vars
 solve_mode_flag :: State (SEnv a) Bool
 solve_mode_flag 
   = do { env <- get
-       ; return $ solve_mode env
+       ; case solve_mode env of
+           UseMagic -> return True
+           JustSimplify -> return False
        }
