@@ -46,40 +46,23 @@ enqueue v q = do
 
 dequeue :: (Zippable a, Derive a, Typeable a)
            => Queue a -> TExp a Rational -> Comp ('TProd a (TQueue a))
-dequeue q def = fix go q
-  where go self q0 = do 
-          l  <- fst_pair q0
-          r  <- snd_pair q0
-          l_empty <- is_empty_stack r
-          r_empty <- is_empty_stack r
-
-          p1 <- pair l r
-          p2 <- pair def p1
-
-          new_l1 <- nil
-          new_r1 <- rev_list l
-          p3 <- pair new_l1 new_r1
-          p4 <- self p3
-
-          a <- top_stack def r
-          new_r2 <- pop_stack r
-          p5 <- pair l new_r2
-          p6 <- pair a p5
-
-          p7 <- if l_empty then p2 else p4
-
-          if r_empty then p7 else p6
-{-
-          if r_empty then
-            if l_empty then do p  <- pair l r
-                               pair def p
-            else do new_l <- nil
-                    new_r <- rev_list l
-                    p <- pair new_l new_r
-                    self p def
-          else do a <- top_stack def r
-                  new_r <- pop_stack r
-                  p <- pair l new_r
-                  pair a p
--}
-  
+dequeue q def = do
+  l <- fst_pair q
+  r <- snd_pair q
+  l_empty <- is_empty_stack l
+  r_empty <- is_empty_stack r
+  if return r_empty then
+    if return l_empty then do
+      pair def q
+      else do
+        l' <- nil
+        pre_r <- rev_list l
+        h <- top_stack def pre_r
+        r' <- pop_stack pre_r
+        q' <- pair l' r'
+        pair h q'
+    else do
+      h <- top_stack def r
+      r' <- pop_stack r
+      p <- pair l r'
+      pair h p
