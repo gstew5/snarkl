@@ -66,3 +66,25 @@ dequeue q def = do
       r' <- pop_stack r
       p <- pair l r'
       pair h p
+
+dequeue_rec :: (Zippable a, Derive a, Typeable a)
+           => Queue a -> TExp a Rational -> Comp ('TProd a (TQueue a))
+dequeue_rec q def = fix go q
+  where go self q0 = do
+          l <- fst_pair q0
+          r <- snd_pair q0
+          l_empty <- is_empty_stack l
+          r_empty <- is_empty_stack r
+          if return r_empty then
+            if return l_empty then do
+              pair def q0
+            else do
+              l' <- nil
+              r' <- rev_list l
+              p' <- pair l' r' 
+              self p'
+          else do
+            h <- top_stack def r
+            r' <- pop_stack r
+            p <- pair l r'
+            pair h p
