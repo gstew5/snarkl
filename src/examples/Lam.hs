@@ -149,14 +149,12 @@ compose sigma1 sigma2
                   ; case_subst s2
                     -- Var(m) 
                     (\m ->
-                      do { self' <-
-                             case_subst s1
-                             -- Var(n)
-                             (\n -> subst_nil $ n+m)
-                             -- _ . s1'
-                             (\_ s1' -> subst_nil (m-1.0) >>= recur s1')
-                         ; if zeq m then s1 else self'
-                         })
+                          if return (zeq m) then return s1
+                          else  case_subst s1
+                                  -- Var(n)
+                                  (\n -> subst_nil $ n+m)
+                                  -- _ . s1'
+                                  (\_ s1' -> subst_nil (m-1.0) >>= recur s1'))
                  -- t' . s2'
                  (\t' s2' ->
                    do { t'' <- subst_term s1 t'
@@ -179,8 +177,8 @@ subst_term sigma t
                       case_subst sigma0
                       (\m -> varN $ n+m)
                       (\t' sigma' -> 
-                        do { self' <- varN (n-1.0) >>= recur sigma'
-                           ; if zeq n then t' else self'
+                        do { if return (zeq n) then return t'
+                             else varN (n-1.0) >>= recur sigma'
                            }))
                     -- Lam t1
                     (\t1 ->

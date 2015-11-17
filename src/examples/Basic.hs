@@ -55,4 +55,11 @@ compile1 = r1cs_of_comp Simplify p1
 
 run1 = snarkify_comp "example" Simplify p1 []
 
-  
+comp1 = inl false
+
+comp2 = inr 0.0
+
+test1 = do
+  b <- fresh_input
+  z <- if return b then comp1 else comp2
+  case_sum (\x0 -> return x0) (\_ -> return false) z

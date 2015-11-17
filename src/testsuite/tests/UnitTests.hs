@@ -34,8 +34,8 @@ prog1
        ; y <- fresh_input -- int
        ; z <- fresh_input -- bool
        ; u <- return $ y + 2.0
-       ; v <- if z then y else y
-       ; w <- if x then y else y
+       ; v <- if return z then return y else return y
+       ; w <- if return x then return y else return y
        ; return $ (u*u) - (w*u*u*y*y*v)
        }
 
@@ -324,9 +324,7 @@ prog35 = tree_test1
 prog36 :: Comp 'TField
 prog36 = do
   b1 <- fresh_input
-  r1 <- inl 2.0
-  r2 <- inr 3.0
-  x <- if b1 then r1 else r2
+  x <- if return b1 then inl 2.0 else inr 3.0
   case_sum (\n -> return $ n + 5.0) (\m -> return $ m + 7.0) x
 
 -- | 37. build and modify a list of user-specified length, up to size 50

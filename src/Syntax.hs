@@ -485,13 +485,19 @@ ifThenElse_aux b e1 e2
       TEVal VTrue -> e1
       _ -> TEIf b e1 e2
 
-ifThenElse :: Zippable ty
-           => TExp 'TBool Rational
-           -> TExp ty Rational
-           -> TExp ty Rational
+ifThenElse :: ( Zippable ty
+              , Typeable ty
+              )
+           => Comp 'TBool
            -> Comp ty
-ifThenElse b e1 e2
-  = zip_vals b e1 e2
+           -> Comp ty 
+           -> Comp ty
+ifThenElse cb c1 c2
+  = do { b <- cb
+       ; e1 <- c1
+       ; e2 <- c2
+       ; zip_vals b e1 e2
+       }
 
 negate :: TExp 'TField Rational -> TExp 'TField Rational
 negate e = -1.0 * e

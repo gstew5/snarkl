@@ -80,6 +80,36 @@ tail_list l
       nil
       (\_ tl -> return tl)
 
+{- rev [] = []
+   rev (hd : tl) = rev tl ++ [hd]
+ -}
+
+app_list :: ( Typeable a, Zippable a, Derive a
+            )
+         => List a
+         -> List a
+         -> Comp (TList a)
+app_list l1 l2 = fix go l1
+  where go self l0
+          = case_list l0
+              (return l2)
+              (\a l0' -> do
+                 l0'' <- self l0'
+                 cons a l0'')
+
+rev_list :: ( Typeable a, Zippable a, Derive a
+            )
+         => List a
+         -> Comp (TList a)
+rev_list l = fix go l
+  where go self l0
+          = case_list l0
+              nil
+              (\a l0' -> do
+                   l0'' <- self l0'
+                   a_tl <- nil
+                   a_l  <- cons a a_tl
+                   app_list l0'' a_l)
 
 map_list :: ( Typeable a, Zippable a, Derive a
             , Typeable b, Zippable b, Derive b
@@ -134,7 +164,7 @@ list_comp3
        ; l <- nil
        ; l' <- cons 23.0 l
        ; l'' <- cons 33.0 l'
-       ; l2 <- if b then l'' else l
+       ; l2 <- if return b then return l'' else return l
        ; l3 <- map_list inc_elem l2
        ; l4 <- tail_list l3
        ; head_list 0.0 l4
@@ -147,11 +177,9 @@ list_comp4
 
 listN n = fixN 100 go n
   where go self n0 = do
-          l0 <- nil
           x  <- fresh_input
           tl <- self (n0-1.0)
-          l1 <- cons x tl
-          if eq n0 0.0 then l0 else l1
+          if return (eq n0 0.0) then nil else cons x tl
 
 test_listN = do
   n  <-fresh_input

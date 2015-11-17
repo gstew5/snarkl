@@ -87,8 +87,7 @@ tree1 = do
   b <- fresh_input
   l1 <- leaf
   l2 <- leaf
-  t1 <- node 77.0 l1 l2
-  t1' <- if b then t1 else l2
+  t1' <- if return b then node 77.0 l1 l2 else leaf
   l3 <- leaf
   t2 <- node 2.0 t1' l3
   return t2

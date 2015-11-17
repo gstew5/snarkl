@@ -70,15 +70,15 @@ decode (Split (Iso _ bld) g1 g2)
        ; s2 <- inr e2
        ; v1 <- bld s1
        ; v2 <- bld s2
-       ; if x then v2 else v1
+       ; if return x then return v2 else return v1
        }
 
 field_game :: Game 'TField
 field_game = Single (Iso return return)
 
 bool_game :: Game 'TBool
-bool_game = Single (Iso (\be -> if be then 1.0 else 0.0)
-                        (\te -> if zeq te then false else true))
+bool_game = Single (Iso (\be -> if return be then return 1.0 else return 0.0)
+                        (\te -> if return (zeq te) then return false else return true))
 
 unit_game :: Game 'TUnit
 unit_game = Single (Iso (\_ -> return 1.0) (\_ -> return unit))
