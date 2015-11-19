@@ -300,13 +300,15 @@ cs_of_exp out e = case e of
        ; cs_of_exp x e2
        }
 
-  ESeq le -> go le 
-    where go []   = fail_with $ ErrMsg "internal error: empty ESeq"
-          go [e1] = cs_of_exp out e1
-          go (e1 : le')
-            = do { e1_out <- fresh_var -- garbage
-                 ; cs_of_exp e1_out e1
-                 ; go le'
+  ESeq le ->
+    do { x <- fresh_var -- x is garbage
+       ; go x le
+       }
+    where go _ []   = fail_with $ ErrMsg "internal error: empty ESeq"
+          go _ [e1] = cs_of_exp out e1
+          go garbage_var (e1 : le')
+            = do { cs_of_exp garbage_var e1
+                 ; go garbage_var le'
                  }
   EUnit ->
     -- NOTE: [[ EUnit ]]_{out} = [[ EVal zero ]]_{out}.
