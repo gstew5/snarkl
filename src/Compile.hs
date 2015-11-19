@@ -248,6 +248,14 @@ cs_of_exp out e = case e of
     -- introduce new multiplication gates for multiplication by
     -- constant scalars.
     let go [] = return []
+        go (EBinop Mult [EVar x,EVal coeff] : es')
+          = do { labels <- go es'
+               ; return $ (x,coeff) : labels
+               }
+        go (EBinop Mult [EVal coeff,EVar y] : es')
+          = do { labels <- go es'
+               ; return $ (y,coeff) : labels
+               }
         go (EBinop Mult [e_left,EVal coeff] : es')
           = do { e_left_out <- fresh_var
                ; cs_of_exp e_left_out e_left
