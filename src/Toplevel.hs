@@ -155,6 +155,7 @@ r1cs_of_constrs :: Field a
                 -> ConstraintSystem a -- ^ Constraints
                 -> R1CS a
 r1cs_of_constrs = r1cs_of_constraints
+
 -- | Compile 'TExp's to 'R1CS'.
 r1cs_of_texp :: Typeable ty
              => SimplParam

@@ -58,10 +58,11 @@ test_simplify mf
 test_r1cs :: Typeable ty => SimplParam -> Comp ty -> IO ()
 test_r1cs simpl mf
   = let texp_pkg = texp_of_comp mf
-        r1cs     = r1cs_of_texp simpl texp_pkg
+        constrs  = constrs_of_texp texp_pkg
+        r1cs     = r1cs_of_constrs simpl constrs
     in hPutStrLn stderr
        $ show
-       $ last (r1cs_clauses r1cs) 
+       $ length (r1cs_clauses r1cs) 
 
 -- Same as 'test_r1cs', but also generates a satisfying assignment.
 test_wit :: (Integral a, Typeable ty) => SimplParam -> Comp ty -> [a] -> IO ()
