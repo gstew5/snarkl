@@ -16,6 +16,8 @@ import Prelude hiding
   , negate
   )
 
+
+
 import SyntaxMonad
 import Syntax
 import TExpr
@@ -47,17 +49,15 @@ matrix_colvec_mult fm n = do
 
   -- multiply
   forall [0..dec n] (\i -> do
-    forall [0..dec n] (\j -> do
-      a <- get (v',i)    
-      c <- get (v,j)
-      set (v',i) ((fm i j)*a + c)))
+    res <- iterM (dec n) (\j acc -> do
+             a <- get (v,j)
+             return $ (fm i j)*a + acc) 0.0
+    set (v',i) res)
 
   -- return l-1 norm of v'
-  forall [1..dec n] (\j -> do
-    a <- get (v',0)
-    b <- get (v',j)
-    set (v',0) (a + b))
-  get (v',0)
+  iterM (dec n) (\j acc -> do
+    a <- get (v,j)
+    return $ a + acc) 0.0
 
 test1 n = matrix_colvec_mult (\_ _ -> 7.0) n
 
