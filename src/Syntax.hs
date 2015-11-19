@@ -62,6 +62,7 @@ module Syntax
 
          -- | Iteration
        , iter
+       , iterM
        , bigsum
        , times
        , forall
@@ -516,6 +517,18 @@ iter :: Typeable ty
 iter n f e = g n f e
   where g 0 f' e' = f' 0 e'
         g m f' e' = f' m $ g (dec m) f' e'
+
+iterM :: Typeable ty
+      => Int
+      -> (Int -> TExp ty Rational -> Comp ty)
+      -> TExp ty Rational
+      -> Comp ty
+iterM n mf e = g n mf e
+  where g 0 mf' e' = mf' 0 e'
+        g m mf' e'
+          = do { x <- g (dec m) mf' e'
+               ; mf' m x
+               }
 
 bigsum :: Int
        -> (Int -> TExp 'TField Rational)
