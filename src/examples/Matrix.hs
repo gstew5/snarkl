@@ -39,13 +39,16 @@ input_colvec n = input_arr n
 
 type FixedMatrix = Int -> Int -> Rational
 
+-- v0 + v1 + .. + v(n-1)
+sum_vec n v = do
+  iterM (dec n) (\i acc -> do
+    a <- get (v,i)
+    return $ a + acc) 0.0
+
 -- Pinocchio's "Fixed Matrix" microbenchmark [p9]
 matrix_colvec_mult fm n = do
   v  <- input_colvec n
   v' <- new_colvec n
-
-  -- initialize v'
-  forall [0..dec n] (\i -> set (v',i) 0.0)
 
   -- multiply
   forall [0..dec n] (\i -> do
@@ -54,10 +57,8 @@ matrix_colvec_mult fm n = do
              return $ (fm i j)*a + acc) 0.0
     set (v',i) res)
 
-  -- return l-1 norm of v'
-  iterM (dec n) (\j acc -> do
-    a <- get (v,j)
-    return $ a + acc) 0.0
+  -- return an output that's dependent on the entire vector v'
+  sum_vec n v'
 
 test1 n = matrix_colvec_mult (\_ _ -> 7.0) n
 
