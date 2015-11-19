@@ -210,6 +210,6 @@ instance Show a => Show (TExp ty a) where
   show (TEIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
   show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
-  show (TESeq e1 e2) = show e1 ++ "; " ++ show e2
+  show (TESeq e1 e2) = "(" ++ show e1 ++ "; " ++ show e2 ++ ")"
   show TEBot = "bot"
 

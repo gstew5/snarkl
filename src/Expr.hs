@@ -97,7 +97,8 @@ instance Show a => Show (Exp a) where
   show (EIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
   show (EAssert e1 e2) = show e1 ++ " := " ++ show e2
-  show (ESeq es) = go es
+  show (ESeq es) = "(" ++ go es ++ ")"
     where go [] = ""
+          go (e1 : [])  = show e1
           go (e1 : es') = show e1 ++ "; " ++ go es'
   show EUnit = "()"
