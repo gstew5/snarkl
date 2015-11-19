@@ -216,10 +216,10 @@ encode_binop op (x,y,z) = go op
           = add_constraint
             $ CMult (one,y) (one,z) (one,Just x)
 
-encode_linear :: Field a => Var -> [Var] -> State (CEnv a) ()
+encode_linear :: Field a => Var -> [(Var,a)] -> State (CEnv a) ()
 encode_linear out xs
   = add_constraint
-    $ cadd zero $ (out,neg one) : zip xs (repeat one)
+    $ cadd zero $ (out,neg one) : xs
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
@@ -238,20 +238,41 @@ cs_of_exp out e = case e of
        }
 
   EBinop op es ->
+    -- [NOTE linear combination optimization:] cf. also
+    -- 'encode_linear' above. 'go' returns a list of (label*coeff)
+    -- pairs, where the label is the output wire for the expression
+    -- that was compiled and the coefficient is its scalar field
+    -- coefficient, or 'one' if no coefficient exists (i.e., e is not
+    -- of the form 'EBinop Mult [e_left,EVal coeff]' or symmetric.  We
+    -- special-case linear combinations in this way to avoid having to
+    -- introduce new multiplication gates for multiplication by
+    -- constant scalars.
     let go [] = return []
+        go (EBinop Mult [e_left,EVal coeff] : es')
+          = do { e_left_out <- fresh_var
+               ; cs_of_exp e_left_out e_left
+               ; labels <- go es'
+               ; return $ (e_left_out,coeff) : labels
+               }
+        go (EBinop Mult [EVal coeff,e_right] : es')
+          = do { e_right_out <- fresh_var
+               ; cs_of_exp e_right_out e_right
+               ; labels <- go es'
+               ; return $ (e_right_out,coeff) : labels
+               }
         go (e1 : es')
           = do { e1_out <- fresh_var
                ; cs_of_exp e1_out e1
                ; labels <- go es'
-               ; return $ e1_out : labels
+               ; return $ (e1_out,one) : labels
                }
 
         h []       = return ()
         h (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
-        h (l1 : l2 : []) = encode_binop op (l1,l2,out)
-        h (l1 : l2 : labels')
+        h ((l1,_) : (l2,_) : []) = encode_binop op (l1,l2,out)
+        h ((l1,_) : (l2,_) : labels')
           = do { res_out <- fresh_var
-               ; h (res_out : labels')
+               ; h ((res_out,one) : labels')
                ; encode_binop op (l1,l2,res_out)
                }
             
