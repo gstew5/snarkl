@@ -322,10 +322,18 @@ cs_of_exp out e = case e of
     -- NOTE: [[ EUnit ]]_{out} = [[ EVal zero ]]_{out}.
     do { cs_of_exp out (EVal zero) }
 
-data SimplParam = Simplify | NoSimplify
+data SimplParam =
+    NoSimplify
+  | Simplify
+  | SimplifyDataflow
 
-must_simplify Simplify   = True
-must_simplify NoSimplify = False
+must_simplify NoSimplify       = False
+must_simplify Simplify         = True
+must_simplify SimplifyDataflow = True
+
+must_dataflow NoSimplify       = False
+must_dataflow Simplify         = False
+must_dataflow SimplifyDataflow = True
 
 -- | Compile a list of arithmetic constraints to a rank-1 constraint
 -- system.  Takes as input the constraints, the input variables, and
@@ -338,7 +346,7 @@ r1cs_of_constraints simpl cs
   = let  -- Simplify resulting constraints.
         (_,cs_simpl) = if must_simplify simpl then do_simplify False Map.empty cs
                        else (undefined,cs)
-        cs_dataflow  = if must_simplify simpl then remove_unreachable cs_simpl else cs
+        cs_dataflow  = if must_dataflow simpl then remove_unreachable cs_simpl else cs
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts. 
