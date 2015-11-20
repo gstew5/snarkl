@@ -346,7 +346,7 @@ r1cs_of_constraints simpl cs
   = let  -- Simplify resulting constraints.
         (_,cs_simpl) = if must_simplify simpl then do_simplify False Map.empty cs
                        else (undefined,cs)
-        cs_dataflow  = if must_dataflow simpl then remove_unreachable cs_simpl else cs
+        cs_dataflow  = if must_dataflow simpl then remove_unreachable cs_simpl else cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts. 
