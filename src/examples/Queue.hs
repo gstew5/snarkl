@@ -22,7 +22,8 @@ import Data.Typeable
 import SyntaxMonad
 import Syntax
 import TExpr
---import Toplevel
+import Toplevel
+import Compile
 import List
 import Stack
 
@@ -88,3 +89,50 @@ dequeue_rec q def = fix go q
             r' <- pop_stack r
             p <- pair l r'
             pair h p
+
+-----------------------------------------
+--Simple Examples------------------------
+-----------------------------------------
+
+--queue with {nonempty stack, nonempty stack}
+queue1
+   = do {
+        ; s1 <- stack1
+        ; s2 <- stack2
+        ; pair s1 s2
+        }
+
+--queue with {nonempty stack, empty stack}
+queue2
+   = do {
+        ; s1 <- stack1
+        ; s2 <- pop_stack s1
+        ; s3 <- pop_stack s2
+        ; s4 <- stack2
+        ; pair s4 s3
+        }
+
+queue_comp1
+   = do {
+        ; q1 <- queue1
+        ; q2 <- enqueue 1.0 q1
+        ; q3 <- enqueue 3.4 q2
+        ; sx <- fst_pair q3
+        ; top_stack 0.0 sx
+        }
+
+--dequeue where input is queue with {nonempty, nonempty}
+queue_comp2
+   = do {
+        ; q1 <- queue1
+        ; sx <- dequeue q1 0.0
+        ; fst_pair sx
+        }
+
+--dequeue where input is queue with {nonempty, empty}
+queue_comp3
+   = do {
+        ; q1 <- queue2
+        ; sx <- dequeue q1 0.0
+        ; fst_pair sx
+        }
