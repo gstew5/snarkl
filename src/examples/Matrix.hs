@@ -36,6 +36,7 @@ input_matrix n m = input_arr2 n m
 input_rowvec n = input_arr n
 
 input_colvec n = input_arr n
+   
 
 type FixedMatrix = Int -> Int -> Rational
 
@@ -44,6 +45,21 @@ sum_vec n v = do
   iterM (dec n) (\i acc -> do
     a <- get (v,i)
     return $ a + acc) 0.0
+
+input_matrix_mult n m p = do
+  a <- input_matrix n m
+  b <- input_matrix m p
+  c <- new_matrix n p
+  
+  forall [0.. dec n] (\i -> do
+    forall [0..dec p] (\j -> do
+      res <- iterM (dec m) (\k acc -> do
+        aElem <- get2 (a, i,k)
+        bElem <- get2 (b, k, j)
+        return $ (bElem * aElem) + acc) 0.0
+      set2 (c, i, j) res))
+  return c
+
 
 -- Pinocchio's "Fixed Matrix" microbenchmark [p9]
 matrix_colvec_mult fm n = do

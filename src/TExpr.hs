@@ -112,7 +112,7 @@ data TExp :: Ty -> * -> * where
              => TOp ty1 ty2 ty -> TExp ty1 a -> TExp ty2 a -> TExp ty a
   TEIf     :: TExp 'TBool a -> TExp ty a -> TExp ty a -> TExp ty a
   TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp 'TUnit a
-  TESeq    :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
+  TESeq    :: TExp 'TUnit a -> TExp ty2 a -> TExp ty2 a
   TEBot    :: Typeable ty => TExp ty a
 
 exp_of_val :: Field a => Val ty a -> Exp a
@@ -210,6 +210,6 @@ instance Show a => Show (TExp ty a) where
   show (TEIf b e1 e2) 
     = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
   show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
-  show (TESeq e1 e2) = show e1 ++ "; " ++ show e2
+  show (TESeq e1 e2) = "(" ++ show e1 ++ "; " ++ show e2 ++ ")"
   show TEBot = "bot"
 

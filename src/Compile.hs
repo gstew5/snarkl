@@ -248,6 +248,14 @@ cs_of_exp out e = case e of
     -- introduce new multiplication gates for multiplication by
     -- constant scalars.
     let go [] = return []
+        go (EBinop Mult [EVar x,EVal coeff] : es')
+          = do { labels <- go es'
+               ; return $ (x,coeff) : labels
+               }
+        go (EBinop Mult [EVal coeff,EVar y] : es')
+          = do { labels <- go es'
+               ; return $ (y,coeff) : labels
+               }
         go (EBinop Mult [e_left,EVal coeff] : es')
           = do { e_left_out <- fresh_var
                ; cs_of_exp e_left_out e_left
@@ -300,22 +308,32 @@ cs_of_exp out e = case e of
        ; cs_of_exp x e2
        }
 
-  ESeq le -> go le 
-    where go []   = fail_with $ ErrMsg "internal error: empty ESeq"
-          go [e1] = cs_of_exp out e1
-          go (e1 : le')
-            = do { e1_out <- fresh_var -- garbage
-                 ; cs_of_exp e1_out e1
-                 ; go le'
+  ESeq le ->
+    do { x <- fresh_var -- x is garbage
+       ; go x le
+       }
+    where go _ []   = fail_with $ ErrMsg "internal error: empty ESeq"
+          go _ [e1] = cs_of_exp out e1
+          go garbage_var (e1 : le')
+            = do { cs_of_exp garbage_var e1
+                 ; go garbage_var le'
                  }
   EUnit ->
     -- NOTE: [[ EUnit ]]_{out} = [[ EVal zero ]]_{out}.
     do { cs_of_exp out (EVal zero) }
 
-data SimplParam = Simplify | NoSimplify
+data SimplParam =
+    NoSimplify
+  | Simplify
+  | SimplifyDataflow
 
-must_simplify Simplify   = True
-must_simplify NoSimplify = False
+must_simplify NoSimplify       = False
+must_simplify Simplify         = True
+must_simplify SimplifyDataflow = True
+
+must_dataflow NoSimplify       = False
+must_dataflow Simplify         = False
+must_dataflow SimplifyDataflow = True
 
 -- | Compile a list of arithmetic constraints to a rank-1 constraint
 -- system.  Takes as input the constraints, the input variables, and
@@ -328,7 +346,7 @@ r1cs_of_constraints simpl cs
   = let  -- Simplify resulting constraints.
         (_,cs_simpl) = if must_simplify simpl then do_simplify False Map.empty cs
                        else (undefined,cs)
-        cs_dataflow  = if must_simplify simpl then remove_unreachable cs_simpl else cs
+        cs_dataflow  = if must_dataflow simpl then remove_unreachable cs_simpl else cs
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts. 
