@@ -216,10 +216,15 @@ encode_binop op (x,y,z) = go op
           = add_constraint
             $ CMult (one,y) (one,z) (one,Just x)
 
-encode_linear :: Field a => Var -> [(Var,a)] -> State (CEnv a) ()
+encode_linear :: Field a => Var -> [Either (Var,a) a] -> State (CEnv a) ()
 encode_linear out xs
-  = add_constraint
-    $ cadd zero $ (out,neg one) : xs
+  = let c  = foldl (\acc d -> d `add` acc) zero $ map (either (\_ -> zero) id) xs
+    in add_constraint
+       $ cadd c $ (out,neg one) : remove_consts xs
+  where remove_consts :: [Either (Var,a) a] -> [(Var,a)]
+        remove_consts [] = []
+        remove_consts (Left p : l)  = p : remove_consts l
+        remove_consts (Right _ : l) = remove_consts l
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
@@ -238,45 +243,49 @@ cs_of_exp out e = case e of
        }
 
   EBinop op es ->
-
     -- [NOTE linear combination optimization:] cf. also
-    -- 'encode_linear' above. 'go' returns a list of (label*coeff)
-    -- pairs, together with c a constant 'c'.
-    --  * The label is the output wire for the expression
-    -- that was compiled and the coefficient is its scalar field
-    -- coefficient, or 'one' if no coefficient exists (i.e., e is not
-    -- of the form 'EBinop Mult [e_left,EVal coeff]' or symmetric.
-    --  * The 'c' is the sum of all constant terms in 'es.
-    -- We special-case linear combinations in this way to avoid having to
-    -- introduce new multiplication gates for multiplication by
+    -- 'encode_linear' above. 'go_linear' returns a list of
+    -- (label*coeff + constant) pairs.
+    --  (1) The label is the output wire for the expression that was
+    -- compiled and the coefficient is its scalar field coefficient,
+    -- or 'one' if no coefficient exists (i.e., 'e' is not of the form
+    -- 'EBinop Mult [e_left,EVal coeff]' or symmetric.
+    --  (2) The constant 'c' is the constant at a particular position
+    -- in the list of expressions 'es'.
+    -- We special-case linear combinations in this way to avoid having
+    -- to introduce new multiplication gates for multiplication by
     -- constant scalars.
-
     let go_linear [] = return []
         go_linear (EBinop Mult [EVar x,EVal coeff] : es')
           = do { labels <- go_linear es'
-               ; return $ (x,coeff) : labels
+               ; return $ Left (x,coeff) : labels
                }
         go_linear (EBinop Mult [EVal coeff,EVar y] : es')
           = do { labels <- go_linear es'
-               ; return $ (y,coeff) : labels
+               ; return $ Left (y,coeff) : labels
                }
         go_linear (EBinop Mult [e_left,EVal coeff] : es')
           = do { e_left_out <- fresh_var
                ; cs_of_exp e_left_out e_left
                ; labels <- go_linear es'
-               ; return $ (e_left_out,coeff) : labels
+               ; return $ Left (e_left_out,coeff) : labels
                }
         go_linear (EBinop Mult [EVal coeff,e_right] : es')
           = do { e_right_out <- fresh_var
                ; cs_of_exp e_right_out e_right
                ; labels <- go_linear es'
-               ; return $ (e_right_out,coeff) : labels
+               ; return $ Left (e_right_out,coeff) : labels
                }
+        go_linear (EVal c : es')
+          = do { labels <- go_linear es'
+               ; return $ Right c : labels
+               }
+        -- The 'go_linear' catch-all case (i.e., no optimization)
         go_linear (e1 : es')
           = do { e1_out <- fresh_var
                ; cs_of_exp e1_out e1
                ; labels <- go_linear es'
-               ; return $ (e1_out,one) : labels
+               ; return $ Left (e1_out,one) : labels
                }
 
         go_other []       = return []
@@ -297,7 +306,7 @@ cs_of_exp out e = case e of
                }
             
     in do { case op of
-              -- Encode x1 + x2 + ... + xn directly as a linear constraint.
+              -- Encode c1x1 + c2x2 + ... + cnxn directly as a linear constraint.
               Add ->
                 do { labels <- go_linear es
                    ; encode_linear out labels
