@@ -238,58 +238,75 @@ cs_of_exp out e = case e of
        }
 
   EBinop op es ->
+
     -- [NOTE linear combination optimization:] cf. also
     -- 'encode_linear' above. 'go' returns a list of (label*coeff)
-    -- pairs, where the label is the output wire for the expression
+    -- pairs, together with c a constant 'c'.
+    --  * The label is the output wire for the expression
     -- that was compiled and the coefficient is its scalar field
     -- coefficient, or 'one' if no coefficient exists (i.e., e is not
-    -- of the form 'EBinop Mult [e_left,EVal coeff]' or symmetric.  We
-    -- special-case linear combinations in this way to avoid having to
+    -- of the form 'EBinop Mult [e_left,EVal coeff]' or symmetric.
+    --  * The 'c' is the sum of all constant terms in 'es.
+    -- We special-case linear combinations in this way to avoid having to
     -- introduce new multiplication gates for multiplication by
     -- constant scalars.
-    let go [] = return []
-        go (EBinop Mult [EVar x,EVal coeff] : es')
-          = do { labels <- go es'
+
+    let go_linear [] = return []
+        go_linear (EBinop Mult [EVar x,EVal coeff] : es')
+          = do { labels <- go_linear es'
                ; return $ (x,coeff) : labels
                }
-        go (EBinop Mult [EVal coeff,EVar y] : es')
-          = do { labels <- go es'
+        go_linear (EBinop Mult [EVal coeff,EVar y] : es')
+          = do { labels <- go_linear es'
                ; return $ (y,coeff) : labels
                }
-        go (EBinop Mult [e_left,EVal coeff] : es')
+        go_linear (EBinop Mult [e_left,EVal coeff] : es')
           = do { e_left_out <- fresh_var
                ; cs_of_exp e_left_out e_left
-               ; labels <- go es'
+               ; labels <- go_linear es'
                ; return $ (e_left_out,coeff) : labels
                }
-        go (EBinop Mult [EVal coeff,e_right] : es')
+        go_linear (EBinop Mult [EVal coeff,e_right] : es')
           = do { e_right_out <- fresh_var
                ; cs_of_exp e_right_out e_right
-               ; labels <- go es'
+               ; labels <- go_linear es'
                ; return $ (e_right_out,coeff) : labels
                }
-        go (e1 : es')
+        go_linear (e1 : es')
           = do { e1_out <- fresh_var
                ; cs_of_exp e1_out e1
-               ; labels <- go es'
+               ; labels <- go_linear es'
                ; return $ (e1_out,one) : labels
                }
 
-        h []       = return ()
-        h (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
-        h ((l1,_) : (l2,_) : []) = encode_binop op (l1,l2,out)
-        h ((l1,_) : (l2,_) : labels')
+        go_other []       = return []
+        go_other (e1 : es')
+          = do { e1_out <- fresh_var
+               ; cs_of_exp e1_out e1
+               ; labels <- go_other es'
+               ; return $ e1_out : labels
+               }
+
+        encode_labels []       = return ()
+        encode_labels (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
+        encode_labels (l1 : l2 : []) = encode_binop op (l1,l2,out)
+        encode_labels (l1 : l2 : labels')
           = do { res_out <- fresh_var
-               ; h ((res_out,one) : labels')
+               ; encode_labels (res_out : labels')
                ; encode_binop op (l1,l2,res_out)
                }
             
-    in do { labels <- go es
-          ; case op of
+    in do { case op of
               -- Encode x1 + x2 + ... + xn directly as a linear constraint.
-              Add -> encode_linear out labels
+              Add ->
+                do { labels <- go_linear es
+                   ; encode_linear out labels
+                   } 
               -- Otherwise, do the pairwise encoding.
-              _ -> h labels
+              _ ->
+                do { labels <- go_other es
+                   ; encode_labels labels
+                   }
           }
 
   -- Encoding: out = b*e1 + (1-b)e2 
