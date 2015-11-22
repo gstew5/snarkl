@@ -18,7 +18,7 @@ import Prelude hiding
   )
 
 import Data.Typeable
-
+import Compile
 import SyntaxMonad
 import Syntax
 import TExpr
@@ -45,4 +45,51 @@ is_empty_stack :: Typeable a => Stack a -> Comp 'TBool
 is_empty_stack s =
   case_list s (return true) (\_ _ -> return false)
 
-  
+---Test Examples---
+
+stack1
+  = do {  
+       ;  tl  <- empty_stack
+       ;  tl' <- push_stack 15.0 tl
+       ;  push_stack 99.0 tl' 
+       }
+stack2
+  = do {  
+       ;  tl   <- empty_stack
+       ;  tl'  <- push_stack 1.0 tl
+       ;  tl'' <- push_stack 12.0 tl'
+       ;  push_stack 89.0 tl'' 
+       }
+
+--top_stack on empty stack
+test_top1
+   = do {
+        ;  s1  <- stack1
+        ;  s2 <- pop_stack s1
+        ;  s3 <- pop_stack s2
+        ;  top_stack 1.0 s3
+        }
+
+--top_stack on non-empty stack
+test_top2
+   = do {
+        ; s1 <- stack1
+        ; top_stack 1.0 s1
+        }
+
+--is_empty_stack on an empty stack
+test_empty_stack1
+   = do {
+        ; s1 <- stack1
+        ; s2 <- pop_stack s1
+        ; s3 <- pop_stack s2
+        ; is_empty_stack s3
+        } 
+
+--is_empty_stack on non-empty stack
+test_empty_stack2
+   = do {
+        ; s1 <- stack1
+        ; is_empty_stack s1
+        }
+
