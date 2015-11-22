@@ -65,7 +65,7 @@ input_matrix_mult n m p = do
         bElem <- get2 (b, k, j)
         return $ (bElem * aElem) + acc) 0.0
       set2 (c, i, j) res))
-  return c
+  sum_mat n n c
 
 
 -- Pinocchio's "Fixed Matrix" microbenchmark [p9]
@@ -91,20 +91,13 @@ test1 n = matrix_colvec_mult (\_ _ -> 7.0) n
 
 interp1 n = comp_interp (test1 n) (map fromIntegral [0..dec n])
 
+t2_m0 n = (map fromIntegral [0.. dec n])
 
-{-
-t2_m0 n = do
-  a <- new_matrix n n
-  forall [0 .. dec n] (\i -> do
-    forall [0 .. dec n] (\ j -> do
-      b <- i*n
-      b' <- b + j
-      set2 (a, i, j) b'))
-  return a
+t2_m1 n = reverse (t2_m0 n)
 
+test2 n = input_matrix_mult n n n
 
-gen_testmat1 n = map (map fromIntegral)
-                   (map
-                   (\l -> [l * n  .. (l*n) + n - 1])
-                   [0 ..  dec n])
--}
+interp2_fixed1 = comp_interp (test2 10) ((t2_m0 100)++(t2_m1 100))
+
+interp2_fixed2 = comp_interp (test2 50) ((t2_m0 2500)++(t2_m1 2500))
+
