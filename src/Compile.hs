@@ -280,6 +280,10 @@ cs_of_exp out e = case e of
           = do { labels <- go_linear es'
                ; return $ Right c : labels
                }
+        go_linear (EVar x : es')
+          = do { labels <- go_linear es'
+               ; return $ Left (x,one) : labels
+               }
         -- The 'go_linear' catch-all case (i.e., no optimization)
         go_linear (e1 : es')
           = do { e1_out <- fresh_var
