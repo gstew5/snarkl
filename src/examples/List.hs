@@ -175,7 +175,7 @@ list_comp4
        ; last_list 0.0 l
        }
 
-listN n = fixN 100 go n
+listN n = fixN 500 go n
   where go self n0 = do
           x  <- fresh_input
           tl <- self (n0-1.0)

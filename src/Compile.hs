@@ -216,10 +216,15 @@ encode_binop op (x,y,z) = go op
           = add_constraint
             $ CMult (one,y) (one,z) (one,Just x)
 
-encode_linear :: Field a => Var -> [(Var,a)] -> State (CEnv a) ()
+encode_linear :: Field a => Var -> [Either (Var,a) a] -> State (CEnv a) ()
 encode_linear out xs
-  = add_constraint
-    $ cadd zero $ (out,neg one) : xs
+  = let c  = foldl (\acc d -> d `add` acc) zero $ map (either (\_ -> zero) id) xs
+    in add_constraint
+       $ cadd c $ (out,neg one) : remove_consts xs
+  where remove_consts :: [Either (Var,a) a] -> [(Var,a)]
+        remove_consts [] = []
+        remove_consts (Left p : l)  = p : remove_consts l
+        remove_consts (Right _ : l) = remove_consts l
 
 cs_of_exp :: Field a => Var -> Exp a -> State (CEnv a) ()
 cs_of_exp out e = case e of
@@ -239,57 +244,82 @@ cs_of_exp out e = case e of
 
   EBinop op es ->
     -- [NOTE linear combination optimization:] cf. also
-    -- 'encode_linear' above. 'go' returns a list of (label*coeff)
-    -- pairs, where the label is the output wire for the expression
-    -- that was compiled and the coefficient is its scalar field
-    -- coefficient, or 'one' if no coefficient exists (i.e., e is not
-    -- of the form 'EBinop Mult [e_left,EVal coeff]' or symmetric.  We
-    -- special-case linear combinations in this way to avoid having to
-    -- introduce new multiplication gates for multiplication by
+    -- 'encode_linear' above. 'go_linear' returns a list of
+    -- (label*coeff + constant) pairs.
+    --  (1) The label is the output wire for the expression that was
+    -- compiled and the coefficient is its scalar field coefficient,
+    -- or 'one' if no coefficient exists (i.e., 'e' is not of the form
+    -- 'EBinop Mult [e_left,EVal coeff]' or symmetric.
+    --  (2) The constant 'c' is the constant at a particular position
+    -- in the list of expressions 'es'.
+    -- We special-case linear combinations in this way to avoid having
+    -- to introduce new multiplication gates for multiplication by
     -- constant scalars.
-    let go [] = return []
-        go (EBinop Mult [EVar x,EVal coeff] : es')
-          = do { labels <- go es'
-               ; return $ (x,coeff) : labels
+    let go_linear [] = return []
+        go_linear (EBinop Mult [EVar x,EVal coeff] : es')
+          = do { labels <- go_linear es'
+               ; return $ Left (x,coeff) : labels
                }
-        go (EBinop Mult [EVal coeff,EVar y] : es')
-          = do { labels <- go es'
-               ; return $ (y,coeff) : labels
+        go_linear (EBinop Mult [EVal coeff,EVar y] : es')
+          = do { labels <- go_linear es'
+               ; return $ Left (y,coeff) : labels
                }
-        go (EBinop Mult [e_left,EVal coeff] : es')
+        go_linear (EBinop Mult [e_left,EVal coeff] : es')
           = do { e_left_out <- fresh_var
                ; cs_of_exp e_left_out e_left
-               ; labels <- go es'
-               ; return $ (e_left_out,coeff) : labels
+               ; labels <- go_linear es'
+               ; return $ Left (e_left_out,coeff) : labels
                }
-        go (EBinop Mult [EVal coeff,e_right] : es')
+        go_linear (EBinop Mult [EVal coeff,e_right] : es')
           = do { e_right_out <- fresh_var
                ; cs_of_exp e_right_out e_right
-               ; labels <- go es'
-               ; return $ (e_right_out,coeff) : labels
+               ; labels <- go_linear es'
+               ; return $ Left (e_right_out,coeff) : labels
                }
-        go (e1 : es')
+        go_linear (EVal c : es')
+          = do { labels <- go_linear es'
+               ; return $ Right c : labels
+               }
+        go_linear (EVar x : es')
+          = do { labels <- go_linear es'
+               ; return $ Left (x,one) : labels
+               }
+        -- The 'go_linear' catch-all case (i.e., no optimization)
+        go_linear (e1 : es')
           = do { e1_out <- fresh_var
                ; cs_of_exp e1_out e1
-               ; labels <- go es'
-               ; return $ (e1_out,one) : labels
+               ; labels <- go_linear es'
+               ; return $ Left (e1_out,one) : labels
                }
 
-        h []       = return ()
-        h (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
-        h ((l1,_) : (l2,_) : []) = encode_binop op (l1,l2,out)
-        h ((l1,_) : (l2,_) : labels')
+        go_other []       = return []
+        go_other (e1 : es')
+          = do { e1_out <- fresh_var
+               ; cs_of_exp e1_out e1
+               ; labels <- go_other es'
+               ; return $ e1_out : labels
+               }
+
+        encode_labels []       = return ()
+        encode_labels (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
+        encode_labels (l1 : l2 : []) = encode_binop op (l1,l2,out)
+        encode_labels (l1 : l2 : labels')
           = do { res_out <- fresh_var
-               ; h ((res_out,one) : labels')
+               ; encode_labels (res_out : labels')
                ; encode_binop op (l1,l2,res_out)
                }
             
-    in do { labels <- go es
-          ; case op of
-              -- Encode x1 + x2 + ... + xn directly as a linear constraint.
-              Add -> encode_linear out labels
+    in do { case op of
+              -- Encode c1x1 + c2x2 + ... + cnxn directly as a linear constraint.
+              Add ->
+                do { labels <- go_linear es
+                   ; encode_linear out labels
+                   } 
               -- Otherwise, do the pairwise encoding.
-              _ -> h labels
+              _ ->
+                do { labels <- go_other es
+                   ; encode_labels labels
+                   }
           }
 
   -- Encoding: out = b*e1 + (1-b)e2 
@@ -346,7 +376,7 @@ r1cs_of_constraints simpl cs
   = let  -- Simplify resulting constraints.
         (_,cs_simpl) = if must_simplify simpl then do_simplify False Map.empty cs
                        else (undefined,cs)
-        cs_dataflow  = if must_dataflow simpl then remove_unreachable cs_simpl else cs
+        cs_dataflow  = if must_dataflow simpl then remove_unreachable cs_simpl else cs_simpl
          -- Renumber constraint variables sequentially, from 0 to
          -- 'max_var'. 'renumber_f' is a function mapping variables to
          -- their renumbered counterparts. 

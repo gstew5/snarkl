@@ -28,7 +28,7 @@ num_lanes :: Int
 num_lanes = (P.*) 5 5
 
 ln_width :: Int
-ln_width = 8
+ln_width = 32
 
 round1 :: (Int -> TExp 'TBool Rational) -- | 'i'th bit of round constant
        -> TExp ('TArr ('TArr ('TArr 'TBool))) Rational   -- | Array 'a'
@@ -138,6 +138,7 @@ keccak_f1 num_rounds a
   = forall [0..dec num_rounds] (\round_i ->
       round1 (\bit_i -> get_round_bit round_i bit_i) a)
 
+-- num_rounds = 12+2l, where 2^l = ln_width
 keccak1 num_rounds
   = do { a <- input_arr3 5 5 ln_width
        ; keccak_f1 num_rounds a
