@@ -91,7 +91,20 @@ test1 n = matrix_colvec_mult (\_ _ -> 7.0) n
 
 interp1 n = comp_interp (test1 n) (map fromIntegral [0..dec n])
 
+
+{-
+t2_m0 n = do
+  a <- new_matrix n n
+  forall [0 .. dec n] (\i -> do
+    forall [0 .. dec n] (\ j -> do
+      b <- i*n
+      b' <- b + j
+      set2 (a, i, j) b'))
+  return a
+
+
 gen_testmat1 n = map (map fromIntegral)
                    (map
                    (\l -> [l * n  .. (l*n) + n - 1])
                    [0 ..  dec n])
+-}
