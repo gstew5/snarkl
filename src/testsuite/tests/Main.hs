@@ -142,6 +142,6 @@ main = hspec $ do
   describe "Keccak Tests" $ do
 
     describe "keccak" $ do 
-      it "keccak-2" $ test_comp Simplify (keccak1 2) input_vals `shouldReturn` Right 0
-      it "keccak-2" $ test_comp Simplify (keccak1 5) input_vals `shouldReturn` Right 0     
+      it "keccak-2" $ test_comp Simplify (keccak1 2) input_vals `shouldReturn` Right 1
+      it "keccak-2" $ test_comp Simplify (keccak1 5) input_vals `shouldReturn` Right 1     
 
