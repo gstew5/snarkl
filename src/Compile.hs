@@ -236,6 +236,9 @@ cs_of_exp out e = case e of
     do { ensure_const (out,c)
        }
 
+  EUnop op (EVar x) -> 
+    do { encode_unop op (x,out)
+       }
   EUnop op e1 -> 
     do { e1_out <- fresh_var 
        ; cs_of_exp e1_out e1
@@ -293,6 +296,10 @@ cs_of_exp out e = case e of
                }
 
         go_other []       = return []
+        go_other (EVar x : es')
+          = do { labels <- go_other es'
+               ; return $ x : labels
+               }
         go_other (e1 : es')
           = do { e1_out <- fresh_var
                ; cs_of_exp e1_out e1
