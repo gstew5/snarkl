@@ -497,7 +497,16 @@ ifThenElse cb c1 c2
   = do { b <- cb
        ; e1 <- c1
        ; e2 <- c2
-       ; zip_vals b e1 e2
+       ; b_bot  <- is_bot b
+       ; e1_bot <- is_bot e1
+       ; e2_bot <- is_bot e2
+       ; case b_bot of
+           TEVal VTrue -> return TEBot
+           TEVal VFalse ->
+             case (e1_bot,e2_bot) of
+               (TEVal VTrue,TEVal VTrue) -> return TEBot
+               _ -> zip_vals b e1 e2
+           _ -> fail_with $ ErrMsg "internal error in ifThenElse"
        }
 
 negate :: TExp 'TField Rational -> TExp 'TField Rational

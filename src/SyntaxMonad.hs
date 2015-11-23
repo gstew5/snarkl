@@ -429,8 +429,8 @@ assert_false = flip assert_bool False
 assert_true :: TExp ty Rational -> Comp 'TUnit
 assert_true  = flip assert_bool True
 
-is_bot :: TExp ty Rational -> Comp 'TBool
-is_bot e@(TEVar (TVar _))
+var_is_bot :: TExp ty Rational -> Comp 'TBool
+var_is_bot e@(TEVar (TVar _))
   = State (\s -> Right ( case Map.lookup (var_of_texp e) (anal_map s) of
                             Nothing      -> false
                             Just AnalBot -> true
@@ -438,8 +438,30 @@ is_bot e@(TEVar (TVar _))
                        , s
                        )
           )
-is_bot _ = return false    
-   
+var_is_bot _ = return false
+
+is_bot :: TExp ty Rational -> Comp 'TBool
+is_bot e
+  = case e of
+      e0@(TEVar (TVar _)) -> var_is_bot e0
+      TEUnop _ e0 -> is_bot e0
+      TEBinop _ e1 e2 -> either_is_bot e1 e2
+      TEAssert e1 e2  -> either_is_bot e1 e2
+      TESeq e1 e2     -> either_is_bot e1 e2
+      TEBot           -> return true
+      _ -> return false
+  where either_is_bot :: TExp ty1 Rational -> TExp ty2 Rational -> Comp 'TBool
+        either_is_bot e10 e20
+          = do { e1_bot <- is_bot e10
+               ; e2_bot <- is_bot e20
+               ; case (e1_bot,e2_bot) of
+                   (TEVal VTrue,TEVal VFalse) -> return true
+                   (TEVal VFalse,TEVal VTrue) -> return true
+                   (TEVal VTrue,TEVal VTrue)  -> return true
+                   (TEVal VFalse,TEVal VFalse)-> return false
+                   _ -> fail_with $ ErrMsg "internal error in is_bot"
+               }
+            
 assert_bot :: TExp ty Rational -> Comp 'TUnit
 assert_bot (TEVar (TVar x)) = add_statics [(x,AnalBot)]
 assert_bot e = raise_err $ ErrMsg $ "expected " ++ show e ++ " a variable"
