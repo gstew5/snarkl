@@ -29,7 +29,8 @@ mk_bgroup nm mf inputs result
     ]
 
 the_benchmarks
-  = [ mk_bgroup "keccak" (Keccak.keccak1 22) Keccak.input_vals 1
+  = [ mk_bgroup "input-matrix" (Matrix.test2 10) ((Matrix.t2_m0 100)++(Matrix.t2_m1 100)) 2367750
+    ,  mk_bgroup "keccak" (Keccak.keccak1 22) Keccak.input_vals 1
     , mk_bgroup "list"    List.test_listN (90 : take 100 [0..]) 90
     , mk_bgroup "fixed-matrix" (Matrix.test1 600) [0..599] 754740000
     ] 

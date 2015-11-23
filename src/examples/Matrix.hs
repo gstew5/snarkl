@@ -22,6 +22,9 @@ import SyntaxMonad
 import Syntax
 import TExpr
 import Toplevel
+import qualified Prelude as P
+
+
 
 type Matrix = TExp ('TArr ('TArr 'TField))
 
@@ -97,7 +100,6 @@ t2_m1 n = reverse (t2_m0 n)
 
 test2 n = input_matrix_mult n n n
 
-interp2_fixed1 = comp_interp (test2 10) ((t2_m0 100)++(t2_m1 100))
-
-interp2_fixed2 = comp_interp (test2 50) ((t2_m0 2500)++(t2_m1 2500))
+interp2  n = comp_interp (test2 n)
+                 ((t2_m0 ((P.*) n n))++(t2_m1 ((P.*) n n)))
 
