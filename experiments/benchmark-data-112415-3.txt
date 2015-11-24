@@ -1,0 +1,851 @@
+Script started on Tue 24 Nov 2015 12:44:26 PM EST
+]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 69.2 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking input-matrix/input-matrix-interp
+time                 819.1 ms   (804.2 ms .. 834.6 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 819.5 ms   (817.2 ms .. 823.0 ms)
+std dev              3.077 ms   (0.0 s .. 3.347 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-elaborate
+time                 516.7 ms   (493.2 ms .. 538.3 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 524.2 ms   (518.4 ms .. 528.4 ms)
+std dev              6.335 ms   (0.0 s .. 7.262 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-constraints
+time                 3.142 s    (3.070 s .. NaN s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 3.141 s    (3.125 s .. 3.165 s)
+std dev              21.05 ms   (0.0 s .. 23.02 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-simplify
+time                 9.077 s    (9.030 s .. 9.136 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 9.046 s    (9.042 s .. 9.049 s)
+std dev              4.402 ms   (0.0 s .. 5.058 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-simpl-r1cs
+time                 11.99 s    (11.57 s .. NaN s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 11.92 s    (11.81 s .. 11.99 s)
+std dev              107.4 ms   (0.0 s .. 123.9 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-simpl-wit
+time                 18.67 s    (18.44 s .. 18.80 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 18.68 s    (18.64 s .. 18.70 s)
+std dev              31.85 ms   (0.0 s .. 36.76 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-simpl-allbutcrytpo
+time                 28.00 s    (26.52 s .. 29.85 s)
+                     1.000 R²   (0.998 R² .. 1.000 R²)
+mean                 27.42 s    (26.86 s .. 27.75 s)
+std dev              505.9 ms   (0.0 s .. 574.1 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-simpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 99.89 s    (98.89 s .. 100.5 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 99.18 s    (98.73 s .. 99.45 s)
+std dev              407.6 ms   (0.0 s .. 453.1 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-simpl-full
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+
+gstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 69.2 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+[24 of 24] Compiling Main             ( src/testsuite/benchmarks/Main.hs, dist/build/criterion/criterion-tmp/Main.o )
+Linking dist/build/criterion/criterion ...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking keccak/keccak-interp
+time                 994.6 ms   (979.7 ms .. 1.024 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 988.6 ms   (984.5 ms .. 991.9 ms)
+		     std dev              5.079 ms   (0.0 s .. 5.632 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-elaborate
+time                 820.0 ms   (768.4 ms .. 871.1 ms)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+		     mean                 823.2 ms   (812.6 ms .. 829.7 ms)
+		     std dev              9.856 ms   (0.0 s .. 11.25 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-constraints
+time                 2.330 s    (2.266 s .. 2.383 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 2.332 s    (2.318 s .. 2.340 s)
+		     std dev              12.99 ms   (0.0 s .. 14.80 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simplify
+time                 5.486 s    (5.420 s .. 5.537 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 5.535 s    (5.529 s .. 5.540 s)
+		     std dev              8.601 ms   (0.0 s .. 9.150 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-r1cs
+time                 5.892 s    (5.696 s .. 6.271 s)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+		     mean                 5.768 s    (5.713 s .. 5.863 s)
+		     std dev              82.94 ms   (0.0 s .. 86.74 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-wit
+time                 7.599 s    (7.496 s .. 7.712 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 7.671 s    (7.628 s .. 7.699 s)
+		     std dev              42.16 ms   (0.0 s .. 48.66 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-allbutcrytpo
+time                 9.900 s    (9.640 s .. NaN s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 9.939 s    (9.904 s .. 9.969 s)
+		     std dev              46.48 ms   (0.0 s .. 50.81 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 16.57 s    (15.61 s .. 17.17 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 16.47 s    (16.39 s .. 16.65 s)
+		     std dev              149.7 ms   (0.0 s .. 150.3 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-full
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+
+gstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 69.2 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+[24 of 24] Compiling Main             ( src/testsuite/benchmarks/Main.hs, dist/build/criterion/criterion-tmp/Main.o )
+Linking dist/build/criterion/criterion ...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking keccak/keccak-interp
+time                 969.7 ms   (964.2 ms .. 976.7 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 971.9 ms   (971.3 ms .. 972.5 ms)
+		     std dev              1.055 ms   (0.0 s .. 1.069 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-elaborate
+time                 814.5 ms   (767.0 ms .. 860.6 ms)
+                     1.000 R²   (0.998 R² .. 1.000 R²)
+		     mean                 814.9 ms   (804.2 ms .. 821.1 ms)
+		     std dev              9.658 ms   (0.0 s .. 10.86 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-constraints
+time                 2.269 s    (2.227 s .. 2.330 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 2.291 s    (2.279 s .. 2.303 s)
+		     std dev              18.12 ms   (0.0 s .. 19.45 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simplify
+time                 5.487 s    (5.272 s .. 5.649 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 5.529 s    (5.493 s .. 5.554 s)
+		     std dev              36.99 ms   (0.0 s .. 42.63 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-r1cs
+time                 5.629 s    (5.586 s .. 5.672 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 5.655 s    (5.645 s .. 5.665 s)
+		     std dev              17.28 ms   (0.0 s .. 17.42 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-wit
+time                 7.553 s    (7.500 s .. 7.586 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 7.583 s    (7.568 s .. 7.592 s)
+		     std dev              13.68 ms   (0.0 s .. 14.28 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-allbutcrytpo
+time                 9.890 s    (9.537 s .. 10.21 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 9.845 s    (9.784 s .. 9.892 s)
+		     std dev              71.92 ms   (0.0 s .. 81.12 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 16.04 s    (15.88 s .. 16.17 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 16.00 s    (15.97 s .. 16.02 s)
+		     std dev              27.48 ms   (0.0 s .. 29.40 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-simpl-full
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+sat = True, vars = 27556, constraints = 27556, result = 1 % 1
+time                 8.767 s    (8.600 s .. 8.856 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 8.755 s    (8.720 s .. 8.774 s)
+		     std dev              30.46 ms   (0.0 s .. 33.41 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-r1cs
+time                 3.319 s    (3.272 s .. 3.369 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 3.319 s    (3.308 s .. 3.326 s)
+		     std dev              10.34 ms   (0.0 s .. 11.81 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-wit
+time                 8.452 s    (8.416 s .. NaN s)
+                     1.000 R²   (1.000 R² .. NaN R²)
+		     mean                 8.451 s    (8.441 s .. 8.457 s)
+		     std dev              8.846 ms   (0.0 s .. 9.837 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-allbutcrypto
+time                 15.15 s    (15.10 s .. NaN s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 15.15 s    (15.14 s .. 15.15 s)
+		     std dev              8.863 ms   (0.0 s .. 9.019 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 66.98 s    (64.46 s .. 69.87 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 66.34 s    (65.61 s .. 66.82 s)
+		     std dev              711.6 ms   (0.0 s .. 820.5 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak/keccak-nosimpl-full
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+sat = True, vars = 261474, constraints = 261474, result = 1 % 1
+time                 11.47 s    (11.14 s .. 11.72 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 11.40 s    (11.31 s .. 11.45 s)
+		     std dev              79.70 ms   (0.0 s .. 79.92 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-interp
+time                 13.29 ms   (13.21 ms .. 13.37 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 13.22 ms   (13.13 ms .. 13.31 ms)
+		     std dev              239.4 μs   (175.1 μs .. 343.5 μs)
+
+benchmarking list/list-elaborate
+time                 12.10 ms   (12.02 ms .. 12.18 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 12.08 ms   (11.99 ms .. 12.17 ms)
+		     std dev              255.4 μs   (190.2 μs .. 378.1 μs)
+
+benchmarking list/list-constraints
+time                 121.6 ms   (120.3 ms .. 123.5 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 120.5 ms   (118.9 ms .. 121.1 ms)
+		     std dev              1.412 ms   (306.2 μs .. 2.115 ms)
+		     variance introduced by outliers: 11% (moderately inflated)
+
+benchmarking list/list-simplify
+time                 503.7 ms   (498.1 ms .. 514.8 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 500.7 ms   (499.2 ms .. 502.0 ms)
+		     std dev              2.111 ms   (0.0 s .. 2.255 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-simpl-r1cs
+time                 539.8 ms   (529.2 ms .. 546.0 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 541.2 ms   (539.4 ms .. 542.3 ms)
+		     std dev              1.714 ms   (0.0 s .. 1.978 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-simpl-wit
+time                 2.854 s    (2.842 s .. 2.879 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 2.853 s    (2.849 s .. 2.855 s)
+		     std dev              3.652 ms   (0.0 s .. 4.216 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-simpl-allbutcrytpo
+time                 5.265 s    (5.232 s .. 5.298 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 5.275 s    (5.269 s .. 5.279 s)
+		     std dev              6.393 ms   (0.0 s .. 7.291 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-simpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 7.765 s    (7.395 s .. 8.050 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 7.751 s    (7.712 s .. 7.824 s)
+		     std dev              63.57 ms   (0.0 s .. 65.08 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-simpl-full
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+sat = True, vars = 12595, constraints = 12494, result = 90 % 1
+time                 2.964 s    (2.961 s .. 2.970 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 2.968 s    (2.967 s .. 2.968 s)
+		     std dev              999.8 μs   (0.0 s .. 1.147 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-nosimpl-r1cs
+time                 207.7 ms   (206.3 ms .. 209.5 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 207.2 ms   (205.6 ms .. 208.0 ms)
+		     std dev              1.410 ms   (424.1 μs .. 1.999 ms)
+		     variance introduced by outliers: 14% (moderately inflated)
+
+benchmarking list/list-nosimpl-wit
+time                 2.851 s    (2.837 s .. 2.869 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 2.842 s    (2.839 s .. 2.845 s)
+		     std dev              3.961 ms   (0.0 s .. 4.231 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-nosimpl-allbutcrypto
+time                 5.772 s    (5.728 s .. 5.793 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 5.743 s    (5.725 s .. 5.754 s)
+		     std dev              16.87 ms   (0.0 s .. 19.20 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-nosimpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 10.52 s    (10.45 s .. 10.63 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 10.48 s    (10.46 s .. 10.50 s)
+		     std dev              22.04 ms   (0.0 s .. 23.45 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking list/list-nosimpl-full
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+sat = True, vars = 26592, constraints = 26491, result = 90 % 1
+time                 3.082 s    (3.074 s .. 3.090 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 3.081 s    (3.079 s .. 3.082 s)
+		     std dev              1.512 ms   (0.0 s .. 1.614 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-interp
+time                 778.0 ms   (745.5 ms .. 806.4 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 776.4 ms   (771.7 ms .. 780.1 ms)
+		     std dev              5.675 ms   (0.0 s .. 6.357 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-elaborate
+time                 238.8 ms   (222.2 ms .. 255.9 ms)
+                     0.998 R²   (0.996 R² .. 1.000 R²)
+		     mean                 248.9 ms   (241.4 ms .. 255.2 ms)
+		     std dev              8.209 ms   (3.917 ms .. 10.59 ms)
+		     variance introduced by outliers: 16% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-constraints
+time                 2.876 s    (2.813 s .. 2.911 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 2.880 s    (2.871 s .. 2.887 s)
+		     std dev              9.675 ms   (0.0 s .. 11.16 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-simplify
+time                 11.84 s    (11.82 s .. 11.88 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 11.81 s    (11.80 s .. 11.82 s)
+		     std dev              14.07 ms   (0.0 s .. 16.05 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-simpl-r1cs
+time                 14.01 s    (13.97 s .. 14.04 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 14.01 s    (14.00 s .. 14.01 s)
+		     std dev              6.567 ms   (0.0 s .. 6.598 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-simpl-wit
+time                 15.12 s    (14.87 s .. 15.34 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 15.11 s    (15.08 s .. 15.14 s)
+		     std dev              46.58 ms   (0.0 s .. 49.96 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-simpl-allbutcrytpo
+time                 16.24 s    (16.14 s .. 16.37 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 16.33 s    (16.28 s .. 16.37 s)
+		     std dev              51.68 ms   (0.0 s .. 59.61 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-simpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 17.43 s    (16.35 s .. 18.24 s)
+                     1.000 R²   (NaN R² .. 1.000 R²)
+		     mean                 17.48 s    (17.35 s .. 17.59 s)
+		     std dev              178.5 ms   (0.0 s .. 192.3 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-simpl-full
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+time                 16.16 s    (16.03 s .. 16.30 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 16.14 s    (16.11 s .. 16.15 s)
+		     std dev              28.86 ms   (0.0 s .. 31.14 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-nosimpl-r1cs
+time                 4.993 s    (4.963 s .. 5.030 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 4.992 s    (4.984 s .. 4.996 s)
+		     std dev              6.427 ms   (0.0 s .. 6.617 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-nosimpl-wit
+time                 6.070 s    (6.043 s .. 6.105 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 6.065 s    (6.056 s .. 6.070 s)
+		     std dev              8.226 ms   (0.0 s .. 9.483 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-nosimpl-allbutcrypto
+time                 7.379 s    (7.344 s .. 7.413 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 7.380 s    (7.375 s .. 7.388 s)
+		     std dev              6.763 ms   (0.0 s .. 7.175 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-nosimpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 8.807 s    (8.392 s .. 9.313 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+		     mean                 8.621 s    (8.444 s .. 8.718 s)
+		     std dev              155.5 ms   (0.0 s .. 167.3 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix/fixed-matrix-nosimpl-full
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+sat = True, vars = 1201, constraints = 601, result = 754740000 % 1
+time                 7.091 s    (6.556 s .. 7.646 s)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+		     mean                 7.284 s    (7.120 s .. 7.385 s)
+		     std dev              153.5 ms   (0.0 s .. 175.7 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+Benchmark criterion: FINISH
+
+gstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 69.3 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+[24 of 24] Compiling Main             ( src/testsuite/benchmarks/Main.hs, dist/build/criterion/criterion-tmp/Main.o )
+Linking dist/build/criterion/criterion ...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking input-matrix/input-matrix-nosimpl-r1cs
+time                 5.889 s    (5.803 s .. 6.003 s)
+                     1.000 R²   (1.000 R² .. NaN R²)
+		     mean                 5.901 s    (5.888 s .. 5.910 s)
+		     std dev              14.56 ms   (0.0 s .. 16.57 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-nosimpl-wit
+time                 13.13 s    (13.05 s .. 13.23 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 13.11 s    (13.10 s .. 13.12 s)
+		     std dev              19.04 ms   (0.0 s .. 19.16 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-nosimpl-allbutcrypto
+time                 21.34 s    (21.08 s .. 21.49 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 21.42 s    (21.36 s .. 21.46 s)
+		     std dev              52.16 ms   (4.351 fs .. 55.45 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-nosimpl-crypto
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 94.51 s    (92.07 s .. 96.30 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+		     mean                 94.32 s    (94.04 s .. 94.57 s)
+		     std dev              415.7 ms   (0.0 s .. 434.5 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix/input-matrix-nosimpl-full
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+sat = True, vars = 357701, constraints = 347901, result = 2048215153250 % 1
+time                 15.43 s    (15.15 s .. 15.68 s)
+                     1.000 R²   (NaN R² .. 1.000 R²)
+		     mean                 15.48 s    (15.42 s .. 15.53 s)
+		     std dev              66.39 ms   (0.0 s .. 76.66 ms)
+		     variance introduced by outliers: 19% (moderately inflated)
+
+Benchmark criterion: FINISH

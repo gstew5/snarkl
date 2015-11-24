@@ -3,6 +3,7 @@
 module Harness where
 
 import           System.IO (hPutStrLn, stderr)
+import           GHC.IO.Exception
 
 import qualified Data.IntMap.Lazy as IntMap
 import qualified Data.Set as Set
@@ -10,6 +11,7 @@ import           Data.Typeable
 
 import           Compile (SimplParam)
 import           TExpr
+import           Errors
 import           Toplevel
 
 -- Just interpret.
@@ -74,10 +76,28 @@ test_wit simpl mf inputs
          Nothing -> hPutStrLn stderr $ show $ last (r1cs_clauses r1cs) 
          Just v  -> hPutStrLn stderr $ show v ++ (show $ last (r1cs_clauses r1cs))
 
--- Do everything.
-test_full :: Typeable ty => SimplParam -> Comp ty -> [Int] -> Rational -> IO ()
-test_full simpl mf inputs result
-  = benchmark_comp (simpl, mf, map fromIntegral inputs, result)
+-- Do everything but crypto (e.g., generate a satisfying assignment
+-- and serialize r1cs and assignment to files).
+test_allbutcrypto :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
+test_allbutcrypto simpl mf inputs
+  = snarkify_comp_abort "test" simpl mf (map fromIntegral inputs)
 
+-- Same as test_allbutcrypto, but also run libsnark on the resulting files.
+test_crypto :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
+test_crypto simpl mf inputs
+  = do { exit <- snarkify_comp "test" simpl mf (map fromIntegral inputs)
+       ; case exit of
+           ExitSuccess -> Prelude.return ()
+           ExitFailure err -> fail_with $ ErrMsg $ "test_full failed with " ++ show err
+       }
+
+-- This function "executes" the comp two ways, once by interpreting
+-- the resulting TExp and second by interpreting the resulting circuit
+-- on the inputs provided. Both results are checked to match 'res'.
+-- The function outputs a 'Result' that details number of variables and
+-- constraints in the resulting constraint system.
+test_numconstrs :: Typeable ty => SimplParam -> Comp ty -> [Int] -> Rational -> IO ()
+test_numconstrs simpl mf inputs res
+  = benchmark_comp (simpl, mf, map fromIntegral inputs, res)
 
 

@@ -30,6 +30,7 @@ module Toplevel
     -- verification.  Currently assumes 'Toplevel' is loaded in working
     -- directory 'base-of-snarkl-repo'.
   , snarkify_comp
+  , snarkify_comp_abort -- for benchmarking
 
     -- * Convenience functions
   , Result(..)
@@ -233,6 +234,26 @@ snarkify_comp filePrefix simpl c inputs
        ; waitForProcess hdl 
        }
 
+-- Do everything as in snarkify_comp, but don't wait for resulting libsnark process.
+snarkify_comp_abort filePrefix simpl c inputs
+  = do { let r1cs = r1cs_of_comp simpl c
+             r1cs_file   = filePrefix ++ ".r1cs"
+             inputs_file = filePrefix ++ ".inputs"
+             wits_file   = filePrefix ++ ".wits"
+             run_r1cs    = "./run-r1cs.sh"
+             
+       ; withFile ("scripts/" ++ r1cs_file) WriteMode (\h ->
+             hPutStrLn h $ serialize_r1cs r1cs)
+
+       ; withFile ("scripts/" ++ inputs_file) WriteMode (\h ->
+             hPutStr h $ serialize_inputs inputs r1cs)
+
+       ; withFile ("scripts/" ++ wits_file) WriteMode (\h ->
+             hPutStr h $ serialize_witnesses inputs r1cs)
+
+       ; Prelude.return ()
+       }
+
 
 ------------------------------------------------------
 --
@@ -291,7 +312,7 @@ test_comp simpl mf args
 -- | (1) Compile to R1CS.
 --   (2) Generate a satisfying assignment, 'w'.
 --   (3) Check whether 'w' satisfies the constraint system produced in (1).
---   (4) Check whether the R1CS result matches the interpreter result.         
+--   (4) Check whether the R1CS result matches the interpreter result.
 --   (5) Return the 'Result'.
 execute :: Typeable ty => SimplParam -> Comp ty -> [Rational] -> Result Rational
 execute simpl mf inputs
