@@ -206,9 +206,9 @@ instance Show a => Show (TExp ty a) where
   show (TEVar x) = "var " ++ show x
   show (TEVal c) = show c
   show (TEUnop op e1) = show op ++ show e1
-  show (TEBinop op e1 e2) = show e1 ++ show op ++ show e2
+  show (TEBinop op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
   show (TEIf b e1 e2) 
-    = "if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2
+    = "(if " ++ show b ++ " then " ++ show e1 ++ " else " ++ show e2 ++ ")"
   show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
   show (TESeq e1 e2) = "(" ++ show e1 ++ "; " ++ show e2 ++ ")"
   show TEBot = "bot"

@@ -220,19 +220,22 @@ case_sum :: forall ty1 ty2 ty.
 case_sum f1 f2 e
   = do { let p = rep_sum e
        ; b <- fst_pair p
+       ; b_bot  <- is_bot b
        ; is_inl <- is_false b              
        ; is_inr <- is_true b
        ; p_rest <- snd_pair p
        ; e1 <- fst_pair p_rest
        ; e2 <- snd_pair p_rest
-       ; case is_inl of
-           TEVal VTrue -> f1 e1
-           _ -> case is_inr of
-             TEVal VTrue -> f2 e2
-             _ -> do { le <- f1 e1
-                     ; re <- f2 e2
-                     ; zip_vals (not b) le re
-                     }
+       ; case b_bot of
+           TEVal VTrue -> return TEBot
+           _ -> case is_inl of
+                  TEVal VTrue -> f1 e1
+                  _ -> case is_inr of
+                         TEVal VTrue -> f2 e2
+                         _ -> do { le <- f1 e1
+                                 ; re <- f2 e2
+                                 ; zip_vals (not_aux b) le re
+                                 }
        }
 
 -- | Types for which a default value is derivable
@@ -308,10 +311,34 @@ instance Zippable 'TUnit where
   zip_vals _ _ _ = return unit
 
 instance Zippable 'TBool where
-  zip_vals b b1 b2 = return $ ifThenElse_aux b b1 b2
+  zip_vals TEBot _ _  = return TEBot
+  zip_vals _ TEBot e2 = return e2
+  zip_vals _ e1 TEBot = return e1
+  zip_vals b b1 b2
+    = do { b_bot <- is_bot b
+         ; b1_bot <- is_bot b1
+         ; b2_bot <- is_bot b2
+         ; case (b_bot,b1_bot,b2_bot) of
+             (TEVal VTrue,_,_) -> return TEBot
+             (_,TEVal VTrue,_) -> return b2
+             (_,_,TEVal VTrue) -> return b1
+             _ -> return $ ifThenElse_aux b b1 b2
+         }
 
 instance Zippable 'TField where
-  zip_vals b e1 e2 = return $ ifThenElse_aux b e1 e2
+  zip_vals TEBot _ _ = return TEBot
+  zip_vals _ TEBot e2 = return e2
+  zip_vals _ e1 TEBot = return e1
+  zip_vals b e1 e2
+    = do { b_bot <- is_bot b
+         ; e1_bot <- is_bot e1
+         ; e2_bot <- is_bot e2
+         ; case (b_bot,e1_bot,e2_bot) of
+             (TEVal VTrue,_,_) -> return TEBot
+             (_,TEVal VTrue,_) -> return e2
+             (_,_,TEVal VTrue) -> return e1
+             _ -> return $ ifThenElse_aux b e1 e2
+         }
 
 fuel :: Int
 fuel = 1
@@ -451,8 +478,11 @@ fix = fixN 100
 zeq :: TExp 'TField Rational -> TExp 'TBool Rational
 zeq e = TEUnop (TUnop ZEq) e
 
-not :: TExp 'TBool Rational -> TExp 'TBool Rational
-not e = ifThenElse_aux e false true
+not_aux :: TExp 'TBool Rational -> TExp 'TBool Rational 
+not_aux e = ifThenElse_aux e false true
+
+not :: Comp 'TBool -> Comp 'TBool
+not e = if e then return false else return true
 
 xor :: TExp 'TBool Rational -> TExp 'TBool Rational -> TExp 'TBool Rational
 xor e1 e2 = TEBinop (TOp XOr) e1 e2
@@ -479,7 +509,7 @@ ifThenElse_aux :: Field a
 ifThenElse_aux b e1 e2
   | e1 == e2
   = e1    
-
+    
   | otherwise
   = case b of
       TEVal VFalse -> e2
@@ -497,16 +527,24 @@ ifThenElse cb c1 c2
   = do { b <- cb
        ; e1 <- c1
        ; e2 <- c2
-       ; b_bot  <- is_bot b
+
        ; e1_bot <- is_bot e1
        ; e2_bot <- is_bot e2
-       ; case b_bot of
-           TEVal VTrue -> return TEBot
-           TEVal VFalse ->
-             case (e1_bot,e2_bot) of
-               (TEVal VTrue,TEVal VTrue) -> return TEBot
-               _ -> zip_vals b e1 e2
-           _ -> fail_with $ ErrMsg "internal error in ifThenElse"
+       ; b_bot  <- is_bot b
+                   
+       ; case (b_bot,e1_bot,e2_bot) of
+           (TEVal VTrue,_,_) -> return TEBot       
+           (_,TEVal VTrue,_) -> return e2
+           (_,_,TEVal VTrue) -> return e1
+           _ -> do { b_true <- is_true b
+                   ; case b_true of
+                       TEVal VTrue -> return e1
+                       _ -> do { b_false <- is_false b
+                               ; case b_false of
+                                   TEVal VTrue -> return e2
+                                   _ -> zip_vals b e1 e2
+                               }
+                   }
        }
 
 negate :: TExp 'TField Rational -> TExp 'TField Rational

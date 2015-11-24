@@ -68,7 +68,8 @@ round1 rc a
            do q <- get3 (b,x,y,i)
               u <- get3 (b,inc x `mod` 5,y,i)
               v <- get3 (b,(inc . inc) x `mod` 5,y,i)
-              set3 (a,x,y,i) $ q `xor` (not u && v))
+              u' <- not (return u)
+              set3 (a,x,y,i) $ q `xor` (u' && v))
          -- \iota step
        ; forall [0..dec ln_width] (\i ->
            do q <- get3 (a,0,0,i)
