@@ -1,0 +1,4 @@
+Phase	Interp	Elaborate	Constraints	Simplify	R1CS	Witness	AllButCrypto	Crypto
+Simp	-	0.5167		2.625		5.935		2.913	6.68	9.33		71.89
+NoSimp	-	0.5167		2.625		-		2.747	7.241	8.21		73.17
+Interp	0.8191
