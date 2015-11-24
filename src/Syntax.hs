@@ -231,6 +231,9 @@ case_sum f1 f2 e
              TEVal VTrue -> f2 e2
              _ -> do { le <- f1 e1
                      ; re <- f2 e2
+                       -- NOTE: should not guard b here.
+                       -- zip_vals ... must maintain SyntaxMonad [INVARIANT]
+                       -- regarding the representation of nonbase-type expressions.
                      ; zip_vals (not b) le re
                      }
        }
@@ -307,11 +310,24 @@ class Zippable ty where
 instance Zippable 'TUnit where
   zip_vals _ _ _ = return unit
 
+zip_base TEBot _ _  = return TEBot
+zip_base _ TEBot e2 = return e2
+zip_base _ e1 TEBot = return e1
+zip_base b e1 e2
+  = guard (\b0 -> 
+      do { e1_bot <- is_bot e1
+         ; e2_bot <- is_bot e2
+         ; case (e1_bot,e2_bot) of
+             (TEVal VTrue,_) -> return e2
+             (_,TEVal VTrue) -> return e1
+             _ -> return $ ifThenElse_aux b0 e1 e2
+         }) b
+
 instance Zippable 'TBool where
-  zip_vals b b1 b2 = return $ ifThenElse_aux b b1 b2
+  zip_vals b b1 b2 = zip_base b b1 b2
 
 instance Zippable 'TField where
-  zip_vals b e1 e2 = return $ ifThenElse_aux b e1 e2
+  zip_vals b e1 e2 = zip_base b e1 e2
 
 fuel :: Int
 fuel = 1
@@ -411,11 +427,7 @@ fixN :: Typeable ty2
      -> TExp ty1 Rational
      -> Comp ty2
 fixN depth f e = go depth e
-  where -- WARNING: This combinator assumes the fixpoint expansion f^n
-        -- ( f^{n-1} ( ... f^1 e ... ) ) bottoms out at 'n < depth'
-        -- (that is, there's an 'n < depth' that throws away its
-        -- recursion parameter). This means, in particular, that we
-        -- only handle inductive data up to size 'depth'.
+  where -- WARNING: We only handle inductive data up to size 'depth'.
         go 0 _ = return TEBot
         go n e0 = f (go (dec n)) e0
 

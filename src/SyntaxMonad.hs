@@ -54,6 +54,7 @@ module SyntaxMonad
 
     -- | Misc. functions imported by 'Syntax.hs'
   , get_addr
+  , guard
   , add_objects
   ) where
 
@@ -250,11 +251,16 @@ get (TEBot,_) = return TEBot
 get (a,i) = guarded_get_addr a i
 
 -- | Smart constructor for TEAssert
-te_assert x TEBot
-  = do { assert_bot x
-       ; return $ TEAssert x TEBot
+te_assert x@(TEVar _) e
+  = do { e_bot <- is_bot e
+       ; case e_bot of
+           TEVal VTrue -> do { assert_bot x
+                             ; return unit
+                             }
+           _ -> return $ TEAssert x e
        }
-te_assert x e = return $ TEAssert x e
+te_assert _ e = fail_with $ ErrMsg
+                $ "in te_assert, expected var but got " ++ show e
 
 -- | Update array 'a' at position 'i' to expression 'e'. We special-case
 -- variable and location expressions, because they're representable untyped
@@ -429,8 +435,8 @@ assert_false = flip assert_bool False
 assert_true :: TExp ty Rational -> Comp 'TUnit
 assert_true  = flip assert_bool True
 
-is_bot :: TExp ty Rational -> Comp 'TBool
-is_bot e@(TEVar (TVar _))
+var_is_bot :: TExp ty Rational -> Comp 'TBool
+var_is_bot e@(TEVar (TVar _))
   = State (\s -> Right ( case Map.lookup (var_of_texp e) (anal_map s) of
                             Nothing      -> false
                             Just AnalBot -> true
@@ -438,8 +444,27 @@ is_bot e@(TEVar (TVar _))
                        , s
                        )
           )
-is_bot _ = return false    
-   
+var_is_bot _ = return false
+
+is_bot :: TExp ty Rational -> Comp 'TBool
+is_bot e
+  = case e of
+      e0@(TEVar _) -> var_is_bot e0
+      TEUnop _ e0  -> is_bot e0
+      TEBinop _ e1 e2 -> either_is_bot e1 e2
+      TESeq e1 e2     -> either_is_bot e1 e2
+      TEBot -> return true
+      _     -> return false
+  where either_is_bot :: TExp ty1 Rational -> TExp ty2 Rational -> Comp 'TBool
+        either_is_bot e10 e20
+          = do { e1_bot <- is_bot e10
+               ; e2_bot <- is_bot e20
+               ; case (e1_bot,e2_bot) of
+                   (TEVal VTrue,_) -> return true
+                   (_,TEVal VTrue) -> return true
+                   _ -> return false
+               }
+                 
 assert_bot :: TExp ty Rational -> Comp 'TUnit
 assert_bot (TEVar (TVar x)) = add_statics [(x,AnalBot)]
-assert_bot e = raise_err $ ErrMsg $ "expected " ++ show e ++ " a variable"
+assert_bot e = raise_err $ ErrMsg $ "in assert_bot, expected " ++ show e ++ " a variable"
