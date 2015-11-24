@@ -253,10 +253,12 @@ get (a,i) = guarded_get_addr a i
 -- | Smart constructor for TEAssert
 te_assert x@(TEVar _) e
   = do { e_bot <- is_bot e
-       ; case e_bot of
-           TEVal VTrue -> do { assert_bot x
-                             ; return unit
-                             }
+       ; e_true <- is_true e
+       ; e_false <- is_false e
+       ; case (e_bot,e_true,e_false) of
+           (TEVal VTrue,_,_) -> assert_bot x   >> return (TEAssert x e)
+           (_,TEVal VTrue,_) -> assert_true x  >> return (TEAssert x e)
+           (_,_,TEVal VTrue) -> assert_false x >> return (TEAssert x e)
            _ -> return $ TEAssert x e
        }
 te_assert _ e = fail_with $ ErrMsg

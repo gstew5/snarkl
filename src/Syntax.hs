@@ -314,14 +314,20 @@ zip_base TEBot _ _  = return TEBot
 zip_base _ TEBot e2 = return e2
 zip_base _ e1 TEBot = return e1
 zip_base b e1 e2
-  = guard (\b0 -> 
-      do { e1_bot <- is_bot e1
-         ; e2_bot <- is_bot e2
-         ; case (e1_bot,e2_bot) of
-             (TEVal VTrue,_) -> return e2
-             (_,TEVal VTrue) -> return e1
-             _ -> return $ ifThenElse_aux b0 e1 e2
-         }) b
+  = do { b_true <- is_true b
+       ; b_false <- is_false b
+       ; case (b_true,b_false) of
+           (TEVal VTrue,_) -> return e1
+           (_,TEVal VTrue) -> return e2
+           _ -> guard (\b0 -> 
+                  do { e1_bot <- is_bot e1
+                     ; e2_bot <- is_bot e2
+                     ; case (e1_bot,e2_bot) of
+                         (TEVal VTrue,_) -> return e2
+                         (_,TEVal VTrue) -> return e1
+                         _ -> return $ ifThenElse_aux b0 e1 e2
+                     }) b
+        }
 
 instance Zippable 'TBool where
   zip_vals b b1 b2 = zip_base b b1 b2
@@ -336,18 +342,25 @@ check_bots :: ( Typeable ty
               , Derive ty
               )
            => Comp ty
+           -> TExp 'TBool Rational
            -> TExp ty Rational
            -> TExp ty Rational
            -> Comp ty
-check_bots f e1 e2
-  = do { e1_bot <- is_bot e1
+check_bots f b e1 e2
+  = do { b_true <- is_true b
+       ; b_false <- is_false b
+       ; b_bot  <- is_bot b
+       ; e1_bot <- is_bot e1
        ; e2_bot <- is_bot e2
-       ; case (e1_bot,e2_bot) of
-           (TEVal VTrue,TEVal VTrue) -> derive fuel
-           (TEVal VTrue,TEVal VFalse) -> return e2
-           (TEVal VFalse,TEVal VTrue) -> return e1
-           (TEVal VFalse,TEVal VFalse) -> f
-           (_,_) -> raise_err $ ErrMsg "internal error in check_bots"
+       ; case (b_true,b_false,b_bot,e1_bot,e2_bot) of
+           (TEVal VTrue,_,_,_,_) -> return e1
+           (_,TEVal VTrue,_,_,_) -> return e2
+           (_,_,TEVal VTrue,_,_) -> derive fuel
+           (_,_,_,TEVal VTrue,TEVal VTrue) -> derive fuel
+           (_,_,_,TEVal VTrue,TEVal VFalse) -> return e2
+           (_,_,_,TEVal VFalse,TEVal VTrue) -> return e1
+           (_,_,_,TEVal VFalse,TEVal VFalse) -> f
+           (_,_,_,_,_) -> raise_err $ ErrMsg "internal error in check_bots"
        }
 
 instance ( Zippable ty1
@@ -358,7 +371,7 @@ instance ( Zippable ty1
          , Derive ty2
          )
       => Zippable ('TProd ty1 ty2) where
-  zip_vals b e1 e2 = check_bots f e1 e2
+  zip_vals b e1 e2 = check_bots f b e1 e2
     where f = do { e11 <- fst_pair e1
                  ; e12 <- snd_pair e1
                  ; e21 <- fst_pair e2
@@ -376,7 +389,7 @@ instance ( Zippable ty1
          , Derive ty2
          )
       => Zippable ('TSum ty1 ty2) where
-  zip_vals b e1 e2 = check_bots f e1 e2
+  zip_vals b e1 e2 = check_bots f b e1 e2
     where f = do { let p1 = rep_sum e1 
                  ; let p2 = rep_sum e2 
                  ; p' <- zip_vals b p1 p2
@@ -389,7 +402,7 @@ instance ( Typeable f
          , Derive (Rep f ('TMu f))
          )
       => Zippable ('TMu f) where
-  zip_vals b e1 e2 = check_bots f e1 e2
+  zip_vals b e1 e2 = check_bots f b e1 e2
     where f = do { e1' <- unroll e1
                  ; e2' <- unroll e2
                  ; x <- zip_vals b e1' e2'
