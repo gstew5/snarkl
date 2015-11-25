@@ -295,6 +295,18 @@ cs_of_exp out e = case e of
                ; return $ Left (e1_out,one) : labels
                }
 
+        go_sub [] = return []
+        go_sub (e1 : es')
+          = do { labels <- go_linear (e1 : es')
+               ; case labels of
+                   [] -> fail_with $ ErrMsg "internal error in go_sub"
+                   k : ls -> return $ k : rev_pol ls
+               }
+
+        rev_pol [] = []
+        rev_pol (Left (x,c) : ls) = Left (x,neg c) : rev_pol ls
+        rev_pol (Right c: ls) = Right (neg c) : rev_pol ls
+
         go_other []       = return []
         go_other (EVar x : es')
           = do { labels <- go_other es'
@@ -321,7 +333,13 @@ cs_of_exp out e = case e of
               Add ->
                 do { labels <- go_linear es
                    ; encode_linear out labels
-                   } 
+                   }
+
+              Sub ->
+                do { labels <- go_sub es
+                   ; encode_linear out labels
+                   }
+
               -- Otherwise, do the pairwise encoding.
               _ ->
                 do { labels <- go_other es
