@@ -37,7 +37,7 @@ the_benchmarks
                 ((Matrix.t2_m0 4900)++(Matrix.t2_m1 4900)) 2048215153250
     , mk_bgroup "keccak" (Keccak.keccak1 22) Keccak.input_vals 1
     , mk_bgroup "list"    List.test_listN (90 : take 100 [0..]) 90
-    , mk_bgroup "fixed-matrix" (Matrix.test1 600) [0..599] 754740000-}
+    , mk_bgroup "fixed-matrix" (Matrix.test1 600) [0..599] 754740000
     ] 
 
 -- the_benchmarks
