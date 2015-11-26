@@ -31,6 +31,7 @@ module Syntax
        , (*)
        , (/)
        , (&&)
+       , bor
        , zeq
        , not
        , xor
@@ -472,6 +473,9 @@ fix = fixN 100
 
 (&&) :: TExp 'TBool Rational -> TExp 'TBool Rational -> TExp 'TBool Rational
 (&&) e1 e2 = TEBinop (TOp And) e1 e2
+
+bor :: TExp 'TBool Rational -> TExp 'TBool Rational -> TExp 'TBool Rational
+bor e1 e2 = TEBinop (TOp Or) e1 e2
 
 zeq :: TExp 'TField Rational -> TExp 'TBool Rational
 zeq e = TEUnop (TUnop ZEq) e
