@@ -56,6 +56,7 @@ module SyntaxMonad
   , get_addr
   , guard
   , add_objects
+  , ObjBind(..)
   ) where
 
 import           Prelude hiding

@@ -61,6 +61,10 @@ module Syntax
        , get3
        , get4
 
+         -- | Binary decomposition
+       , int32_to_arr
+       , arr_to_int32
+
          -- | Iteration
        , iter
        , iterM
@@ -87,6 +91,8 @@ import Prelude hiding
 import qualified Prelude as P
 
 import Data.Typeable
+import Data.Maybe (catMaybes)
+import qualified Data.Map.Strict as Map
 
 import Unsafe.Coerce
 
@@ -159,6 +165,44 @@ set4 (a,i,j,k,l) e = do { a' <- get3 (a,i,j,k); set (a',l) e }
 get2 (a,i,j)       = do { a' <- get (a,i); get (a',j) }
 get3 (a,i,j,k)     = do { a' <- get2 (a,i,j); get (a',k) }
 get4 (a,i,j,k,l)   = do { a' <- get3 (a,i,j,k); get (a',l) }
+
+----------------------------------------------------
+--
+-- Int32<->32-Bit Boolean Array Conversions
+--        
+----------------------------------------------------
+
+int32_arr_aux :: TExp ('TArr 'TBool) Rational
+              -> TExp 'TField Rational
+              -> Comp 'TUnit
+int32_arr_aux a0 e0
+    = State (\s ->
+        let al  = loc_of_texp a0
+            ls  = map getObjVar
+                  $ catMaybes
+                  $ map (\i -> Map.lookup (al,i) (obj_map s))
+                        [0..31]
+            getObjVar (ObjVar x) = x
+            getObjVar (ObjLoc _)
+                = fail_with
+                  $ ErrMsg "internal error in int32_to_arr"
+        in Right ( TEPragma ls (var_of_texp e0)
+                 , s
+                 ))
+
+int32_to_arr :: TExp 'TField Rational -> Comp ('TArr 'TBool)
+int32_to_arr e
+  = do { a <- arr 32
+       ; int32_arr_aux a e
+       ; return a  
+       }
+
+arr_to_int32 :: TExp ('TArr 'TBool) Rational -> Comp 'TField
+arr_to_int32 a
+  = do { e <- fresh_var
+       ; int32_arr_aux a e
+       ; return e
+       }
 
 ----------------------------------------------------
 --
