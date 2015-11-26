@@ -319,8 +319,9 @@ cs_of_exp out e = case e of
                ; return $ e1_out : labels
                }
 
-        encode_labels []       = return ()
-        encode_labels (_ : []) = fail_with $ ErrMsg ("wrong arity in " ++ show e)
+        encode_labels [] = return ()
+        encode_labels (_ : [])
+          = fail_with $ ErrMsg ("wrong arity in " ++ show e)
         encode_labels (l1 : l2 : []) = encode_binop op (l1,l2,out)
         encode_labels (l1 : l2 : labels')
           = do { res_out <- fresh_var
@@ -376,6 +377,73 @@ cs_of_exp out e = case e of
   EUnit ->
     -- NOTE: [[ EUnit ]]_{out} = [[ EVal zero ]]_{out}.
     do { cs_of_exp out (EVal zero) }
+
+  -- Binary decomposition xs <-> y, where xs is a sequence
+  -- of 32 variables (w/ values \in {0,1}) and y is a variable
+  -- of field type. 
+  EPragma xs y ->
+    do { sum_bit_coeffs xs y
+       ; nm <- fresh_var
+       ; add_constraint (CMagic nm (y : xs) mf)
+         -- Conservatively ensure xs are all boolean.
+       ; mapM_ ensure_boolean xs
+       }
+    where sum_bit_coeffs xs0 y0
+            = do { let terms = sum_go (zip [0..31] xs0)
+                 ; cs_of_exp y0 (EBinop Add terms)
+                 }
+          sum_go :: Field a => [(Int,Var)] -> [Exp a]
+          sum_go [] = [EVal zero]
+          sum_go ((i,x) : ixs)
+            = [EBinop Mult [EVal $ exp2 (field_of_posint i),EVar x]]
+              ++ sum_go ixs
+
+          mf :: Field a => [Var] -> State (SEnv a) Bool
+          mf (x : bit : bits)
+            = do { tx <- bind_of_var x
+                 ; tbit <- bind_of_var bit
+                 ; case (tx, tbit) of
+                     (Left _, Left _) -> return False
+                     (Right _, Right _) -> return True
+                     (Left _, Right _) -> bind_to_binary x (bit : bits)
+                     (Right _, Left _) -> bind_binary_to x (bit : bits)
+                 }
+          mf _ = fail_with 
+                 $ ErrMsg "internal error when compiling a pragma"
+
+          bind_to_binary x bits
+            = do { cs <- get_consts bits
+                 ; bind_var (x,recompose_int32 cs)
+                 ; return True
+                 }
+          get_consts [] = return []
+          get_consts (y0 : ys)
+            = do { rest <- get_consts ys
+                 ; ty <- bind_of_var y0
+                 ; case ty of
+                     Left _ ->
+                       fail_with
+                       $ ErrMsg "internal error in bind_to_binary"
+                     Right c -> return $ c : rest
+                 }
+
+          bind_binary_to :: Field a => Var -> [Var] -> State (SEnv a) Bool
+          bind_binary_to x bits
+            = do { tx <- bind_of_var x
+                 ; case tx of
+                     Left _ ->
+                       fail_with
+                       $ ErrMsg "internal error in bind_binary_to"
+                     Right c -> bind_bits (decompose_int32 c) bits 
+                 }
+          bind_bits [] [] = return True
+          bind_bits (c : cs) (y0 : ys)
+            = do { bind_var (y0,c)
+                 ; bind_bits cs ys
+                 }
+          bind_bits _ _
+            = fail_with
+              $ ErrMsg "internal error in bind_bits"
 
 data SimplParam =
     NoSimplify

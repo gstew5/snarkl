@@ -13,6 +13,44 @@ class (Show a,Eq a,Ord a) => Field a where
   mult :: a -> a -> a
   neg  :: a -> a
   inv  :: a -> Maybe a
+  isOdd :: a -> Bool
+
+two :: Field a => a
+two = one `add` one
+
+expb :: Field a => a -> a -> a
+expb b i
+  | i == zero
+  = one
+
+  | otherwise
+  = b `mult` expb b (i `add` neg one)
+
+exp2 :: Field a => a -> a
+exp2 = expb two
+
+-- 32-bit decomposition of an integral field element
+decompose_int32 :: Field a => a -> [a]
+decompose_int32 a = go a 32
+  where go :: Field a => a -> Int -> [a]
+        go _ 0 = []
+        go a0 n
+          = let bit = if isOdd a0 then one else zero
+                invtwo = case inv two of
+                           Nothing -> fail_with $ ErrMsg "internal error in decompose_int32"
+                           Just x -> x
+            in bit : go (a0 `mult` invtwo) (n-1)
+
+field_of_posint :: Field a => Int -> a
+field_of_posint 0 = zero
+field_of_posint n = one `add` field_of_posint (n-1)
+
+recompose_int32 :: Field a => [a] -> a
+recompose_int32 bits = go [0..31] bits
+  where go :: Field a => [Int] -> [a] -> a
+        go [] [] = zero
+        go (i : is) (b : bs) = (exp2 (field_of_posint i) `mult` b) `add` go is bs
+        go _ _ = fail_with $ ErrMsg "internal error in recompose_int32"
 
 instance Field Rational where 
   zero = 0
@@ -21,6 +59,7 @@ instance Field Rational where
   mult = (*)
   neg  = \n -> -n
   inv  = \n -> if n == 0 then Nothing else Just $ denominator n % numerator n
+  isOdd = (odd :: Int -> Bool) . truncate
 
 field_p :: Integer
 field_p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -69,4 +108,5 @@ instance Field IntP where
   inv  = \n -> case mod_inv (unIntP n) field_p of
                  Nothing -> Nothing
                  Just n' -> Just $ int_p n'
+  isOdd = odd . unIntP
 
