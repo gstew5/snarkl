@@ -82,8 +82,8 @@ sha1 w = do
   c <- arr wordsize
   d <- arr wordsize
   e <- arr wordsize
-  f <- arr wordsize
-  k <- arr wordsize
+
+  let k = 0.0 -- FIXME: initialization
 
   hh <- arr 160 -- 5*wordsize
 
@@ -95,9 +95,7 @@ sha1 w = do
        set(b,i) false
        set(c,i) false
        set(d,i) false
-       set(e,i) false
-       set(f,i) false
-       set(k,i) false)
+       set(e,i) false)
   forall [0..159] (\i -> set(hh,i) false)
 
   -- expand w from 16 to 80 32-bit words
@@ -108,37 +106,20 @@ sha1 w = do
        w16<- get2(w,i `sub` 16,j)        
        set2 (w,i,rot_index j 1) (w3 `xor` w8 `xor` w14 `xor` w16))
 
-  forall [0..19] (\i ->
-    do forall [0..dec wordsize] (\j ->
-         do b' <- get(b,j)
-            c' <- get(c,j)
-            d' <- get(d,j)
-            set(f,j) (d' `xor` (b' && (c' `xor` d'))))
-       loop_body i a a_lr b c d e f k)    
-
-  forall [20..39] (\i ->
-    do forall [0..dec wordsize] (\j ->
-         do b' <- get(b,j)
-            c' <- get(c,j)
-            d' <- get(d,j)
-            set(f,j) (b' `xor` c' `xor` d'))
-       loop_body i a a_lr b c d e f k)
-
-  forall [40..59] (\i ->
-    do forall [0..dec wordsize] (\j ->
-         do b' <- get(b,j)
-            c' <- get(c,j)
-            d' <- get(d,j)
-            set(f,j) ((b' && c') `bor` (d' && (b' `xor` c'))))
-       loop_body i a a_lr b c d e f k)
-
-  forall [60..79] (\i ->
-    do forall [0..dec wordsize] (\j ->
-         do b' <- get(b,j)
-            c' <- get(c,j)
-            d' <- get(d,j)
-            set(f,j) (b' `xor` c' `xor` d'))
-       loop_body i a a_lr b c d e f k)
+  forall [0..79] (\i -> 
+    do leftrotate 5 a_lr a
+       a_lr'<- arr_to_int32 a_lr
+       wi   <- get(w,i)
+       wi'  <- arr_to_int32 wi
+       e'   <- arr_to_int32 e
+       res  <- f i b c d
+       temp <- return $ a_lr' + res + e' + wi' + k
+       temp' <- int32_to_arr temp
+       copy_word e d
+       copy_word d c
+       copy_word_leftrotate 30 c b
+       copy_word b a
+       copy_word a temp')
 
   -- final message digest (but little-endian, not big-endian)
   copy_word hh e
@@ -148,21 +129,46 @@ sha1 w = do
   copy_word_leftrotate 128 hh a
   return hh
 
-  where loop_body i a a_lr b c d e f k = do
-          leftrotate 5 a_lr a
-          wi <- get(w,i)
-          a_lr' <- arr_to_int32 a_lr
-          f' <- arr_to_int32 f
-          e' <- arr_to_int32 e
-          k' <- arr_to_int32 k
-          wi' <- arr_to_int32 wi
-          temp <- return $ a_lr' + f' + e' + k' + wi'
-          temp' <- int32_to_arr temp
-          copy_word e d
-          copy_word d c
-          copy_word_leftrotate 30 c b
-          copy_word b a
-          copy_word a temp'
+f i b c d
+  | i <= 19
+  = do { f' <- arr 32
+       ; forall [0..31] (\j ->
+           do b' <- get(b,j)
+              c' <- get(c,j)
+              d' <- get(d,j)
+              set(f',j) (d' `xor` (b' && (c' `xor` d'))))
+       ; arr_to_int32 f'
+       }
+
+  | i <= 39
+  = do { f' <- arr 32
+       ; forall [0..dec wordsize] (\j ->
+           do b' <- get(b,j)
+              c' <- get(c,j)
+              d' <- get(d,j)
+              set(f',j) (b' `xor` c' `xor` d'))
+       ; arr_to_int32 f'
+       } 
+
+  | i <= 59
+  = do { f' <- arr 32
+       ; forall [0..dec wordsize] (\j ->
+           do b' <- get(b,j)
+              c' <- get(c,j)
+              d' <- get(d,j)
+              set(f',j) ((b' && c') `bor` (d' && (b' `xor` c'))))
+       ; arr_to_int32 f'
+       }
+
+  | otherwise
+  = do { f' <- arr 32
+       ; forall [0..dec wordsize] (\j ->
+           do b' <- get(b,j)
+              c' <- get(c,j)
+              d' <- get(d,j)
+              set(f',j) (b' `xor` c' `xor` d'))
+       ; arr_to_int32 f'
+       } 
 
 do_sha1 = do
   w <- input_arr2 13 wordsize
