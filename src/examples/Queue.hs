@@ -90,6 +90,33 @@ dequeue_rec q def = fix go q
             p <- pair l r'
             pair h p
 
+is_empty q = do
+  l <- fst_pair q
+  r <- snd_pair q
+  case_list l
+    (case_list r
+      (return true)
+      (\ _ _ -> return false))
+    (\ _ _ -> return false)
+
+last_queue :: (Zippable a, Derive a, Typeable a)
+           => Queue a -> TExp a Rational -> Comp a
+last_queue q def = fixN 100 go q
+  where go self p = do
+          p_pair <- dequeue p def
+          p_queue <- snd_pair p_pair
+          p_top <- fst_pair p_pair
+          b <- is_empty p_queue
+          if return b
+            then return p_top
+            else self p_queue
+
+map_queue f q = do
+  lq <- fst_pair q
+  rq <- snd_pair q
+  lq' <- map_list f lq
+  rq' <- map_list f rq
+  pair lq' rq'
 -----------------------------------------
 --Simple Examples------------------------
 -----------------------------------------
@@ -136,3 +163,18 @@ queue_comp3
         ; sx <- dequeue q1 0.0
         ; fst_pair sx
         }
+
+
+queueN n = fixN 100 go n
+  where go self n0 = do
+           x <- fresh_input
+           tl <- self (n0 - 1.0)
+           if return (eq n0 0.0)
+             then empty_queue
+             else enqueue x tl
+
+test_queueN = do
+  n <- fresh_input
+  q1 <- queueN n
+  q2 <- map_queue inc_elem q1
+  last_queue q2 105.0  
