@@ -1,6 +1,6 @@
 set terminal pngcairo nocrop enhanced size 520,320 font "arial,12"
 set output 'ratio.png'
-set title "Crypto vs. Witness Latency"
+set title "Witness vs. Crypto Latency"
 set xlabel "Proof Generation and Verification (s)"
 set ylabel "Witness Generation (s)"
 set xrange [0.1:100]
