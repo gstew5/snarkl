@@ -381,12 +381,14 @@ cs_of_exp out e = case e of
   -- Binary decomposition xs <-> y, where xs is a sequence
   -- of 32 variables (w/ values \in {0,1}) and y is a variable
   -- of field type. 
-  EPragma xs y ->
+  EPragma k xs y ->
     do { sum_bit_coeffs xs y
        ; nm <- fresh_var
        ; add_constraint (CMagic nm (y : xs) mf)
          -- Conservatively ensure xs are all boolean.
-       ; mapM_ ensure_boolean xs
+       ; case k of
+           Int32_to_Arr -> mapM_ ensure_boolean xs
+           Arr_to_Int32 -> return ()
        }
     where sum_bit_coeffs xs0 y0
             = do { let terms = sum_go (zip [0..31] xs0)

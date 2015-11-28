@@ -114,7 +114,7 @@ data TExp :: Ty -> * -> * where
   TEAssert :: Typeable ty => TExp ty a -> TExp ty a -> TExp 'TUnit a
   TESeq    :: TExp 'TUnit a -> TExp ty2 a -> TExp ty2 a
   TEBot    :: Typeable ty => TExp ty a
-  TEPragma :: [Var] -> Var -> TExp 'TUnit a
+  TEPragma :: PragmaKind -> [Var] -> Var -> TExp 'TUnit a
 
 exp_of_val :: Field a => Val ty a -> Exp a
 exp_of_val v = case v of
@@ -144,7 +144,7 @@ exp_of_texp te = case te of
     EAssert (exp_of_texp te1) (exp_of_texp te2)
   TESeq te1 te2 -> exp_seq (exp_of_texp te1) (exp_of_texp te2)
   TEBot -> EUnit
-  TEPragma xs y -> EPragma xs y
+  TEPragma k xs y -> EPragma k xs y
 
 instance ( Field a
          , Eq a
@@ -158,6 +158,7 @@ instance ( Field a
 te_seq :: Typeable ty1 => TExp ty1 a -> TExp ty2 a -> TExp ty2 a
 te_seq te1 te2 = case (te1,te2) of
   (TEAssert _ _,_) -> TESeq te1 te2
+  (TEPragma _ _ _,_) -> TESeq te1 te2
   (TESeq tx ty,_) -> te_seq tx (te_seq ty te2)
   (_,_) -> te2
   
@@ -175,7 +176,7 @@ boolean_vars_of_texp = go []
         go vars (TEAssert e1 e2) = go (go vars e1) e2
         go vars (TESeq e1 e2) = go (go vars e1) e2
         go vars TEBot = vars
-        go _ (TEPragma xs y) = y : xs
+        go _ (TEPragma _ xs y) = y : xs
 
 var_of_texp :: Show a => TExp ty a -> Var
 var_of_texp te = case last_seq te of
@@ -215,5 +216,5 @@ instance Show a => Show (TExp ty a) where
   show (TEAssert e1 e2) = show e1 ++ " := " ++ show e2
   show (TESeq e1 e2) = "(" ++ show e1 ++ "; " ++ show e2 ++ ")"
   show TEBot = "bot"
-  show (TEPragma a e) = "pragma: " ++ show a ++ ", " ++ show e
+  show (TEPragma k a e) = "pragma: " ++ show k ++ ": " ++ show a ++ ", " ++ show e
 

@@ -23,7 +23,7 @@ data Exp :: * -> * where
   EAssert :: Exp a -> Exp a -> Exp a
   ESeq    :: [Exp a] -> Exp a
   EUnit   :: Exp a
-  EPragma :: [Var] -> Var -> Exp a
+  EPragma :: PragmaKind -> [Var] -> Var -> Exp a
 
 instance Eq a => Eq (Exp a) where
   EVar x == EVar y = x == y
@@ -85,7 +85,7 @@ is_pure e
       EAssert _ _ -> False
       ESeq es -> all is_pure es
       EUnit -> True
-      EPragma _ _ -> False
+      EPragma _ _ _ -> False
 
 instance Show a => Show (Exp a) where
   show (EVar x) = "var " ++ show x
@@ -103,4 +103,4 @@ instance Show a => Show (Exp a) where
           go (e1 : [])  = show e1
           go (e1 : es') = show e1 ++ "; " ++ go es'
   show EUnit = "()"
-  show (EPragma a e) = "pragma: " ++ show a ++ ", " ++ show e
+  show (EPragma k a e) = "pragma: " ++ show k ++ ": " ++ show a ++ ", " ++ show e

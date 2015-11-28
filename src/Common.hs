@@ -50,3 +50,8 @@ is_assoc op = case op of
   XOr -> True
   Eq -> True
   BEq -> True      
+
+data PragmaKind =
+    Int32_to_Arr
+  | Arr_to_Int32
+  deriving Show
