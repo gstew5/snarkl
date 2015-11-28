@@ -10,7 +10,7 @@ set style data histograms
 set xtics border in scale 0,0 nomirror rotate by -25  autojustify
 set xtics norangelimit
 set title "Benchmark Breakdown by Phase"
-set yrange [ 0.005 : 50 ] noreverse nowriteback
+set yrange [ 0.005 : 100 ] noreverse nowriteback
 set ylabel "sec"
 set logscale y 10
 set style line 100 lt 1 lc rgb "gray" lw 2
