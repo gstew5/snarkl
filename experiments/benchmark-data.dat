@@ -1,0 +1,5 @@
+Phase		Elaborate	Constraints	Simplify	R1CS	Witgen	Keygen	Proofgen+Verif	
+Fixed-600	0.2526		2.893		9.014		4.17	0.8	0.07	0.66
+Input-70	0.5348		2.909		6.076		14.75	5.75	24.77	39.96
+Keccak-f800	0.8321		1.606		2.953		2.346	2	1.223	2.89
+MapList		0.01198		0.07037		0.2356		1.455	2.401	0.026	1.118
