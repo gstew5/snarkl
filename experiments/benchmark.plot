@@ -9,15 +9,13 @@ set datafile missing '-'
 set style data histograms
 set xtics border in scale 0,0 nomirror rotate by -25  autojustify
 set xtics norangelimit
-set xtics ("Fixed Matrix" 0,  "Input Matrices" 1, "Keccak-f800" 2, "Map List" 3)
 set title "Benchmark Breakdown by Phase"
-set yrange [ 0.02 : 64 ] noreverse nowriteback
+set yrange [ 0.005 : 50 ] noreverse nowriteback
 set ylabel "sec"
-set logscale y 2
+set logscale y 10
 set style line 100 lt 1 lc rgb "gray" lw 2
-set style line 101 lt 0.5 lc rgb "gray" lw 2
+set style line 101 lt 0.5 lc rgb "gray" lw 0
 set grid mytics ytics ls 100, ls 101
 set style fill pattern
-x = 0.0
-i = 0
-plot 'benchmark-data.dat' using 2:xtic(1), for [i=3:8] '' using i
+plot 'benchmark-data.dat' using 2:xtic(1) title columnheader(2),\
+  for [i=3:8] '' using i title columnheader(i)
