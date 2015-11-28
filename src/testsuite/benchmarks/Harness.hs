@@ -56,7 +56,7 @@ test_simplify mf
        $ cs_constraints constrs'
 
 -- Generate (simplified) R1CS, but don't run it yet.  (No witness is
--- generated.)
+-- generated.) Also, serialize the r1cs to stderr.
 test_r1cs :: Typeable ty => SimplParam -> Comp ty -> IO ()
 test_r1cs simpl mf
   = let texp_pkg = texp_of_comp mf
@@ -64,25 +64,36 @@ test_r1cs simpl mf
         r1cs     = r1cs_of_constrs simpl constrs
     in hPutStrLn stderr
        $ show
-       $ length (r1cs_clauses r1cs) 
+       $ serialize_r1cs r1cs 
 
--- Same as 'test_r1cs', but also generates a satisfying assignment.
+-- Same as 'test_r1cs', but also generates and serializes
+-- a satisfying assignment, as well as serializing the given inputs.
 test_wit :: (Integral a, Typeable ty) => SimplParam -> Comp ty -> [a] -> IO ()
 test_wit simpl mf inputs
   = let texp_pkg = texp_of_comp mf
         r1cs     = r1cs_of_texp simpl texp_pkg
-        wit      = wit_of_r1cs (map fromIntegral inputs) r1cs
-    in case IntMap.lookup 1000000 wit of
-         Nothing -> hPutStrLn stderr $ show $ last (r1cs_clauses r1cs) 
-         Just v  -> hPutStrLn stderr $ show v ++ (show $ last (r1cs_clauses r1cs))
+    in do { hPutStrLn stderr (serialize_r1cs r1cs)
+          ; hPutStrLn stderr (serialize_witnesses (map fromIntegral inputs) r1cs)
+          ; hPutStrLn stderr (serialize_inputs (map fromIntegral inputs) r1cs)
+          } 
 
--- Do everything but crypto (e.g., generate a satisfying assignment
--- and serialize r1cs and assignment to files).
-test_allbutcrypto :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
-test_allbutcrypto simpl mf inputs
-  = snarkify_comp_abort "test" simpl mf (map fromIntegral inputs)
+test_keygen :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
+test_keygen simpl mf inputs
+  = do { exit <- keygen_comp "test" simpl mf (map fromIntegral inputs)
+       ; case exit of
+           ExitSuccess -> Prelude.return ()
+           ExitFailure err -> fail_with $ ErrMsg $ "test_full failed with " ++ show err
+       }
 
--- Same as test_allbutcrypto, but also run libsnark on the resulting files.
+test_proofgen :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
+test_proofgen simpl mf inputs
+  = do { exit <- proofgen_comp "test" simpl mf (map fromIntegral inputs)
+       ; case exit of
+           ExitSuccess -> Prelude.return ()
+           ExitFailure err -> fail_with $ ErrMsg $ "test_full failed with " ++ show err
+       }
+
+-- Run libsnark on the resulting files.
 test_crypto :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
 test_crypto simpl mf inputs
   = do { exit <- snarkify_comp "test" simpl mf (map fromIntegral inputs)

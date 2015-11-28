@@ -6,46 +6,32 @@ import Compile (SimplParam(..))
 import Harness
 
 import qualified List as List
--- import qualified Tree as Tree
--- import qualified Lam as Lam
 import qualified Keccak as Keccak
+import qualified Keccak1600 as Keccak1600
 import qualified Matrix as Matrix
 
 mk_bgroup nm mf inputs result
   = bgroup nm 
-    [ bench (nm ++ "-interp")              $ nf (test_interp mf) inputs
-    , bench (nm ++ "-elaborate")           $ nfIO $ test_texp mf
-    , bench (nm ++ "-constraints")         $ nfIO $ test_constraints mf
-    , bench (nm ++ "-simplify")            $ nfIO $ test_simplify mf
-
-    , bench (nm ++ "-simpl-r1cs")          $ nfIO $ test_r1cs Simplify mf
-    , bench (nm ++ "-simpl-wit")           $ nfIO $ test_wit Simplify mf inputs
-    , bench (nm ++ "-simpl-allbutcrytpo")  $ nfIO $ test_allbutcrypto Simplify mf inputs
-    , bench (nm ++ "-simpl-crypto")        $ nfIO $ test_crypto Simplify mf inputs
-    , bench (nm ++ "-simpl-full")          $ nfIO $ test_numconstrs Simplify mf inputs result
-
-      -- last 5 as above, but don't simplify
-    , bench (nm ++ "-nosimpl-r1cs")        $ nfIO $ test_r1cs NoSimplify mf
-    , bench (nm ++ "-nosimpl-wit")         $ nfIO $ test_wit NoSimplify mf inputs
-    , bench (nm ++ "-nosimpl-allbutcrypto")$ nfIO $ test_allbutcrypto NoSimplify mf inputs
-    , bench (nm ++ "-nosimpl-crypto")      $ nfIO $ test_crypto NoSimplify mf inputs
-    , bench (nm ++ "-nosimpl-full")        $ nfIO $ test_numconstrs NoSimplify mf inputs result
+    [ bench (nm ++ "-elaborate")     $ nfIO $ test_texp mf
+    , bench (nm ++ "-constraints")   $ nfIO $ test_constraints mf
+    , bench (nm ++ "-simplify")      $ nfIO $ test_simplify mf
+    , bench (nm ++ "-r1cs")          $ nfIO $ test_r1cs Simplify mf
+    , bench (nm ++ "-wit")           $ nfIO $ test_wit Simplify mf inputs
+    , bench (nm ++ "-keygen")        $ nfIO $ test_keygen Simplify mf inputs
+    , bench (nm ++ "-verif")         $ nfIO $ test_crypto Simplify mf inputs
+    , bench (nm ++ "-full")          $ nfIO $ test_numconstrs Simplify mf inputs result
     ]
 
 the_benchmarks
-  = [ mk_bgroup "input-matrix" (Matrix.test2 70)
+  = [ mk_bgroup "keccak800" (Keccak.keccak1 22) Keccak.input_vals 1
+    , mk_bgroup "map-list" List.test_listN (90 : take 100 [0..]) 90
+    , mk_bgroup "fixed-matrix600" (Matrix.test1 600) [0..599] 754740000
+    , mk_bgroup "input-matrix70" (Matrix.test2 70)
                 ((Matrix.t2_m0 4900)++(Matrix.t2_m1 4900)) 2048215153250
-    , mk_bgroup "keccak" (Keccak.keccak1 22) Keccak.input_vals 1
-    , mk_bgroup "list"    List.test_listN (90 : take 100 [0..]) 90
-    , mk_bgroup "fixed-matrix" (Matrix.test1 600) [0..599] 754740000
+    , mk_bgroup "fixed-matrix1000" (Matrix.test1 1000) [0..999] 3496500000
+    , mk_bgroup "input-matrix110" (Matrix.test2 110)
+                ((Matrix.t2_m0 12100)++(Matrix.t2_m1 12100)) 48562257400250
     ] 
-
--- the_benchmarks
---   = [ mk_bgroup "list" List.list_comp3 [1] 24
---     , mk_bgroup "tree" Tree.tree_test1 [1] 77
---     , mk_bgroup "lambda" Lam.beta_test1 [] 0
---     , mk_bgroup "keccak" (Keccak.keccak1 18) Keccak.input_vals 1
---     ] 
 
 run_benchmarks
   = defaultMain the_benchmarks

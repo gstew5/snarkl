@@ -30,7 +30,8 @@ module Toplevel
     -- verification.  Currently assumes 'Toplevel' is loaded in working
     -- directory 'base-of-snarkl-repo'.
   , snarkify_comp
-  , snarkify_comp_abort -- for benchmarking
+  , keygen_comp -- for benchmarking
+  , proofgen_comp -- for benchmarking
 
     -- * Convenience functions
   , Result(..)
@@ -186,9 +187,7 @@ wit_of_r1cs inputs r1cs
 -- | For a given R1CS and inputs, serialize the input variable assignment.
 serialize_inputs :: [Rational] -> R1CS Rational -> String
 serialize_inputs inputs r1cs
-  = let num_in_vars  = length $ r1cs_in_vars r1cs
-        assgn        = wit_of_r1cs inputs r1cs
-        inputs_assgn = IntMap.fromList $ take num_in_vars $ IntMap.toAscList assgn
+  = let inputs_assgn = IntMap.fromList $ zip (r1cs_in_vars r1cs) inputs
     in Serialize.serialize_assgn inputs_assgn
 
 -- | For a given R1CS and inputs, serialize the witness variable assignment.
@@ -234,13 +233,13 @@ snarkify_comp filePrefix simpl c inputs
        ; waitForProcess hdl 
        }
 
--- Do everything as in snarkify_comp, but don't wait for resulting libsnark process.
-snarkify_comp_abort filePrefix simpl c inputs
+-- Like snarkify_comp, but only generate keys
+keygen_comp filePrefix simpl c inputs
   = do { let r1cs = r1cs_of_comp simpl c
              r1cs_file   = filePrefix ++ ".r1cs"
              inputs_file = filePrefix ++ ".inputs"
              wits_file   = filePrefix ++ ".wits"
-             run_r1cs    = "./run-r1cs.sh"
+             run_r1cs    = "./run-keygen.sh"
              
        ; withFile ("scripts/" ++ r1cs_file) WriteMode (\h ->
              hPutStrLn h $ serialize_r1cs r1cs)
@@ -251,7 +250,35 @@ snarkify_comp_abort filePrefix simpl c inputs
        ; withFile ("scripts/" ++ wits_file) WriteMode (\h ->
              hPutStr h $ serialize_witnesses inputs r1cs)
 
-       ; Prelude.return ()
+       ; (_,_,_,hdl) <-
+            createProcess (proc run_r1cs [r1cs_file,inputs_file,wits_file])
+            { cwd = Just "scripts" }
+
+       ; waitForProcess hdl 
+       }
+
+-- Like snarkify_comp, but only generate keys and proof
+proofgen_comp filePrefix simpl c inputs
+  = do { let r1cs = r1cs_of_comp simpl c
+             r1cs_file   = filePrefix ++ ".r1cs"
+             inputs_file = filePrefix ++ ".inputs"
+             wits_file   = filePrefix ++ ".wits"
+             run_r1cs    = "./run-proofgen.sh"
+             
+       ; withFile ("scripts/" ++ r1cs_file) WriteMode (\h ->
+             hPutStrLn h $ serialize_r1cs r1cs)
+
+       ; withFile ("scripts/" ++ inputs_file) WriteMode (\h ->
+             hPutStr h $ serialize_inputs inputs r1cs)
+
+       ; withFile ("scripts/" ++ wits_file) WriteMode (\h ->
+             hPutStr h $ serialize_witnesses inputs r1cs)
+
+       ; (_,_,_,hdl) <-
+            createProcess (proc run_r1cs [r1cs_file,inputs_file,wits_file])
+            { cwd = Just "scripts" }
+
+       ; waitForProcess hdl 
        }
 
 

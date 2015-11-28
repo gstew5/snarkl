@@ -1,13 +1,13 @@
-Phase	Interp	Elaborate	Constraints	Simplify	R1CS	Witness	Serialize	Crypto
-FixedMatrix-Simp	-	0.2489		2.631		8.93		2.2	1.1	1.22		1.15
-FixedMatrix-NoSimp	-	0.2489		2.631		-		2.112	1.073	1.315		1.241
-FixedMatrix-Interp	0.7764
-InputMatrices-Simp	-	0.5167		2.625		5.935		2.913	6.68	9.33		71.89
-InputMatrices-NoSimp	-	0.5167		2.625		-		2.747	7.241	8.21		73.17
-InputMatrices-Interp	0.8191
-Keccak-Simp	-	0.8149		1.4761		3.238		0.126	1.928	2.262		6.155
-Keccak-NoSimp	-	0.8149		1.4761		-		1.028	5.132	6.699		51.19
-Keccak-Interp	0.9719
-List-Simp	-	0.01208		0.10842		0.3802		0.0387	2.3136	2.422		2.476
-List-NoSimp	-	0.01208		0.10842		-		0.0867	2.6348	2.901		4.737
-List-Interp	0.01322
+Phase	Elaborate	Constraints	Simplify	R1CS	Witness		Crypto
+FixedMatrix-Compile	0.2489		2.631		8.93		2.2	-	-
+FixedMatrix-Witgen	-		-		-		-	1.1	-
+FixedMatrix-Crypto	-		-		-		-	-	1.15
+InputMatrices-Compile	0.5167		2.625		5.935		2.913	-	-
+InputMatrices-Witgen	-		-		-		-	6.68	-
+InputMatrices-Crypto	-		-		-		-	-	71.89
+Keccak-Compile	0.8149		1.4761		3.238		0.126	-	-
+Keccak-Witgen	-		-		-		-	1.928	-
+Keccak-Crypto	-		-		-		-	-	6.155
+List-Compile	0.01208		0.10842		0.3802		0.0387	-	-
+List-Witgen	-		-		-		-	2.3136	-
+List-Crypto	-		-		-		-	-	2.476
