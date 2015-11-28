@@ -434,7 +434,8 @@ constraints_of_texp out in_vars te
                           $ Set.fromList in_vars
                             `Set.intersection`
                             Set.fromList (boolean_vars_of_texp te)
-                      e = exp_of_texp te
+                      e0 = exp_of_texp te
+                      e  = do_const_prop e0
                   -- Compile 'e' to constraints 'cs', with output wire 'out'.
                 ; cs_of_exp out e
                   -- Add boolean constraints

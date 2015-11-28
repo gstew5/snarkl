@@ -8,11 +8,16 @@ module Expr
   , exp_seq
   , is_pure
   , var_of_exp
+  , do_const_prop
   ) where
 
 import Common
 import Errors
 import Field
+
+import Control.Monad.State
+import Data.IntMap.Lazy (IntMap)
+import qualified Data.IntMap.Lazy as IntMap
 
 data Exp :: * -> * where
   EVar    :: Var -> Exp a
@@ -85,6 +90,50 @@ is_pure e
       ESeq es -> all is_pure es
       EUnit -> True
 
+const_prop :: Field a => Exp a -> State (IntMap a) (Exp a)
+const_prop e
+  = case e of
+      EVar x -> lookup_var x
+      EVal _ -> return e
+      EUnop op e1 ->
+        do { e1' <- const_prop e1
+           ; return $ EUnop op e1'
+           }
+      EBinop op es ->
+        do { es' <- mapM const_prop es
+           ; return $ EBinop op es'
+           }
+      EIf e1 e2 e3 ->
+        do { e1' <- const_prop e1
+           ; e2' <- const_prop e2
+           ; e3' <- const_prop e3
+           ; return $ EIf e1' e2' e3'
+           }
+      EAssert (EVar x) (EVal c) -> add_bind (x,c)
+      EAssert e1 e2 ->
+        do { e1' <- const_prop e1
+           ; e2' <- const_prop e2
+           ; return $ EAssert e1' e2' 
+           }
+      ESeq es -> 
+        do { es' <- mapM const_prop es
+           ; return $ ESeq es'
+           }
+      EUnit -> return EUnit
+
+  where lookup_var :: Field a => Int -> State (IntMap a) (Exp a)
+        lookup_var x0
+          = gets (\m -> case IntMap.lookup x0 m of
+                          Nothing -> EVar x0
+                          Just c -> EVal c)
+        add_bind :: Field a => (Int,a) -> State (IntMap a) (Exp a)
+        add_bind (x0,c0)
+          = do { modify (IntMap.insert x0 c0)
+               ; return EUnit
+               }
+
+do_const_prop :: Field a => Exp a -> Exp a
+do_const_prop e = fst $ runState (const_prop e) IntMap.empty
 
 instance Show a => Show (Exp a) where
   show (EVar x) = "var " ++ show x
@@ -102,3 +151,4 @@ instance Show a => Show (Exp a) where
           go (e1 : [])  = show e1
           go (e1 : es') = show e1 ++ "; " ++ go es'
   show EUnit = "()"
+
