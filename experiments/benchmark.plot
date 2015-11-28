@@ -1,5 +1,5 @@
 set terminal pngcairo nocrop enhanced size 1000,320 font "arial,12"
-set output 'benchmark-data-112415.png'
+set output 'benchmark-data.png'
 set boxwidth 0.75 relative
 set style fill   solid 1 border lt -1
 set key outside right top vertical Left reverse noenhanced autotitle columnhead nobox
@@ -9,7 +9,7 @@ set datafile missing '-'
 set style data histograms
 set xtics border in scale 0,0 nomirror rotate by -25  autojustify
 set xtics norangelimit
-set xtics ("Fixed-600" 0,  "Input-70" 1, "Keccak-f800" 2, "MapList" 3)
+set xtics ("Fixed Matrix" 0,  "Input Matrices" 1, "Keccak-f800" 2, "Map List" 3)
 set title "Benchmark Breakdown by Phase"
 set yrange [ 0.02 : 64 ] noreverse nowriteback
 set ylabel "sec"
