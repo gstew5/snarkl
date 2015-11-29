@@ -57,25 +57,17 @@ test_simplify mf
 
 -- Generate (simplified) R1CS, but don't run it yet.  (No witness is
 -- generated.) Also, serialize the r1cs to stderr.
-test_r1cs :: Typeable ty => SimplParam -> Comp ty -> IO ()
-test_r1cs simpl mf
-  = let texp_pkg = texp_of_comp mf
-        constrs  = constrs_of_texp texp_pkg
-        r1cs     = r1cs_of_constrs simpl constrs
-    in hPutStrLn stderr
-       $ show
-       $ serialize_r1cs r1cs 
+test_r1csgen :: Typeable ty => SimplParam -> Comp ty -> IO ()
+test_r1csgen simpl mf
+  = do { r1csgen_comp "test" simpl mf
+       }
 
 -- Same as 'test_r1cs', but also generates and serializes
 -- a satisfying assignment, as well as serializing the given inputs.
-test_wit :: (Integral a, Typeable ty) => SimplParam -> Comp ty -> [a] -> IO ()
-test_wit simpl mf inputs
-  = let texp_pkg = texp_of_comp mf
-        r1cs     = r1cs_of_texp simpl texp_pkg
-    in do { hPutStrLn stderr (serialize_r1cs r1cs)
-          ; hPutStrLn stderr (serialize_witnesses (map fromIntegral inputs) r1cs)
-          ; hPutStrLn stderr (serialize_inputs (map fromIntegral inputs) r1cs)
-          } 
+test_witgen :: (Integral a, Typeable ty) => SimplParam -> Comp ty -> [a] -> IO ()
+test_witgen simpl mf inputs
+  = do { witgen_comp "test" simpl mf (map fromIntegral inputs)
+       }
 
 test_keygen :: Typeable ty => SimplParam -> Comp ty -> [Int] -> IO ()
 test_keygen simpl mf inputs

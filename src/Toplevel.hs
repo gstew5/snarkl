@@ -32,6 +32,8 @@ module Toplevel
   , snarkify_comp
   , keygen_comp -- for benchmarking
   , proofgen_comp -- for benchmarking
+  , witgen_comp -- for benchmarking
+  , r1csgen_comp -- for benchmarking
 
     -- * Convenience functions
   , Result(..)
@@ -233,7 +235,8 @@ snarkify_comp filePrefix simpl c inputs
        ; waitForProcess hdl 
        }
 
--- Like snarkify_comp, but only generate keys
+-- Like snarkify_comp, but only generate witnesses and keys
+-- Serializes r1cs, inputs, and witnesses to files.
 keygen_comp filePrefix simpl c inputs
   = do { let r1cs = r1cs_of_comp simpl c
              r1cs_file   = filePrefix ++ ".r1cs"
@@ -258,6 +261,8 @@ keygen_comp filePrefix simpl c inputs
        }
 
 -- Like snarkify_comp, but only generate keys and proof
+-- (no verification)
+-- Serializes r1cs, inputs, witnesses.
 proofgen_comp filePrefix simpl c inputs
   = do { let r1cs = r1cs_of_comp simpl c
              r1cs_file   = filePrefix ++ ".r1cs"
@@ -281,6 +286,35 @@ proofgen_comp filePrefix simpl c inputs
        ; waitForProcess hdl 
        }
 
+
+-- Like snarkify_comp, but only generate and serialize the r1cs
+r1csgen_comp filePrefix simpl c
+  = do { let r1cs = r1cs_of_comp simpl c
+             r1cs_file   = filePrefix ++ ".r1cs"
+             
+       ; withFile ("scripts/" ++ r1cs_file) WriteMode (\h ->
+             hPutStrLn h $ serialize_r1cs r1cs)
+       }
+
+-- Like snarkify_comp, but only generate the witness
+-- (no key generation or proof)
+-- Serializes r1cs, inputs, and witnesses to files.
+witgen_comp filePrefix simpl c inputs
+  = do { let r1cs = r1cs_of_comp simpl c
+             r1cs_file   = filePrefix ++ ".r1cs"
+             inputs_file = filePrefix ++ ".inputs"
+             wits_file   = filePrefix ++ ".wits"
+             
+       ; withFile ("scripts/" ++ r1cs_file) WriteMode (\h ->
+             hPutStrLn h $ serialize_r1cs r1cs)
+
+       ; withFile ("scripts/" ++ inputs_file) WriteMode (\h ->
+             hPutStr h $ serialize_inputs inputs r1cs)
+
+       ; withFile ("scripts/" ++ wits_file) WriteMode (\h ->
+             hPutStr h $ serialize_witnesses inputs r1cs)
+
+       }
 
 ------------------------------------------------------
 --
