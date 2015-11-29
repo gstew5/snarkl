@@ -31,22 +31,22 @@ void read_lc_decimal(istream& constraintStream, linear_combination<Fr<default_ec
      */
     lc->terms.clear();
     constraintStream >> num_terms;
-    cout << "num. terms: " << num_terms << "\n";
+    // cout << "num. terms: " << num_terms << "\n";
     consume_newline(constraintStream);
 
     lc->terms.reserve(num_terms);
     for (size_t i = 0; i < num_terms; ++i) {
         linear_term<Fr<default_ec_pp> > lt;
         constraintStream >> lt.index; // size_t
-	cout << "var. index: " << lt.index << "\n";
+	// cout << "var. index: " << lt.index << "\n";
         consume_newline(constraintStream);
         // lt.coeff is a Fr<default_ec_pp>, which I _believe_ is a
         // bn128_Fr, which is definitely an Fp_model<bn128_r_limbs,bn128_modulus_r>
         constraintStream >> lt.coeff.mont_repr;
-	cout << "coeff. before reduction: " << lt.coeff.mont_repr << "\n";
+	// cout << "coeff. before reduction: " << lt.coeff.mont_repr << "\n";
         // Reduce to Montgomery Space, as per method in algebra/fields/fp.tcc
         lt.coeff.mul_reduce(Fr<default_ec_pp>::Rsquared);
-	cout << "coeff. after reduction: " << lt.coeff.mont_repr << "\n";
+	// cout << "coeff. after reduction: " << lt.coeff.mont_repr << "\n";
         consume_OUTPUT_NEWLINE(constraintStream);
         lc->terms.emplace_back(lt);
     }
@@ -68,26 +68,26 @@ void read_cs_decimal(istream& constraintStream, r1cs_constraint_system<Fr<defaul
 	   <serialization-of-C-polynomial>
      */
     constraintStream >> primary_input_size; 
-    cout << "primary input size: " << primary_input_size << "\n";
+    // cout << "primary input size: " << primary_input_size << "\n";
     cs.primary_input_size = primary_input_size;
     constraintStream >> auxiliary_input_size;
-    cout << "auxiliary input size: " << auxiliary_input_size << "\n";
+    // cout << "auxiliary input size: " << auxiliary_input_size << "\n";
     cs.auxiliary_input_size = auxiliary_input_size;
 
     cs.constraints.clear();
     size_t num_constraints;
     constraintStream >> num_constraints;
-    cout << "num. constraints: " << num_constraints << "\n";
+    // cout << "num. constraints: " << num_constraints << "\n";
     consume_newline(constraintStream);
 
     cs.constraints.reserve(num_constraints);
     for (size_t i = 0; i < num_constraints; ++i) {
         linear_combination<Fr<default_ec_pp> > A, B, C;
-	cout << "A:\n";
+	// cout << "A:\n";
         read_lc_decimal(constraintStream, &A);
-	cout << "B:\n";
+	// cout << "B:\n";
         read_lc_decimal(constraintStream, &B);
-	cout << "C:\n";
+	// cout << "C:\n";
         read_lc_decimal(constraintStream, &C);
         cs.add_constraint(r1cs_constraint<Fr<default_ec_pp> >(A, B, C));
     }
@@ -97,8 +97,8 @@ void generateKeys(istream& constraintStream, ostream& pkStream, ostream& vkStrea
 {
     r1cs_constraint_system<Fr<default_ec_pp> > cs;
     read_cs_decimal(constraintStream, cs);
-    cout << "reserialization of constraint system:\n";
-    cout << cs;
+    // cout << "reserialization of constraint system:\n";
+    // cout << cs;
     r1cs_ppzksnark_keypair<default_ec_pp> keypair = r1cs_ppzksnark_generator<default_ec_pp>(cs);
     // Generator writes out keys
     pkStream << keypair.pk;
@@ -117,12 +117,12 @@ void readVariableAssignment(istream& stream, r1cs_variable_assignment<Fr<default
     {
         linear_term<Fr<default_ec_pp> > lt;
         stringstream(line) >> lt.coeff.mont_repr;
-	cout << "coeff. before reduction: " << lt.coeff.mont_repr << "\n";
+	// cout << "coeff. before reduction: " << lt.coeff.mont_repr << "\n";
 
         // Reduce to Montgomery Space, as per method in algebra/fields/fp.tcc
         lt.coeff.mul_reduce(Fr<default_ec_pp>::Rsquared);
 
-        cout << "pushing " << lt.coeff.mont_repr << "\n";
+        // cout << "pushing " << lt.coeff.mont_repr << "\n";
         assgn.push_back(lt.coeff);
     }
 }
@@ -136,12 +136,12 @@ void generateProof(istream& pkStream, istream& inpStream, istream& witStream, os
     //deserialize input
     r1cs_variable_assignment<Fr<default_ec_pp> > input;
     readVariableAssignment(inpStream, input);
-    cout << "input is:\n" << input;
+    // cout << "input is:\n" << input;
 
     //deserialize witness
     r1cs_variable_assignment<Fr<default_ec_pp> > witness;
     readVariableAssignment(witStream, witness);
-    cout << "witness is:\n" << witness;
+    // cout << "witness is:\n" << witness;
 
     //generate proof
     r1cs_ppzksnark_proof<default_ec_pp> proof 
@@ -162,7 +162,7 @@ bool verifyProof(istream& pfStream, istream& vkStream, istream& inpStream)
     //deserialize input strema
     r1cs_variable_assignment<Fr<default_ec_pp> > input;
     readVariableAssignment(inpStream, input);
-    cout << "input is:\n" << input;
+    // cout << "input is:\n" << input;
     return r1cs_ppzksnark_verifier_strong_IC<default_ec_pp>(vk, input, proof);
 }
 
