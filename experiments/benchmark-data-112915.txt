@@ -1,0 +1,488 @@
+Script started on Sun 29 Nov 2015 05:07:25 PM EST
+]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 74.4 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+[25 of 25] Compiling Main             ( src/testsuite/benchmarks/Main.hs, dist/build/criterion/criterion-tmp/Main.o )
+Linking dist/build/criterion/criterion ...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking keccak800/keccak800-elaborate
+time                 830.3 ms   (NaN s .. 858.7 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 840.4 ms   (833.2 ms .. 845.5 ms)
+std dev              7.639 ms   (0.0 s .. 8.783 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-constraints
+time                 2.508 s    (2.464 s .. 2.554 s)
+                     1.000 R²   (NaN R² .. 1.000 R²)
+mean                 2.510 s    (2.503 s .. 2.515 s)
+std dev              9.040 ms   (0.0 s .. 9.797 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-simplify
+time                 5.583 s    (5.357 s .. 5.728 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 5.548 s    (5.491 s .. 5.578 s)
+std dev              49.33 ms   (0.0 s .. 52.35 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-r1cs
+time                 5.896 s    (5.711 s .. 6.029 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.893 s    (5.856 s .. 5.917 s)
+std dev              36.26 ms   (0.0 s .. 41.84 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-witgen
+time                 7.929 s    (7.768 s .. 8.008 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 7.853 s    (7.797 s .. 7.887 s)
+std dev              51.31 ms   (0.0 s .. 57.63 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-keygen
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+time                 11.06 s    (10.94 s .. 11.17 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 11.11 s    (11.09 s .. 11.14 s)
+std dev              42.13 ms   (0.0 s .. 43.12 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-verif
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 14.05 s    (13.76 s .. 14.63 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 13.95 s    (13.86 s .. 14.01 s)
+std dev              99.26 ms   (0.0 s .. 110.6 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking map-list/map-list-elaborate
+time                 12.20 ms   (12.12 ms .. 12.28 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 12.25 ms   (12.18 ms .. 12.45 ms)
+std dev              288.7 μs   (124.7 μs .. 540.8 μs)
+
+benchmarking map-list/map-list-constraints
+time                 85.38 ms   (84.29 ms .. 86.87 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 85.55 ms   (84.87 ms .. 86.25 ms)
+std dev              1.118 ms   (838.4 μs .. 1.434 ms)
+
+benchmarking map-list/map-list-simplify
+time                 327.4 ms   (324.9 ms .. 331.0 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 327.7 ms   (326.8 ms .. 328.2 ms)
+std dev              879.9 μs   (326.8 μs .. 1.212 ms)
+variance introduced by outliers: 16% (moderately inflated)
+
+benchmarking map-list/map-list-r1cs
+time                 486.4 ms   (484.7 ms .. 487.7 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 488.6 ms   (487.7 ms .. 489.1 ms)
+std dev              788.6 μs   (0.0 s .. 896.6 μs)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking map-list/map-list-witgen
+time                 3.035 s    (3.000 s .. 3.060 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 3.035 s    (3.030 s .. 3.038 s)
+std dev              5.439 ms   (0.0 s .. 6.227 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking map-list/map-list-keygen
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+time                 4.201 s    (4.130 s .. 4.253 s)
+                     1.000 R²   (1.000 R² .. NaN R²)
+mean                 4.224 s    (4.209 s .. 4.233 s)
+std dev              13.50 ms   (0.0 s .. 15.27 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking map-list/map-list-verif
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 5.355 s    (5.318 s .. 5.392 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 5.352 s    (5.343 s .. 5.356 s)
+std dev              7.193 ms   (0.0 s .. 7.392 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-elaborate
+time                 260.3 ms   (254.4 ms .. 265.7 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 261.3 ms   (259.7 ms .. 262.7 ms)
+std dev              1.714 ms   (718.2 μs .. 2.182 ms)
+variance introduced by outliers: 16% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-constraints
+time                 3.594 s    (3.244 s .. 4.139 s)
+                     0.997 R²   (0.996 R² .. 1.000 R²)
+mean                 3.368 s    (3.257 s .. 3.457 s)
+std dev              140.0 ms   (0.0 s .. 154.6 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-simplify
+time                 13.80 s    (11.81 s .. 17.71 s)
+                     0.990 R²   (0.984 R² .. 1.000 R²)
+mean                 12.78 s    (12.32 s .. 13.68 s)
+std dev              780.3 ms   (0.0 s .. 784.4 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-r1cs
+time                 14.92 s    (14.66 s .. 15.20 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 14.90 s    (14.84 s .. 14.94 s)
+std dev              60.22 ms   (0.0 s .. 68.58 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-witgen
+time                 15.80 s    (15.72 s .. 15.87 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 15.85 s    (15.82 s .. 15.87 s)
+std dev              28.68 ms   (0.0 s .. 33.01 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-keygen
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+time                 16.59 s    (15.88 s .. 17.21 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 16.50 s    (16.35 s .. 16.58 s)
+std dev              130.0 ms   (0.0 s .. 135.3 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-verif
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 16.59 s    (16.38 s .. 17.02 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 16.48 s    (16.43 s .. 16.53 s)
+std dev              79.52 ms   (0.0 s .. 85.56 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-elaborate
+time                 535.8 ms   (503.7 ms .. 591.1 ms)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 538.5 ms   (531.4 ms .. 543.5 ms)
+std dev              7.490 ms   (0.0 s .. 8.622 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-constraints
+time                 3.470 s    (3.312 s .. 3.636 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 3.495 s    (3.467 s .. 3.513 s)
+std dev              28.20 ms   (0.0 s .. 32.55 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-simplify
+time                 9.482 s    (9.371 s .. 9.687 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 9.530 s    (9.499 s .. 9.545 s)
+std dev              26.24 ms   (0.0 s .. 27.14 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-r1cs
+time                 13.67 s    (13.55 s .. NaN s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 13.63 s    (13.60 s .. 13.65 s)
+std dev              40.46 ms   (0.0 s .. 42.72 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-witgen
+time                 20.88 s    (20.82 s .. 20.92 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 20.91 s    (20.90 s .. 20.91 s)
+std dev              3.347 ms   (0.0 s .. 3.862 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-keygen
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+time                 52.73 s    (51.22 s .. NaN s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 53.09 s    (52.69 s .. 53.25 s)
+std dev              372.0 ms   (0.0 s .. 422.3 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking input-matrix70/input-matrix70-verif
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 91.52 s    (90.96 s .. 91.86 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 90.70 s    (90.28 s .. 90.94 s)
+std dev              376.4 ms   (17.40 fs .. 421.0 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+Benchmark criterion: FINISH
+]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ exit
+exit
+
+Script done on Sun 29 Nov 2015 06:37:12 PM EST
+		     
+Script started on Sun 29 Nov 2015 07:23:30 PM EST
+:[K[K[?1l>[?1049l]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 74.5 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking fixed-matrix600/fixed-matrix600-elaborate
+time                 245.1 ms   (239.8 ms .. 251.6 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 254.5 ms   (250.9 ms .. 256.4 ms)
+std dev              3.409 ms   (897.6 μs .. 4.467 ms)
+variance introduced by outliers: 16% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-constraints
+time                 3.195 s    (3.173 s .. 3.216 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 3.207 s    (3.202 s .. 3.211 s)
+std dev              4.955 ms   (0.0 s .. 5.513 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-simplify
+time                 12.49 s    (10.64 s .. 14.45 s)
+                     0.995 R²   (0.995 R² .. 1.000 R²)
+mean                 13.00 s    (12.48 s .. 13.32 s)
+std dev              484.3 ms   (0.0 s .. 551.9 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-r1cs
+time                 15.01 s    (14.67 s .. 15.56 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 14.88 s    (14.81 s .. 14.95 s)
+std dev              109.7 ms   (0.0 s .. 112.8 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-witgen
+time                 15.77 s    (15.73 s .. 15.86 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 15.91 s    (15.86 s .. 15.95 s)
+std dev              62.12 ms   (0.0 s .. 70.01 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-keygen
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+time                 16.36 s    (16.14 s .. 16.70 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 16.32 s    (16.26 s .. 16.36 s)
+std dev              55.33 ms   (0.0 s .. 63.69 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking fixed-matrix600/fixed-matrix600-verif
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 16.51 s    (16.48 s .. 16.55 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 16.54 s    (16.53 s .. 16.55 s)
+std dev              16.15 ms   (0.0 s .. 16.83 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+Benchmark criterion: FINISH
+]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ exit
+exit
+
+Script done on Sun 29 Nov 2015 07:50:55 PM EST
