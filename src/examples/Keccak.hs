@@ -23,6 +23,7 @@ import qualified Prelude as P
 import SyntaxMonad
 import Syntax
 import TExpr
+import Toplevel
 
 num_lanes :: Int
 num_lanes = (P.*) 5 5
@@ -35,11 +36,11 @@ round1 :: (Int -> TExp 'TBool Rational) -- | 'i'th bit of round constant
        -> Comp 'TUnit
 round1 rc a
   = do { -- Allocate local array variables [b], [c], [d].
-         b <- arr3 5 21 ln_width
+         b <- arr3 5 5 ln_width
        ; c <- arr2 5 ln_width
        ; d <- arr2 5 ln_width
          -- Initialize arrays.
-       ; forall3 ([0..4],[0..20],[0..dec ln_width])
+       ; forall3 ([0..4],[0..4],[0..dec ln_width])
            (\i j k -> set3 (b,i,j,k) false)
        ; forall2 ([0..4],[0..dec ln_width]) (\i j -> set2 (c,i,j) false)
        ; forall2 ([0..4],[0..dec ln_width]) (\i j -> set2 (d,i,j) false) 
@@ -62,7 +63,7 @@ round1 rc a
          -- \rho and \pi steps         
        ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
            do q <- get3 (a,x,y,rot_index i (rot_tbl x y))
-              set3 (b,y,(P.+) ((P.*) 2 x) ((P.*) 3 y),i) q)
+              set3 (b,y,((P.+) ((P.*) 2 x) ((P.*) 3 y)) `mod` 5,i) q)
          -- \chi step         
        ; forall3 ([0..4],[0..4],[0..dec ln_width]) (\x y i ->
            do q <- get3 (b,x,y,i)
@@ -105,10 +106,10 @@ round_consts
     , 0x8000000080008008                        
     ]
 
-rot_index :: Int -- rotate index 'i'
+rot_index :: Int -- rotate index 'i' 
           -> Int -- by 'n' (mod lane width)
           -> Int
-rot_index i n = ((P.+) i n) `mod` ln_width
+rot_index i n = ((P.-) i n) `mod` ln_width
 
 rot_tbl x y
   = let m = Map.fromList $
