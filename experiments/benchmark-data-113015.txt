@@ -1,0 +1,128 @@
+Script started on Mon 30 Nov 2015 12:03:37 PM EST
+]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ make bench
+cabal sandbox init; \
+cabal install
+Writing a default package environment file to
+/home/gstewart/Repos/snarkl/cabal.sandbox.config
+Using an existing sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Warning: The package list for 'hackage.haskell.org' is 75.2 days old.
+Run 'cabal update' to get the latest list of available packages.
+Resolving dependencies...
+In order, the following will be installed:
+snarkl-0.1.0.0 (reinstall)
+Warning: Note that reinstalls are always dangerous. Continuing anyway...
+Notice: installing into a sandbox located at
+/home/gstewart/Repos/snarkl/.cabal-sandbox
+Configuring snarkl-0.1.0.0...
+Building snarkl-0.1.0.0...
+Installed snarkl-0.1.0.0
+cd cppsrc; \
+make
+make[1]: Entering directory '/home/gstewart/Repos/snarkl/cppsrc'
+mkdir -p bin
+g++ -o bin/snarky snarky.o -O3 -Wall -Wextra -Wno-unused-parameter -Wno-comment -march=native -mtune=native -std=c++11 -DDEBUG -I ../depsrc/libsnark/src -DUSE_ASM -DCURVE_BN128 -DBN_SUPPORT_SNARK -g -L ../depsrc/libsnark/src -Wl,-rpath ../depsrc/libsnark/src -lgmpxx -lgmp -lsnark -lzm
+make[1]: Leaving directory '/home/gstewart/Repos/snarkl/cppsrc'
+cabal bench 2> /dev/null
+The sandbox was created after the package was already configured.
+Re-configuring with most recently used options. If this fails, please run
+configure manually.
+Resolving dependencies...
+Configuring snarkl-0.1.0.0...
+Preprocessing library snarkl-0.1.0.0...
+In-place registering snarkl-0.1.0.0...
+Preprocessing benchmark 'criterion' for snarkl-0.1.0.0...
+[25 of 25] Compiling Main             ( src/testsuite/benchmarks/Main.hs, dist/build/criterion/criterion-tmp/Main.o )
+Linking dist/build/criterion/criterion ...
+Running 1 benchmarks...
+Benchmark criterion: RUNNING...
+benchmarking keccak800/keccak800-elaborate
+time                 459.2 ms   (427.9 ms .. 489.7 ms)
+                     0.999 R²   (0.999 R² .. 1.000 R²)
+mean                 462.1 ms   (459.5 ms .. 464.6 ms)
+std dev              4.373 ms   (0.0 s .. 4.402 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-constraints
+time                 1.609 s    (1.551 s .. 1.697 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 1.607 s    (1.597 s .. 1.616 s)
+std dev              13.14 ms   (271.9 as .. 14.41 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-simplify
+time                 5.225 s    (4.875 s .. 5.596 s)
+                     0.999 R²   (0.998 R² .. 1.000 R²)
+mean                 5.382 s    (5.309 s .. 5.455 s)
+std dev              124.6 ms   (0.0 s .. 125.4 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-r1cs
+time                 7.142 s    (6.888 s .. 7.356 s)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 7.171 s    (7.120 s .. 7.210 s)
+std dev              59.43 ms   (0.0 s .. 67.12 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-witgen
+time                 41.54 s    (40.77 s .. 42.75 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 41.17 s    (40.97 s .. 41.48 s)
+std dev              271.9 ms   (0.0 s .. 292.5 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-keygen
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+Keygen Succeeded.
+time                 57.36 s    (56.70 s .. 58.12 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 57.84 s    (57.64 s .. 58.03 s)
+std dev              304.6 ms   (0.0 s .. 320.0 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-verif
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+Verification Succeeded.
+time                 75.83 s    (73.51 s .. 78.62 s)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 74.48 s    (73.73 s .. 75.03 s)
+std dev              841.9 ms   (0.0 s .. 958.2 ms)
+variance introduced by outliers: 19% (moderately inflated)
+
+benchmarking keccak800/keccak800-full
+sat = True, vars = 143268, constraints = 143268, result = 1 % 1
+^CMakefile:13: recipe for target 'bench' failed
+make: *** [bench] Interrupt
+
+]0;gstewart@gstewart-office: ~/Repos/snarklgstewart@gstewart-office:~/Repos/snarkl$ exit
+exit
+
+Script done on Mon 30 Nov 2015 12:55:01 PM EST
