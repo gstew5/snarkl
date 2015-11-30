@@ -1,5 +1,5 @@
 Phase	Elaborate	Constraints	Simplify	R1CS	Witgen	Keygen	Proofgen+Verif	
 Fixed-Matrix	1.54	17.85	59.21	11.37	6.23	2.48	1.33
 Input-Matrices	0.59	3.26	6.65	4.52	8.03	35.48	41.47
-Keccak-f800	6.02	11.97	21.78	2.47	14.05	23.35	20.36
+Keccak-f800	0.62	1.54	5.07	2.40	45.65	22.38	22.34
 Map-List	0.26	1.34	4.52	3.01	47.58	22.22	21.08
