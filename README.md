@@ -26,10 +26,10 @@ Dependencies:
 
 Things may work with earlier versions, but this hasn't been tested.
 
-To build `libsnark` (dependency), you'll need the following packages (Ubuntu 15.04):
+To build `libsnark` (dependency), you'll need the following packages (Ubuntu 16.04):
 
 ```
-sudo apt-get install build-essential git libgmp3-dev libprocps3-dev libgtest-dev libboost-all-dev libssl-dev python-markdown
+sudo apt-get install build-essential git libgmp3-dev libprocps4-dev libgtest-dev libboost-all-dev libssl-dev python-markdown
 ```
 
 # Limitations
