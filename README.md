@@ -6,6 +6,20 @@ An Embedded DSL for Verifiable Computing
 
 Snårkl ("Snorkel") is a high-level language and compiler for verifiable computing. For an introduction to verifiable computing (VC), see the fine [ACM review article](http://cacm.acm.org/magazines/2015/2/182636-verifying-computations-without-reexecuting-them/fulltext) by Walfish and Blumberg. For details on [libsnark](https://github.com/scipr-lab/libsnark), the C++ library targeted by the Snårkl compiler, see, e.g. [SNARKs for C](http://eprint.iacr.org/2013/507) by Ben-Sasson et al.  
 
+If you use Snårkl in your research, we'd appreciate it if you cite the following paper: 
+
+```
+@conference{stewart2018padl,
+  author = {Gordon Stewart and Samuel Merten and Logan Leland},
+  title = {{Sn\aa rkl: Somewhat Practical, Pretty Much Declarative Verifiable Computing in Haskell}},
+  booktitle = {PADL'18: The 20th International Symposium on Practical Aspects of Declarative Languages},
+  series = {LNCS},
+  publisher = {Springer},
+  doi = {https://doi.org/10.1007/978-3-319-73305-0_3},
+  year = {2018}
+}
+```
+
 # Quickstart
 
 
