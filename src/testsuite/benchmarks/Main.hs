@@ -7,7 +7,6 @@ import Harness
 
 import qualified List as List
 import qualified Keccak as Keccak
-import qualified Keccak1600 as Keccak1600
 import qualified Matrix as Matrix
 
 mk_bgroup nm mf inputs result
